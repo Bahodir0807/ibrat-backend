@@ -19,16 +19,16 @@ export class AdminsController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.adminsService.findOne(+id);
+    return this.adminsService.findOne(Number(id));
   }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateAdminDto: UpdateAdminDto) {
-    return this.adminsService.update(+id, updateAdminDto);
+    return this.adminsService.update(Number(id), updateAdminDto);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.adminsService.remove(+id);
+    return this.adminsService.remove(Number(id));
   }
 }

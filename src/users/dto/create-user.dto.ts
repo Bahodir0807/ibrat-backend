@@ -1,12 +1,12 @@
 import { IsEmail, IsString } from 'class-validator';
 
-export class CreateAdminDto {
+export class CreateUserDto {
   @IsEmail()
-  name: string;
+  email: string;
 
   @IsString()
   password: string;
 
   @IsString()
-  phone: string;
+  role: string;
 }

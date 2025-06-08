@@ -7,3 +7,4 @@ import { ScheduleController } from './schedule.controller';
   providers: [ScheduleService],
 })
 export class ScheduleModule {}
+ 
