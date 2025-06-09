@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { Role } from '../roles/roles.enum';
 
 @Injectable()
 export class UsersService {
@@ -16,7 +17,7 @@ export class UsersService {
 
   async findById(id: string): Promise<User> {
     const user = await this.userModel.findById(id).select('-password').exec();
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException('Пользователь не найден');
     return user;
   }
 
@@ -26,7 +27,7 @@ export class UsersService {
 
   async create(dto: CreateUserDto): Promise<User> {
     const existingUser = await this.userModel.findOne({ username: dto.username }).exec();
-    if (existingUser) throw new BadRequestException('Email already taken');
+    if (existingUser) throw new BadRequestException('Имя пользователя уже занято');
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
@@ -43,14 +44,26 @@ export class UsersService {
       dto.password = await bcrypt.hash(dto.password, 10);
     }
 
-    const updatedUser = await this.userModel.findByIdAndUpdate(id, dto, { new: true }).select('-password').exec();
-    if (!updatedUser) throw new NotFoundException('User not found');
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(id, dto, { new: true })
+      .select('-password')
+      .exec();
+    if (!updatedUser) throw new NotFoundException('Пользователь не найден');
+    return updatedUser;
+  }
+
+  async updateRole(id: string, role: Role): Promise<User> {
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(id, { role }, { new: true })
+      .select('-password')
+      .exec();
+    if (!updatedUser) throw new NotFoundException('Пользователь не найден');
     return updatedUser;
   }
 
   async remove(id: string): Promise<boolean> {
     const result = await this.userModel.findByIdAndDelete(id).exec();
-    if (!result) throw new NotFoundException('User not found');
+    if (!result) throw new NotFoundException('Пользователь не найден');
     return true;
   }
 }

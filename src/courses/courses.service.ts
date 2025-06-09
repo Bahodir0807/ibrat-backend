@@ -1,26 +1,50 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import { Course, CourseDocument } from './schemas/course.schema';
+import { Student, StudentDocument } from '../students/schemas/student.schema';
 
 @Injectable()
 export class CoursesService {
-  create(createCourseDto: CreateCourseDto) {
-    return 'This action adds a new course';
+  constructor(
+    @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
+    @InjectModel(Student.name) private studentModel: Model<StudentDocument>,
+  ) {}
+
+  async create(createCourseDto: CreateCourseDto): Promise<Course> {
+    const createdCourse = new this.courseModel(createCourseDto);
+    return createdCourse.save();
   }
 
-  findAll() {
-    return `This action returns all courses`;
+  async findAll(): Promise<Course[]> {
+    return this.courseModel.find().populate('teacherId').exec();
   }
 
   async findOne(id: string) {
-    return `This action returns a #${id} course`;
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Invalid course ID');
+    const course = await this.courseModel.findById(id).populate('teacherId').exec();
+    if (!course) throw new NotFoundException('Course not found');
+
+    const students = await this.studentModel.find({ course: id }).exec();
+
+    return { course, students };
   }
 
-  async update(id: string, updateCourseDto: UpdateCourseDto) {
-    return `This action updates a #${id} course`;
+  async update(id: string, updateCourseDto: UpdateCourseDto): Promise<Course> {
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Invalid course ID');
+
+    const updatedCourse = await this.courseModel.findByIdAndUpdate(id, updateCourseDto, { new: true }).exec();
+    if (!updatedCourse) throw new NotFoundException('Course not found');
+
+    return updatedCourse;
   }
 
-  async remove(id: string) {
-    return `This action removes a #${id} course`;
+  async remove(id: string): Promise<void> {
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Invalid course ID');
+
+    const result = await this.courseModel.findByIdAndDelete(id).exec();
+    if (!result) throw new NotFoundException('Course not found');
   }
 }

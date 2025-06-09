@@ -9,10 +9,12 @@ import { TeachersModule } from './teachers/teachers.module';
 import { AdminsModule } from './admins/admins.module';
 import { CoursesModule } from './courses/courses.module';
 import { ScheduleModule } from './schedule/schedule.module';
+import { AuthModule } from './auth/auth.module';
 
 
 @Module({
   imports: [
+    AuthModule,
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRoot(process.env.MONGO_URI || ''),
     UsersModule,
@@ -29,3 +31,4 @@ export class AppModule {}
 
 console.log('MONGO_URI:', process.env.MONGO_URI);
 console.log('PORT:', process.env.PORT);
+console.log("http://localhost:3000"); 

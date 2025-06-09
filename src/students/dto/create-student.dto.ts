@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsMongoId } from 'class-validator';
 
 export class CreateStudentDto {
   @IsString()
@@ -12,11 +12,11 @@ export class CreateStudentDto {
   @IsOptional()
   group?: string;
 
-  @IsString()
+  @IsMongoId()
   @IsOptional()
   courseId?: string;    
 
-  @IsString()
+  @IsMongoId()
   @IsOptional()
   teacherId?: string;  
 }
