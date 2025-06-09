@@ -15,15 +15,16 @@ export class ScheduleController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.scheduleService.findOne(+id);
+    return this.scheduleService.findOne(id);
   }
 
   @Patch(':id')
-
-  update(@Param('id') id: string, @Body() updateScheduleDto: any) {}
+  update(@Param('id') id: string, @Body() updateScheduleDto: any) {
+    return this.scheduleService.update(id, updateScheduleDto);
+  }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.scheduleService.remove(+id);
+    return this.scheduleService.remove(id);
   }
 }

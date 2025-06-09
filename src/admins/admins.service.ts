@@ -4,23 +4,32 @@ import { UpdateAdminDto } from './dto/update-admin.dto';
 
 @Injectable()
 export class AdminsService {
+  private admins: Array<any> = [];
+  private id = 1;
+
   create(createAdminDto: CreateAdminDto) {
-    return 'This action adds a new admin';
+    const admin = { id: String(this.id++), ...createAdminDto };
+    this.admins.push(admin);
+    return admin;
   }
 
   findAll() {
-    return `This action returns all admins`;
+    return this.admins;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} admin`;
+  findOne(id: string) {
+    return this.admins.find(a => a.id === id);
   }
 
-  update(id: number, updateAdminDto: UpdateAdminDto) {
-    return `This action updates a #${id} admin`;
+  update(id: string, updateAdminDto: UpdateAdminDto) {
+    const admin = this.findOne(id);
+    if (admin) Object.assign(admin, updateAdminDto);
+    return admin;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} admin`;
+  remove(id: string) {
+    const idx = this.admins.findIndex(a => a.id === id);
+    if (idx !== -1) return this.admins.splice(idx, 1)[0];
+    return null;
   }
 }

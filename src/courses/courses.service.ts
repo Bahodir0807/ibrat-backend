@@ -12,15 +12,15 @@ export class CoursesService {
     return `This action returns all courses`;
   }
 
-  findOne(id: number) {
+  async findOne(id: string) {
     return `This action returns a #${id} course`;
   }
 
-  update(id: number, updateCourseDto: UpdateCourseDto) {
+  async update(id: string, updateCourseDto: UpdateCourseDto) {
     return `This action updates a #${id} course`;
   }
 
-  remove(id: number) {
+  async remove(id: string) {
     return `This action removes a #${id} course`;
   }
 }
