@@ -32,7 +32,7 @@ export class AuthController {
       return await this.authService.register(registerDto);
     } catch (e) {
       console.error('Ошибка регистрации:', e);
-      throw e; // чтобы NestJS обработал ошибку стандартным образом
+      throw e;
     }
   }
 

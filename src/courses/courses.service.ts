@@ -3,8 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
-import { Course, CourseDocument } from './schemas/course.schema';
+import { Course } from './schemas/course.schema';
 import { Student, StudentDocument } from '../students/schemas/student.schema';
+import { CourseDocument } from 'src/schedule/schedule.service';
 
 @Injectable()
 export class CoursesService {

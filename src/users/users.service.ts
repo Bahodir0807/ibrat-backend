@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -29,21 +28,15 @@ export class UsersService {
     const existingUser = await this.userModel.findOne({ username: dto.username }).exec();
     if (existingUser) throw new BadRequestException('Имя пользователя уже занято');
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
-
     const createdUser = new this.userModel({
       username: dto.username,
-      password: hashedPassword,
+      password: dto.password, // без хэша
       role: dto.role,
     });
     return createdUser.save();
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<User> {
-    if (dto.password) {
-      dto.password = await bcrypt.hash(dto.password, 10);
-    }
-
     const updatedUser = await this.userModel
       .findByIdAndUpdate(id, dto, { new: true })
       .select('-password')
