@@ -1,19 +1,22 @@
-import { IsString, IsNotEmpty, IsDateString, IsOptional } from 'class-validator';
+import { IsString, IsDateString, IsOptional } from 'class-validator';
 
 export class CreateScheduleDto {
-    @IsString()
-    @IsNotEmpty()
-    title: string;
+  @IsString()
+  title: string;
 
-    @IsDateString()
-    @IsNotEmpty()
-    startTime: string;
+  @IsDateString()
+  startTime: string;
 
-    @IsDateString()
-    @IsNotEmpty()
-    endTime: string;
+  @IsDateString()
+  endTime: string;
 
-    @IsString()
-    @IsOptional()
-    description?: string;
+  @IsString()
+  courseId: string;
+
+  @IsString()
+  teacherId: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
 }
