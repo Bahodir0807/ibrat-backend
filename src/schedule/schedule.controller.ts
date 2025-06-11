@@ -1,7 +1,9 @@
-import { Controller, Post, Get, Body, Param, Put, Delete } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Put, Delete, UseGuards, Request } from '@nestjs/common';
 import { ScheduleService } from './schedule.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../roles/roles.guard';
 
 @Controller('schedule')
 export class ScheduleController {
@@ -15,6 +17,12 @@ export class ScheduleController {
   @Get()
   findAll() {
     return this.svc.findAll();
+  }
+
+  @Get('user/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async getScheduleForUser(@Param('id') id: string, @Request() req) {
+    return this.svc.getScheduleForUser(id, req.user.role);
   }
 
   @Get(':id')

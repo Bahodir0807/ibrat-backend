@@ -5,7 +5,7 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { Course } from './schemas/course.schema';
 import { Student, StudentDocument } from '../students/schemas/student.schema';
-import { CourseDocument } from 'src/schedule/schedule.service';
+import { CourseDocument } from './schemas/course.schema';
 
 @Injectable()
 export class CoursesService {
@@ -15,7 +15,11 @@ export class CoursesService {
   ) {}
 
   async create(createCourseDto: CreateCourseDto): Promise<Course> {
-    const createdCourse = new this.courseModel(createCourseDto);
+    const { teacherId, ...rest } = createCourseDto;
+    const createdCourse = new this.courseModel({
+      ...rest,
+      teacher: teacherId, 
+    });
     return createdCourse.save();
   }
 

@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsMongoId } from 'class-validator';
 
 export class CreateCourseDto {
   @IsString()
@@ -11,4 +11,10 @@ export class CreateCourseDto {
   @IsString()
   @IsOptional()
   teacherId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  students?: string[];
+
 }

@@ -1,37 +1,50 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Schedule } from '././schemas/schedule.schema'; 
+import { Model, Types } from 'mongoose';
+import { Schedule, ScheduleDocument } from './schemas/schedule.schema';
+import { Course, CourseDocument } from '../courses/schemas/course.schema';
+import { Teacher, TeacherDocument } from '../teachers/schemas/teacher.schema';
+import { Student, StudentDocument } from '../students/schemas/student.schema';
+import { Room, RoomDocument } from '../rooms/schemas/room.schema';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule';
-import { Course } from '../courses/schemas/course.schema';
-import { Document } from 'mongoose';
-export type ScheduleDocument = Schedule & Document;
-export type CourseDocument = Course & Document;
 
 @Injectable()
 export class ScheduleService {
   constructor(
-    @InjectModel(Schedule.name) private readonly schModel: Model<ScheduleDocument>,
-    @InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>,
+    @InjectModel(Schedule.name) private schModel: Model<ScheduleDocument>,
+    @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
+    @InjectModel(Teacher.name) private teacherModel: Model<TeacherDocument>,
+    @InjectModel(Student.name) private studentModel: Model<StudentDocument>,
+    @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
   ) {}
 
-  async create(dto: CreateScheduleDto) {
-    const schedule = new this.schModel({
-      ...dto,
-      course: dto.courseId,
-      teacher: dto.teacherId,
-      room: dto.roomId,
-      startTime: new Date(dto.startTime),
-      endTime: new Date(dto.endTime),
-    });
-    const created = await schedule.save();
-
-    await this.courseModel.findByIdAndUpdate(dto.courseId, {
-      $push: { schedule: created._id },
-    }).exec();
-
-    return created;
+  async getScheduleForUser(userId: string, role: string) {
+    try {
+      if (role === 'student') {
+        return await this.schModel
+          .find({ student: new Types.ObjectId(userId) })
+          .populate('course', 'title')
+          .exec();
+      } else if (role === 'teacher') {
+        return await this.schModel
+          .find({ teacher: new Types.ObjectId(userId) })
+          .populate('course', 'title')
+          .exec();
+      } else if (role === 'admin') {
+        return await this.schModel
+          .find()
+          .populate('course', 'title')
+          .populate('teacher', 'name')
+          .populate('student', 'name')
+          .populate('room', 'name')
+          .exec();
+      } else {
+        throw new ForbiddenException('Нет доступа к расписанию');
+      }
+    } catch (error) {
+      throw new ForbiddenException('Ошибка при получении расписания');
+    }
   }
 
   async findAll() {
@@ -52,30 +65,28 @@ export class ScheduleService {
     return schedule;
   }
 
-  async update(id: string, dto: UpdateScheduleDto) {
+  async create(createScheduleDto: CreateScheduleDto) {
+    try {
+      const schedule = new this.schModel(createScheduleDto);
+      return await schedule.save();
+    } catch (error) {
+      throw new ForbiddenException('Ошибка при создании расписания');
+    }
+  }
+
+  async update(id: string, updateScheduleDto: UpdateScheduleDto) {
     const updated = await this.schModel.findByIdAndUpdate(
       id,
-      {
-        ...dto,
-        ...(dto.startTime && { startTime: new Date(dto.startTime) }),
-        ...(dto.endTime && { endTime: new Date(dto.endTime) }),
-        ...(dto.courseId && { course: dto.courseId }),
-        ...(dto.teacherId && { teacher: dto.teacherId }),
-        ...(dto.roomId && { room: dto.roomId }),
-      },
-      { new: true },
-    )
-      .populate('course', 'title')
-      .populate('teacher', 'name')
-      .populate('room', 'name')
-      .exec();
+      updateScheduleDto,
+      { new: true }
+    ).exec();
     if (!updated) throw new NotFoundException('Расписание не найдено');
     return updated;
   }
 
   async remove(id: string) {
-    const removed = await this.schModel.findByIdAndDelete(id).exec();
-    if (!removed) throw new NotFoundException('Расписание не найдено');
-    return removed;
+    const deleted = await this.schModel.findByIdAndDelete(id).exec();
+    if (!deleted) throw new NotFoundException('Расписание не найдено');
+    return deleted;
   }
 }

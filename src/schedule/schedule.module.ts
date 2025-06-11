@@ -8,6 +8,9 @@ import { CoursesModule } from '../courses/courses.module';
 import { TeachersModule } from '../teachers/teachers.module';
 import { Room, RoomSchema } from '../rooms/schemas/room.schema';
 import { RoomModule } from '../rooms/room.module';
+import { Teacher, TeacherSchema } from 'src/teachers/schemas/teacher.schema';
+import { Student, StudentSchema } from '../students/schemas/student.schema';
+import { StudentsModule } from '../students/students.module';
 
 @Module({
   imports: [
@@ -15,10 +18,13 @@ import { RoomModule } from '../rooms/room.module';
       { name: Schedule.name, schema: ScheduleSchema },
       { name: Course.name, schema: CourseSchema },
       { name: Room.name, schema: RoomSchema },
+      { name: Teacher.name, schema: TeacherSchema },
+      { name: Student.name, schema: StudentSchema },
     ]),
     CoursesModule,
     TeachersModule,
     RoomModule,
+    StudentsModule,
   ],
   controllers: [ScheduleController],
   providers: [ScheduleService],
