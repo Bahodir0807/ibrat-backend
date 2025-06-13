@@ -5,6 +5,7 @@ import { StudentsController } from './students.controller';
 import { Student, StudentSchema } from './schemas/student.schema';
 import { Teacher, TeacherSchema } from '../teachers/schemas/teacher.schema';
 import { Course, CourseSchema } from '../courses/schemas/course.schema';
+import { StudentsController } from './students.controller';
 
 @Module({
   imports: [

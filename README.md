@@ -97,3 +97,13 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
 # ibrat-backend
+
+
+Убытки/Прибыль/Расходы
+Владелец
+Родитель
+Телеграм бот-Замена учителя/учителя не будет/оплата/статус оплаты
+Сколько учеников у учителя
+Замена учителя
+ЗП учителя
+

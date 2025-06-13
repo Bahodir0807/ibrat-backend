@@ -18,7 +18,7 @@ export class CoursesService {
     const { teacherId, ...rest } = createCourseDto;
     const createdCourse = new this.courseModel({
       ...rest,
-      teacher: teacherId, 
+      teacherId: teacherId, 
     });
     return createdCourse.save();
   }
