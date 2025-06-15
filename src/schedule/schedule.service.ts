@@ -1,10 +1,8 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Schedule, ScheduleDocument } from './schemas/schedule.schema';
+import { Schedule, ScheduleDocument } from './schemas/shedule.schema';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
-import { Teacher, TeacherDocument } from '../teachers/schemas/teacher.schema';
-import { Student, StudentDocument } from '../students/schemas/student.schema';
 import { Room, RoomDocument } from '../rooms/schemas/room.schema';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule';
@@ -14,8 +12,6 @@ export class ScheduleService {
   constructor(
     @InjectModel(Schedule.name) private schModel: Model<ScheduleDocument>,
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
-    @InjectModel(Teacher.name) private teacherModel: Model<TeacherDocument>,
-    @InjectModel(Student.name) private studentModel: Model<StudentDocument>,
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
   ) {}
 

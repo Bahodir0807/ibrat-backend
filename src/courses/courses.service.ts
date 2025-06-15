@@ -3,15 +3,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
-import { Course } from './schemas/course.schema';
-import { Student, StudentDocument } from '../students/schemas/student.schema';
-import { CourseDocument } from './schemas/course.schema';
+import { Course, CourseDocument } from './schemas/course.schema';
 
 @Injectable()
 export class CoursesService {
   constructor(
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
-    @InjectModel(Student.name) private studentModel: Model<StudentDocument>,
   ) {}
 
   async create(createCourseDto: CreateCourseDto): Promise<Course> {
@@ -32,9 +29,7 @@ export class CoursesService {
     const course = await this.courseModel.findById(id).populate('teacherId').exec();
     if (!course) throw new NotFoundException('Course not found');
 
-    const students = await this.studentModel.find({ course: id }).exec();
-
-    return { course, students };
+    return course;
   }
 
   async update(id: string, updateCourseDto: UpdateCourseDto): Promise<Course> {

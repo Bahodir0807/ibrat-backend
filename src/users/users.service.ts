@@ -30,7 +30,7 @@ export class UsersService {
 
     const createdUser = new this.userModel({
       username: dto.username,
-      password: dto.password, // без хэша
+      password: dto.password, 
       role: dto.role,
     });
     return createdUser.save();
