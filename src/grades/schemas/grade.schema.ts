@@ -1,21 +1,21 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-export type HomeworkDocument = Homework & Document;
+export type GradeDocument = Grade & Document;
 
 @Schema()
-export class Homework {
+export class Grade {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   user: Types.ObjectId;
 
   @Prop({ required: true })
-  date: Date;
+  subject: string;
 
   @Prop({ required: true })
-  tasks: string[];
+  score: number;
 
-  @Prop({ default: false })
-  completed: boolean;
+  @Prop({ default: null })
+  date: Date;
 }
 
-export const HomeworkSchema = SchemaFactory.createForClass(Homework);
+export const GradeSchema = SchemaFactory.createForClass(Grade);

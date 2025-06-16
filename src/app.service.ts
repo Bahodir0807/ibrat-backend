@@ -6,7 +6,7 @@ export class AppService {
   constructor(private readonly usersService: UsersService) {}
 
   getHello(): string {
-    return 'Hello World!';
+    return 'Welcome to Ibrat!\nСпасибо за использование!';
   }
 
   async getUserCount(): Promise<number> {

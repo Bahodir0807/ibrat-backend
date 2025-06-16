@@ -1,4 +1,4 @@
-import { IsString, MinLength, MaxLength, IsEnum } from 'class-validator';
+import { IsString, MinLength, MaxLength, IsEnum, IsEmail, IsOptional } from 'class-validator';
 import { Role } from '../../roles/roles.enum';
 
 export class CreateUserDto {
@@ -12,6 +12,27 @@ export class CreateUserDto {
   @MaxLength(20, { message: 'Пароль должен быть не более 20 символов' })
   password: string;
 
+  @IsOptional()
   @IsEnum(Role, { message: 'Роль должна быть "teacher", "admin", "student", "owner" или "parent"' })
-  role: Role;
+  role?: Role;
+
+  @IsOptional()
+  @IsEmail({}, { message: 'Некорректный email' })
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
 }

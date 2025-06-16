@@ -21,6 +21,9 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { HomeworkModule } from './homework/homework.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { StatisticsModule } from './statistics/statistics.module';
+import { TelegramModule } from './telegram/telegram.module';
+import { GradesModule } from './grades/grades.module';
+import { UsersService } from './users/users.service';
 
 
 @Module({
@@ -42,7 +45,9 @@ import { StatisticsModule } from './statistics/statistics.module';
     AttendanceModule,
     HomeworkModule,
     NotificationsModule,
-    StatisticsModule
+    StatisticsModule,
+    TelegramModule,
+    GradesModule
   ],
   controllers: [AppController],
   providers: [
@@ -55,8 +60,4 @@ import { StatisticsModule } from './statistics/statistics.module';
   ],
 })
 export class AppModule {}
-
-
-console.log('MONGO_URI:', process.env.MONGO_URI);
-console.log('PORT:', process.env.PORT);
 console.log("http://localhost:3000"); 

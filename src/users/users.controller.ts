@@ -14,6 +14,7 @@ import {
   UseGuards,
   Request,
   Patch,
+  Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -32,14 +33,19 @@ export class UsersController {
 
   @Roles(Role.Admin)
   @Get()
-  async getAll() {
-    return this.usersService.findAll();
+  async getAll(@Query('decryptPassword') decryptPassword: string) {
+    const shouldDecrypt = decryptPassword === 'true';
+    return this.usersService.findAll(shouldDecrypt);
   }
 
   @Roles(Role.Admin)
   @Get(':id')
-  async getOne(@Param('id') id: string) {
-    const user = await this.usersService.findById(id);
+  async getOne(
+    @Param('id') id: string,
+    @Query('decryptPassword') decryptPassword: string
+  ) {
+    const shouldDecrypt = decryptPassword === 'true';
+    const user = await this.usersService.findById(id, shouldDecrypt);
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
