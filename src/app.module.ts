@@ -24,6 +24,7 @@ import { StatisticsModule } from './statistics/statistics.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { GradesModule } from './grades/grades.module';
 import { UsersService } from './users/users.service';
+// import { PhoneRequestService } from './phone-request/phone-request/phone-request.service';
 
 
 @Module({
@@ -57,6 +58,7 @@ import { UsersService } from './users/users.service';
       useFactory: (reflector: Reflector) => new RolesGuard(reflector),
       inject: [Reflector],
     },
+    // PhoneRequestService,
   ],
 })
 export class AppModule {}
