@@ -22,6 +22,7 @@ export class PhoneRequest {
 
   @Prop({ default: null })
   updatedAt: Date;
+  _id: string;
 }
 
 export const PhoneRequestSchema = SchemaFactory.createForClass(PhoneRequest);

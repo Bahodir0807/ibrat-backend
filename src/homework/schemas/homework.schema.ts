@@ -19,3 +19,12 @@ export class Homework {
 }
 
 export const HomeworkSchema = SchemaFactory.createForClass(Homework);
+HomeworkSchema.set('timestamps', true);
+HomeworkSchema.set('toJSON', {
+  virtuals: true,
+  versionKey: false,
+  transform: (_, ret) => {
+    ret.id = ret._id;
+    delete ret._id;
+  },
+});

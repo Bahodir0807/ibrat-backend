@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Homework, HomeworkDocument } from './schemas/homework.schema';
+import { CreateHomeworkDto } from './dto/create-homework.dto';
 
 @Injectable()
 export class HomeworkService {
@@ -13,14 +14,15 @@ export class HomeworkService {
     return this.hwModel.find({ user: userId }).exec();
   }
 
-  async add(userId: string, date: string, tasks: string[]) {
+  async create(dto: CreateHomeworkDto) {
     const entry = new this.hwModel({
-      user: new Types.ObjectId(userId),
-      date: new Date(date),
-      tasks,
+      user: new Types.ObjectId(dto.userId),
+      date: new Date(dto.date),
+      tasks: dto.tasks,
     });
     return entry.save();
   }
+  
 
   async markComplete(id: string) {
     return this.hwModel.findByIdAndUpdate(id, { completed: true }, { new: true }).exec();

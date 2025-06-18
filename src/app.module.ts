@@ -14,7 +14,6 @@ import { GuardsModule } from './common/guards/guards.module';
 import { FiltersModule } from './common/filters/filters.module';
 import { DtoModule } from './common/dto/dto.module';
 import { RolesModule } from './roles/roles.module';
-import { ParentsModule } from './parents/parents.module';
 import { GroupsModule } from './groups/groups.module';
 import { PaymentsModule } from './payments/payments.module';
 import { AttendanceModule } from './attendance/attendance.module';
@@ -23,8 +22,6 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { StatisticsModule } from './statistics/statistics.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { GradesModule } from './grades/grades.module';
-import { UsersService } from './users/users.service';
-// import { PhoneRequestService } from './phone-request/phone-request/phone-request.service';
 
 
 @Module({
@@ -39,7 +36,6 @@ import { UsersService } from './users/users.service';
     FiltersModule,
     DtoModule,
     RolesModule,
-    ParentsModule,
     GroupsModule,
     SchedulesModule,
     PaymentsModule,
@@ -58,8 +54,7 @@ import { UsersService } from './users/users.service';
       useFactory: (reflector: Reflector) => new RolesGuard(reflector),
       inject: [Reflector],
     },
-    // PhoneRequestService,
   ],
 })
 export class AppModule {}
-console.log("http://localhost:3000"); 
+console.log("http://localhost:3000");

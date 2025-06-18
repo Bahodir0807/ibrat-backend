@@ -13,9 +13,10 @@ export class HomeworkController {
 
   @Post()
   @UsePipes(new ValidationPipe({ whitelist: true }))
-  async add(@Body() dto: CreateHomeworkDto) {
-    return this.hwService.add(dto.userId, dto.date, dto.tasks);
+  async create(@Body() dto: CreateHomeworkDto) {
+    return this.hwService.create(dto);
   }
+  
 
   @Patch(':id/complete')
   async complete(@Param('id') id: string) {
