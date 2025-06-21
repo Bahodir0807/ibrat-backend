@@ -27,8 +27,8 @@ async function bootstrap() {
     console.log('✅ Добавление валидаторов');
     app.useGlobalPipes(new CustomValidationPipe());
     
-    await app.listen(3000);
-    console.log(`🚀 Сервер запущен на http://localhost:3000`);
+    await app.listen(process.env.PORT || 3000, '0.0.0.0');
+    console.log(`🚀 Сервер запущен на http://localhost:${process.env.PORT || 3000}`);
   } catch (error) {
     console.error('❌ Ошибка при запуске приложения:', error);
     process.exit(1);
