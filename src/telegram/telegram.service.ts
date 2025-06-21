@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Ctx, InjectBot, Start, Command } from 'nestjs-telegraf';
 import { Telegraf, Context, Markup } from 'telegraf';
 import { UsersService } from '../users/users.service';
@@ -15,6 +15,7 @@ const ADMIN_CHAT_ID = parseInt(process.env.ADMIN_CHAT_ID || '0', 10);
 @Injectable()
 export class TelegramService {
   private readonly logger = new Logger(TelegramService.name);
+  UsersService: any;
 
   constructor(
     @InjectBot() private bot: Telegraf<Context>,
@@ -60,7 +61,16 @@ export class TelegramService {
     );
     await ctx.reply('Заявка отправлена! Напиши /check, чтобы узнать статус.');
   }
-
+  async sendMessage(userId: string, message: string) {
+    const user = await this.UsersService.findById(userId);
+    if (!user || !user.telegramId) {
+      throw new NotFoundException('Пользователь не найден или не подключён к Telegram');
+    }
+  
+    await this.bot.telegram.sendMessage(user.telegramId, message);
+    return { success: true };
+  }
+  
   private async handleCallback(ctx: Context & { callbackQuery: { data: string; from: any }; answerCbQuery: any }) {
     const [act, payload] = ctx.callbackQuery.data.split(/:(.+)/);
     const data = JSON.parse(payload);
