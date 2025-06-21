@@ -22,13 +22,14 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { StatisticsModule } from './statistics/statistics.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { GradesModule } from './grades/grades.module';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 
 @Module({
   imports: [
     AuthModule,
     ConfigModule.forRoot({ isGlobal: true }),
-    MongooseModule.forRoot(process.env.MONGO_URI || ''),
+    MongooseModule.forRoot(process.env.MONGO_URI || 'mongodb://localhost:27017'),
     UsersModule,
     CoursesModule,
     DecoratorsModule,
@@ -51,10 +52,14 @@ import { GradesModule } from './grades/grades.module';
     AppService,
     {
       provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
       useFactory: (reflector: Reflector) => new RolesGuard(reflector),
       inject: [Reflector],
     },
   ],
 })
 export class AppModule {}
-console.log("http://localhost:3000");
+console.log("http://localhost:3000"); 

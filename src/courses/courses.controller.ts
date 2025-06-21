@@ -3,6 +3,7 @@ import { CoursesService } from './courses.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 
+
 @Controller('courses')
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
@@ -31,4 +32,13 @@ export class CoursesController {
   remove(@Param('id') id: string) {
     return this.coursesService.remove(id);
   }
+
+  @Patch(':id/add-students')
+  async addStudents(
+    @Param('id') courseId: string,
+    @Body('studentIds') studentIds: string[],
+  ) {
+    return this.coursesService.addManyStudentsToCourse(courseId, studentIds);
+  }
+
 }

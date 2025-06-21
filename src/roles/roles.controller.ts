@@ -4,7 +4,7 @@ import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
+import { Roles } from './roles.decorator';
 import { Role } from '../roles/roles.enum'; 
 
 @Controller('roles')

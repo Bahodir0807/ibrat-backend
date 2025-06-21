@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Body, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Attendance, AttendanceDocument } from './schemas/attendance.schema';
@@ -14,11 +14,17 @@ export class AttendanceService {
     return this.attendanceModel.find({ user: userId }).exec();
   }
 
-  async mark(userId: string, date: string, status: 'present' | 'absent') {
+  async markAttendance(
+    @Body() body: { userId: string; date: string; status: 'present' | 'absent' },
+  ) {
+    if (!body.userId || !body.date || !['present', 'absent'].includes(body.status)) {
+      throw new BadRequestException('Некорректные данные');
+    }
     return this.attendanceModel.updateOne(
-      { user: userId, date: new Date(date) },
-      { $set: { status } },
+      { user: body.userId, date: new Date(body.date) },
+      { $set: { status: body.status } },
       { upsert: true },
     );
   }
+  
 }

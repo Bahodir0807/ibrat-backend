@@ -3,6 +3,7 @@ import { Document, Types } from 'mongoose';
 import { Course } from 'src/courses/schemas/course.schema';
 import { Room } from 'src/rooms/schemas/room.schema';
 import { User } from 'src/users/schemas/user.schema';
+import { Group } from 'src/groups/schemas/group.schema';
 
 export type ScheduleDocument = Schedule & Document;
 
@@ -23,11 +24,14 @@ export class Schedule {
   @Prop({ required: true })
   timeEnd: Date;
 
-  @Prop({ required: true, type: Types.ObjectId, ref: User.name })
-  teacher: Types.ObjectId;
-
   @Prop({ type: [Types.ObjectId], ref: User.name, default: [] })
   students: Types.ObjectId[];
+
+  @Prop({ type: Types.ObjectId, ref: Group.name })
+  group: Types.ObjectId;
+
+  @Prop({ required: true, type: Types.ObjectId, ref: User.name })
+  teacher: Types.ObjectId;
 }
 
 export const ScheduleSchema = SchemaFactory.createForClass(Schedule);

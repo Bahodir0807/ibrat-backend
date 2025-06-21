@@ -10,14 +10,59 @@ export class CoursesService {
   constructor(
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
   ) {}
-
+  async addManyStudentsToCourse(courseId: string, studentIds: string[]): Promise<Course> {
+    const course = await this.courseModel.findById(courseId);
+    if (!course) throw new NotFoundException('Курс не найден');
+  
+    course.students ??= [];
+  
+    const currentIds = course.students.map(id => id.toString());
+  
+    const uniqueNewStudents = studentIds
+      .filter(id => Types.ObjectId.isValid(id))
+      .filter(id => !currentIds.includes(id))
+      .map(id => new Types.ObjectId(id));
+  
+    course.students.push(...uniqueNewStudents);
+    await course.save();
+  
+    return course;
+  }
+  
   async create(createCourseDto: CreateCourseDto): Promise<Course> {
-    const { teacherId, ...rest } = createCourseDto;
-    const createdCourse = new this.courseModel({
-      ...rest,
-      teacherId: teacherId, 
-    });
-    return createdCourse.save();
+    try {
+      const { teacherId, ...rest } = createCourseDto;
+  
+      if (teacherId && !Types.ObjectId.isValid(teacherId)) {
+        throw new NotFoundException('Неверный ID учителя');
+      }
+  
+      const createdCourse = new this.courseModel({
+        ...rest,
+        teacherId: teacherId ? new Types.ObjectId(teacherId) : undefined,
+      });
+  
+      return await createdCourse.save();
+    } catch (err) {
+      console.error('❌ Ошибка при создании курса:', err);
+      throw err;
+    }
+  }
+  
+  async addStudentToCourse(courseId: string, studentId: string): Promise<Course> {
+    const course = await this.courseModel.findById(courseId);
+    if (!course) throw new NotFoundException('Курс не найден');
+  
+    course.students ??= [];
+
+    const currentStudents = course.students.map(id => id.toString());
+    
+    if (!currentStudents.includes(studentId)) {
+      course.students.push(new Types.ObjectId(studentId));
+      await course.save();
+    }
+    
+    return course;
   }
 
   async findAll(): Promise<Course[]> {

@@ -9,8 +9,8 @@ export class User {
   @Prop({ required: true, unique: true })
   username: string;
   
-  @Prop({ required: true, unique: true })
-  telegramId: string;
+  @Prop({ unique: true, sparse: true })
+  telegramId?: string;
   
   @Prop({ unique: true, sparse: true })
   email?: string;
@@ -35,7 +35,6 @@ export class User {
   
   @Prop()
   avatarUrl?: string;
-  
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -7,6 +7,8 @@ import { PhoneRequestService } from '../phone-request/phone-request.service';
 import { HomeworkService } from '../homework/homework.service';
 import { GradesService } from '../grades/grades.service';
 import { AttendanceService } from '../attendance/attendance.service';
+import { ScheduleService } from '../schedule/schedule.service';
+
 
 const ADMIN_CHAT_ID = parseInt(process.env.ADMIN_CHAT_ID || '0', 10);
 
@@ -21,12 +23,14 @@ export class TelegramService {
     private hw: HomeworkService,
     private grades: GradesService,
     private attendance: AttendanceService,
+    private schedule: ScheduleService,
   ) {
     this.bot.start(ctx => this.handleStart(ctx));
     this.bot.command('check', ctx => this.handleCheck(ctx));
     this.bot.command('homework', ctx => this.handleHomework(ctx));
     this.bot.command('grades', ctx => this.handleGrades(ctx));
     this.bot.command('attendance', ctx => this.handleAttendance(ctx));
+    this.bot.command('schedule', ctx => this.handleSchedule(ctx));
     this.bot.on('contact', ctx => this.handleContact(ctx as any));
     this.bot.on('callback_query', ctx => this.handleCallback(ctx as any));
   }
@@ -79,12 +83,18 @@ export class TelegramService {
   private async handleCheck(@Ctx() ctx: Context) {
     const tgId = ctx.from?.id;
     if (!tgId) return ctx.reply('Не удалось получить ID Telegram');
+    const user = await this.users.findByTelegramId(tgId);
+    if (user) {
+      return ctx.reply('🎉 Вы зарегистрированы! Команды: /homework /grades /attendance /schedule');
+    }
     const req = await this.phoneReq.getByTelegramId(String(tgId));
     if (!req) return ctx.reply('Вы не отправляли заявку.');
     if (req.status === 'pending') return ctx.reply('Заявка в обработке. Ждите.');
     if (req.status === 'rejected') return ctx.reply('К сожалению, вас отклонили.');
-    return ctx.reply('🎉 Вы зарегистрированы! Команды: /homework /grades /attendance');
+  
+    return ctx.reply('Произошла неизвестная ошибка. Свяжитесь с админом.');
   }
+  
 
   private async ensureUser(ctx: Context): Promise<any> {
     const tgId = ctx.from?.id;
@@ -129,4 +139,31 @@ export class TelegramService {
       return ctx.reply('❌ Зарегистрируйтесь через /start');
     }
   }
-}
+
+    @Command('schedule')
+    private async handleSchedule(@Ctx() ctx: Context) {
+    try {
+    const user = await this.ensureUser(ctx);
+    const list = await this.schedule.getScheduleForUser(user._id.toString(), user.role);
+
+    if (!list.length) return ctx.reply('📭 У вас пока нет расписания.');
+
+    const formatted = list.map(s => {
+      const day = new Date(s.date).toLocaleDateString();
+      const start = new Date(s.timeStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const end = new Date(s.timeEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const course = typeof s.course === 'object' && 'title' in s.course ? s.course.title : 'Без названия';
+      const teacher = typeof s.teacher === 'object' && 'name' in s.teacher ? s.teacher.name : 'Преподаватель';
+      const group = typeof s.group === 'object' && 'name' in s.group ? s.group.name : 'Без группы';
+
+      return `📅 ${day}\n📘 ${course}\n👨‍🏫 ${teacher}\n👥 Группа: ${group}\n🕒 ${start} - ${end}`;
+    });
+
+    return ctx.reply(formatted.join('\n\n'));
+  } catch (err) {
+    console.error(err);
+    return ctx.reply('❌ Не удалось получить расписание. Зарегистрируйтесь через /start');
+  }
+}};
+

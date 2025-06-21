@@ -15,25 +15,32 @@ export class ScheduleService {
     @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
   ) {}
 
-  async getScheduleForUser(userId: string, role: string) {
+    async getScheduleForUser(userId: string, role: string) {
     try {
       if (role === 'student') {
         return await this.schModel
-          .find({ student: new Types.ObjectId(userId) })
+          .find({ students: userId })
           .populate('course', 'title')
+          .populate('teacher', 'name')
+          .populate('room', 'name')
+          .populate('group', 'name')
           .exec();
       } else if (role === 'teacher') {
         return await this.schModel
-          .find({ teacher: new Types.ObjectId(userId) })
+          .find({ teacher: userId })
           .populate('course', 'title')
+          .populate('teacher', 'name')
+          .populate('room', 'name')
+          .populate('group', 'name')
           .exec();
       } else if (role === 'admin') {
         return await this.schModel
           .find()
           .populate('course', 'title')
           .populate('teacher', 'name')
-          .populate('student', 'name')
+          .populate('students', 'name')
           .populate('room', 'name')
+          .populate('group', 'name')
           .exec();
       } else {
         throw new ForbiddenException('Нет доступа к расписанию');
@@ -42,12 +49,13 @@ export class ScheduleService {
       throw new ForbiddenException('Ошибка при получении расписания');
     }
   }
-
+  
   async findAll() {
     return this.schModel.find()
       .populate('course', 'title')
       .populate('teacher', 'name')
       .populate('room', 'name')
+      .populate('group', 'name')
       .exec();
   }
 
@@ -56,6 +64,7 @@ export class ScheduleService {
       .populate('course', 'title')
       .populate('teacher', 'name')
       .populate('room', 'name')
+      .populate('group', 'name')
       .exec();
     if (!schedule) throw new NotFoundException('Расписание не найдено');
     return schedule;

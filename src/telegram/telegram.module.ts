@@ -7,7 +7,7 @@ import { PhoneRequestModule } from '../phone-request/phone-request.module';
 import { HomeworkModule } from '../homework/homework.module';
 import { GradesModule } from '../grades/grades.module';
 import { AttendanceModule } from '../attendance/attendance.module';
-
+import { SchedulesModule } from '../schedule/schedule.module';
 @Module({
   imports: [
     GradesModule,
@@ -15,6 +15,7 @@ import { AttendanceModule } from '../attendance/attendance.module';
     PhoneRequestModule,
     UsersModule,
     HomeworkModule,
+    SchedulesModule,
     TelegrafModule.forRootAsync({
       useFactory: (cs: ConfigService) => {
         const token = cs.get<string>('TELEGRAM_BOT_TOKEN');

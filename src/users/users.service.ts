@@ -2,39 +2,11 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
-
 export { UserDocument };
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from '../roles/roles.enum';
-import * as crypto from 'crypto';
-import * as dotenv from 'dotenv';
-dotenv.config();
-
-const envKey = process.env.ENCRYPTION_KEY;
-if (!envKey) {
-  throw new Error('ENCRYPTION_KEY is not set in environment variables');
-}
-const ENCRYPTION_KEY = crypto.createHash('sha256').update(envKey).digest();
-const IV_LENGTH = 16;
-
-function encrypt(text: string): string {
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
-}
-
-function decrypt(text: string): string {
-  const parts = text.split(':');
-  const iv = Buffer.from(parts[0], 'hex');
-  const encryptedText = parts[1];
-  const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
-  let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
-}
+import { encrypt, decrypt } from '../common/encryption';
 
 @Injectable()
 export class UsersService {
@@ -45,7 +17,7 @@ export class UsersService {
     if (shouldDecrypt) {
       return users.map(user => ({
         ...user.toObject(),
-        password: decrypt(user.password)
+        password: decrypt(user.password),
       }));
     }
     return users;
@@ -77,11 +49,18 @@ export class UsersService {
     const existingUser = await this.userModel.findOne({ username: dto.username }).exec();
     if (existingUser) throw new BadRequestException('Имя пользователя уже занято');
 
+    if (dto.role && dto.role !== Role.Student && dto.roleKey !== process.env.SUPER_ROLE_KEY) {
+      throw new BadRequestException('Недостаточно прав для назначения этой роли');
+    }
+
+    const { roleKey, ...safeDto } = dto;
+
     const createdUser = new this.userModel({
-      username: dto.username,
-      password: encrypt(dto.password),
-      role: dto.role,
+      username: safeDto.username,
+      password: encrypt(safeDto.password),
+      role: safeDto.role || Role.Student,
     });
+
     return createdUser.save();
   }
 
@@ -90,9 +69,7 @@ export class UsersService {
       (dto as any).password = encrypt(dto.password);
     }
 
-    const updatedUser = await this.userModel
-      .findByIdAndUpdate(id, dto, { new: true })
-      .exec();
+    const updatedUser = await this.userModel.findByIdAndUpdate(id, dto, { new: true }).exec();
     if (!updatedUser) throw new NotFoundException('Пользователь не найден');
 
     const obj = updatedUser.toObject();
@@ -101,9 +78,7 @@ export class UsersService {
   }
 
   async updateRole(id: string, role: Role): Promise<User> {
-    const updatedUser = await this.userModel
-      .findByIdAndUpdate(id, { role }, { new: true })
-      .exec();
+    const updatedUser = await this.userModel.findByIdAndUpdate(id, { role }, { new: true }).exec();
     if (!updatedUser) throw new NotFoundException('Пользователь не найден');
 
     const obj = updatedUser.toObject();
@@ -124,6 +99,7 @@ export class UsersService {
   async findByPhone(phone: string): Promise<User | null> {
     return this.userModel.findOne({ phone }).exec();
   }
+
   async findByTelegramId(telegramId: number) {
     return this.userModel.findOne({ telegramId });
   }

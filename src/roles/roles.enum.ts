@@ -3,5 +3,5 @@ export enum Role {
   Teacher = 'teacher',
   Student = 'student',
   Owner = 'owner',
-  Parent = 'parent',
+  Extra = "panda"
 }

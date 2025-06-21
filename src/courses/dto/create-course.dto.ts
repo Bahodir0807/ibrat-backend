@@ -1,12 +1,14 @@
-import { IsString, IsOptional, IsArray, IsMongoId } from 'class-validator';
+import { IsArray, IsMongoId, IsOptional, IsString } from "class-validator";
 
 export class CreateCourseDto {
   @IsString()
-  title: string;
+  name: string;
+  @IsString()
+  description: string;
 
   @IsString()
   @IsOptional()
-  description?: string;
+  price?: string;
 
   @IsString()
   @IsOptional()
@@ -16,5 +18,4 @@ export class CreateCourseDto {
   @IsArray()
   @IsMongoId({ each: true })
   students?: string[];
-
 }
