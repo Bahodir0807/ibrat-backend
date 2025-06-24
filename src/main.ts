@@ -14,19 +14,26 @@ async function bootstrap() {
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.useGlobalPipes(new CustomValidationPipe());
 
+  app.enableCors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+  });
+
   const telegramService = app.get(TelegramService);
   const bot = telegramService.getBot();
 
   const webhookPath = '/bot';
   const domain = process.env.DOMAIN || 'https://ibrat.onrender.com';
-  app.enableCors({
-    origin: 'http://localhost:5173',
-    credentials: true,
-  });
-  
-  await bot.telegram.setWebhook(`${domain}${webhookPath}`);
-  app.use(bot.webhookCallback(webhookPath));
 
   await app.listen(process.env.PORT || 3000, '0.0.0.0');
+
+  app.use(bot.webhookCallback(webhookPath));
+
+  try {
+    await bot.telegram.setWebhook(`${domain}${webhookPath}`);
+    console.log(`✅ Webhook установлен: ${domain}${webhookPath}`);
+  } catch (err) {
+    console.error('❌ Ошибка установки webhook:', err.message);
+  }
 }
 bootstrap();
