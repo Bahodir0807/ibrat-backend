@@ -15,8 +15,8 @@ async function bootstrap() {
   app.useGlobalPipes(new CustomValidationPipe());
 
   app.enableCors({
-    origin: 'http://localhost:5173',
-    credentials: true,
+    origin: ['http://localhost:5173', 'https://ibrat-uz.vercel.app'],
+    credentials: true
   });
 
   const telegramService = app.get(TelegramService);
