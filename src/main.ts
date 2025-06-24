@@ -19,7 +19,11 @@ async function bootstrap() {
 
   const webhookPath = '/bot';
   const domain = process.env.DOMAIN || 'https://ibrat.onrender.com';
-
+  app.enableCors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+  });
+  
   await bot.telegram.setWebhook(`${domain}${webhookPath}`);
   app.use(bot.webhookCallback(webhookPath));
 
