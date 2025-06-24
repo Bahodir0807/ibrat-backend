@@ -30,7 +30,7 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() loginDto: { username: string; password: string },
-  ): Promise<{ access_token: string }> {
+  ): Promise<{ token: string }> {
     const user = await this.authService.validateUser(
       loginDto.username,
       loginDto.password,
