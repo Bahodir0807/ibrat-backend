@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config'; 
 import { MongooseModule } from '@nestjs/mongoose';
 import { Reflector, APP_GUARD } from '@nestjs/core';
@@ -42,9 +42,9 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     PaymentsModule,
     AttendanceModule,
     HomeworkModule,
-    NotificationsModule,
+    forwardRef(() => NotificationsModule),
     StatisticsModule,
-    TelegramModule,
+    forwardRef(() => TelegramModule),
     GradesModule
   ],
   controllers: [AppController],
