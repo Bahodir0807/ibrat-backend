@@ -11,7 +11,8 @@ import { ScheduleService } from '../schedule/schedule.service';
 import { Role } from '../roles/roles.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Document } from 'mongoose';
-import { CallbackQuery, Update } from 'telegraf/typings/core/types/typegram';
+import { CallbackQuery, Message, Update } from 'telegraf/typings/core/types/typegram';
+import { Context as TelegrafContext } from 'telegraf';
 
 interface SessionData {
   step?: string;
@@ -20,10 +21,8 @@ interface SessionData {
   firstName?: string;
 }
 
-interface BotContext extends Context {
+interface BotContext extends TelegrafContext {
   session: SessionData;
-  message: Update.New & Update.NonChannel & { text?: string };
-  callbackQuery: CallbackQuery.DataQuery | CallbackQuery.GameQuery;
 }
 
 @Injectable()
@@ -128,7 +127,7 @@ export class TelegramService implements OnModuleInit {
     return ctx.reply('Произошла ошибка. Свяжитесь с админом.');
   }
 
-  private async handleContact(ctx: BotContext & { message: { contact: { phone_number: string; user_id: number; first_name: string } } }) {
+  private async handleContact(ctx: BotContext & { message: Message.ContactMessage }) {
     const { phone_number: phone, user_id: tgId, first_name: firstName } = ctx.message.contact;
     const existing = await this.phoneReq.getByTelegramId(String(tgId));
     if (existing && existing.status === 'pending') {
@@ -148,7 +147,7 @@ export class TelegramService implements OnModuleInit {
   }
 
   private async handleCallback(ctx: BotContext) {
-    if (!('data' in ctx.callbackQuery)) return ctx.answerCbQuery?.('Неверный формат запроса');
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return ctx.answerCbQuery?.('Неверный формат запроса');
     const data = ctx.callbackQuery.data;
 
     if (!ctx.session) return ctx.answerCbQuery?.('Сессия потерялась. Начните заново /start');
@@ -189,13 +188,13 @@ export class TelegramService implements OnModuleInit {
     const session = ctx.session;
     const message = ctx.message;
 
-    if (session?.step === 'enter_name' && typeof message?.text === 'string') {
+    if (session?.step === 'enter_name' && message && 'text' in message) {
       const name = message.text;
       const { tgId, phone } = session;
       await this.finishRegistration(String(tgId), phone!, name);
       await ctx.reply(`✅ Вы зарегистрированы как ${name}!`);
       delete session.step;
-    } else if (typeof message?.text === 'string') {
+    } else if (message && 'text' in message) {
       await ctx.reply('Извините, но я не понимаю эту команду. Пожалуйста, используйте /homework, /grades, /attendance или /schedule.');
     }
   }
