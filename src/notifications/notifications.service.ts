@@ -1,22 +1,21 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
+import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { TelegramService } from '../telegram/telegram.service';
+import { UsersService } from '../users/users.service';
 import { CreateNotificationDto } from './dto/create-notify.dto';
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 @Injectable()
 export class NotificationsService {
-  private emitter = new EventEmitter();
-
   constructor(
     private readonly usersService: UsersService,
     @Inject(forwardRef(() => TelegramService))
     private readonly telegramService: TelegramService,
   ) {}
 
+  private emitter = new EventEmitter();
+
   async sendManualNotification(dto: CreateNotificationDto) {
     const user = await this.usersService.findById(dto.userId);
-
     if (!user || !user.telegramId) {
       throw new NotFoundException('Пользователь не найден или Telegram не подключён');
     }
