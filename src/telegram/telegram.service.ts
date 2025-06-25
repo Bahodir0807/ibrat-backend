@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, NotFoundException } from '@nestjs/common';
+import { Injectable, OnModuleInit, NotFoundException, forwardRef, Inject } from '@nestjs/common';
 import { Telegraf, Context, Markup, session } from 'telegraf';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
@@ -38,6 +38,7 @@ export class TelegramService implements OnModuleInit {
     private readonly grades: GradesService,
     private readonly attendance: AttendanceService,
     private readonly schedule: ScheduleService,
+    @Inject(forwardRef(() => NotificationsService))
     private readonly notify: NotificationsService,
   ) {
     const token = this.config.get<string>('TELEGRAM_BOT_TOKEN');
