@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { CreateNotificationDto } from './dto/create-notify.dto';
+import { EventEmitter } from 'events';
 
 @Injectable()
 export class NotificationsService {
