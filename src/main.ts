@@ -25,8 +25,6 @@ async function bootstrap() {
   const webhookPath = '/bot';
   const domain = process.env.DOMAIN || 'https://ibrat.onrender.com';
 
-  await app.listen(process.env.PORT || 3000, '0.0.0.0');
-
   app.use(bot.webhookCallback(webhookPath));
 
   try {
@@ -35,5 +33,7 @@ async function bootstrap() {
   } catch (err) {
     console.error('❌ Ошибка установки webhook:', err.message);
   }
+  await app.listen(process.env.PORT || 3000, '0.0.0.0');
 }
+
 bootstrap();
