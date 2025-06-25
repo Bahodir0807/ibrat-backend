@@ -25,14 +25,17 @@ async function bootstrap() {
   const webhookPath = '/bot';
   const domain = process.env.DOMAIN || 'https://ibrat.onrender.com';
 
+  console.log('📡 DOMAIN:', domain);
+
   app.use(bot.webhookCallback(webhookPath));
 
   try {
     await bot.telegram.setWebhook(`${domain}${webhookPath}`);
     console.log(`✅ Webhook установлен: ${domain}${webhookPath}`);
   } catch (err) {
-    console.error('❌ Ошибка установки webhook:', err.message);
+    console.error('❌ Ошибка установки webhook:', err);
   }
+
   await app.listen(process.env.PORT || 3000, '0.0.0.0');
 }
 
