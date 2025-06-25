@@ -6,12 +6,14 @@ import { HomeworkModule } from '../homework/homework.module';
 import { GradesModule } from '../grades/grades.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { SchedulesModule } from '../schedule/schedule.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     GradesModule,
     AttendanceModule,
     PhoneRequestModule,
+    NotificationsModule,
     UsersModule,
     HomeworkModule,
     SchedulesModule,
