@@ -1,13 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { CreateNotificationDto } from './dto/create-notify.dto';
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 
 @Injectable()
 export class NotificationsService {
+  private emitter = new EventEmitter();
+
   constructor(
     private readonly usersService: UsersService,
+    @Inject(forwardRef(() => TelegramService))
     private readonly telegramService: TelegramService,
   ) {}
 
@@ -21,7 +24,6 @@ export class NotificationsService {
     await this.telegramService.sendMessage(user.telegramId, dto.message);
     return { success: true, sentTo: user.username };
   }
-    private emitter = new EventEmitter();
 
   onNotification(callback: (payload: { message: string; telegramIds: number[] }) => void) {
     this.emitter.on('notify', callback);

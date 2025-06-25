@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
 import { UsersModule } from '../users/users.module';
 import { PhoneRequestModule } from '../phone-request/phone-request.module';
@@ -13,7 +13,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     GradesModule,
     AttendanceModule,
     PhoneRequestModule,
-    NotificationsModule,
+    forwardRef(() => NotificationsModule),
     UsersModule,
     HomeworkModule,
     SchedulesModule,
@@ -22,4 +22,3 @@ import { NotificationsModule } from '../notifications/notifications.module';
   exports: [TelegramService],
 })
 export class TelegramModule {}
-
