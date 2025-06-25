@@ -33,4 +33,7 @@ export class PhoneRequestService {
   async getPending(): Promise<PhoneRequest[]> {
     return this.phoneRequestModel.find({ status: 'pending' });
   }
+  async updateName(id: string, name: string) {
+    return this.phoneRequestModel.findByIdAndUpdate(id, { name });
+  }
 }

@@ -20,4 +20,13 @@ export class NotificationsService {
     await this.telegramService.sendMessage(user.telegramId, dto.message);
     return { success: true, sentTo: user.username };
   }
+    private emitter = new EventEmitter();
+
+  onNotification(callback: (payload: { message: string; telegramIds: number[] }) => void) {
+    this.emitter.on('notify', callback);
+  }
+
+  emit(message: string, telegramIds: number[]) {
+    this.emitter.emit('notify', { message, telegramIds });
+  }
 }
