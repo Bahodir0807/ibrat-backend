@@ -75,7 +75,7 @@ export class TelegramService implements OnModuleInit {
     this.bot.command('attendance', ctx => this.handleSafe(ctx, () => this.handleAttendance(ctx)));
     this.bot.command('schedule', ctx => this.handleSafe(ctx, () => this.handleSchedule(ctx)));
     this.bot.on('contact', ctx => this.handleSafe(ctx, () => this.handleContact(ctx)));
-    this.bot.on('callback_query', ctx => this.handleSafe(ctx, () => this.handleCallback(ctx)));
+    this.bot.on('callback_query', ctx => this.handleSafe(ctx, () => this.handleCallback(ctx as BotContext & { callbackQuery: { data: string; }; answerCbQuery: (text?: string | undefined) => void; })))
     this.bot.on('message', ctx => this.handleSafe(ctx, () => this.handleMessage(ctx)));
   }
 
@@ -130,16 +130,9 @@ export class TelegramService implements OnModuleInit {
 
   private async handleContact(ctx: BotContext & { message: Message.ContactMessage }) {
     const { phone_number: phone, user_id: tgId, first_name: firstName } = ctx.message.contact;
-    const existing = await this.phoneReq.getByTelegramId(String(tgId));
-    if (existing && existing.status === 'pending') {
-      return ctx.reply('Заявка уже отправлена, ожидайте.');
-    }
-
     ctx.session = { step: 'ask_name', phone, tgId, firstName };
-    await this.phoneReq.create({ phone, name: '', telegramId: String(tgId) });
-
     await ctx.reply(
-      `📛 Ваш номер: ${phone}. Хочешь взять имя из Telegram (${firstName}) или вписать своё?`,
+      `📛 Ваш номер: ${phone}. Хочешь использовать имя Telegram (${firstName}) или ввести своё?`,
       Markup.inlineKeyboard([
         Markup.button.callback('✅ Telegram', 'use_telegram_name'),
         Markup.button.callback('✍️ Ввести своё', 'write_name'),
@@ -147,11 +140,13 @@ export class TelegramService implements OnModuleInit {
     );
   }
 
-  private async handleCallback(ctx: BotContext) {
-    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return ctx.answerCbQuery?.('Неверный формат запроса');
-    const data = ctx.callbackQuery.data;
-
+  private async handleCallback(
+    ctx: BotContext & { callbackQuery: { data: string }; answerCbQuery: (text?: string) => void },
+  ) {
     if (!ctx.session) return ctx.answerCbQuery?.('Сессия потерялась. Начните заново /start');
+
+    const data = ctx.callbackQuery.data;
+    await ctx.answerCbQuery();
 
     if (data === 'write_name') {
       ctx.session.step = 'enter_name';
@@ -160,8 +155,26 @@ export class TelegramService implements OnModuleInit {
 
     if (data === 'use_telegram_name') {
       const { tgId, phone, firstName } = ctx.session;
-      await this.finishRegistration(String(tgId), phone!, firstName!);
-      return ctx.telegram.sendMessage(tgId!, `✅ Вы зарегистрированы как ${firstName}!`);
+      if (!tgId || !phone || !firstName) {
+        return ctx.reply('❌ Ошибка сессии. Попробуйте начать заново /start');
+      }
+      const req = await this.phoneReq.create({ phone, name: firstName, telegramId: String(tgId) });
+      
+      // Отправляем данные администратору
+      await ctx.telegram.sendMessage(this.adminChatId, `
+      🔔 Новая заявка на регистрацию!
+      📱 Номер телефона: ${phone}
+      👤 Имя: ${firstName}
+      🔑 Telegram ID: ${tgId}
+      🆔 ID заявки: ${req._id}
+      `);
+
+      await ctx.reply(`✅ Заявка отправлена. Использовано имя: ${firstName}
+      
+      📝 Администратор получит вашу заявку и свяжется с вами после проверки.
+      `);
+      ctx.session = {};
+      return;
     }
 
     const [action, payloadStr] = data.split(/:(.+)/);
@@ -189,15 +202,42 @@ export class TelegramService implements OnModuleInit {
     const session = ctx.session;
     const message = ctx.message;
 
-    if (session?.step === 'enter_name' && message && 'text' in message) {
-      const name = message.text;
-      const { tgId, phone } = session;
-      await this.finishRegistration(String(tgId), phone!, name);
-      await ctx.reply(`✅ Вы зарегистрированы как ${name}!`);
-      delete session.step;
-    } else if (message && 'text' in message) {
-      await ctx.reply('Извините, но я не понимаю эту команду. Пожалуйста, используйте /homework, /grades, /attendance или /schedule.');
+    if (!message || !('text' in message)) {
+      return;
     }
+
+    const text = message.text.trim();
+    
+    if (session?.step === 'enter_name') {
+      if (!text) {
+        return ctx.reply('❌ Имя не может быть пустым. Попробуйте снова.');
+      }
+      
+      const { tgId, phone } = session;
+      if (!tgId || !phone) {
+        return ctx.reply('❌ Ошибка сессии. Попробуйте начать заново /start');
+      }
+
+      const req = await this.phoneReq.create({ phone, name: text, telegramId: String(tgId) });
+      
+      // Отправляем данные администратору
+      await ctx.telegram.sendMessage(this.adminChatId, `
+      🔔 Новая заявка на регистрацию!
+      📱 Номер телефона: ${phone}
+      👤 Имя: ${text}
+      🔑 Telegram ID: ${tgId}
+      🆔 ID заявки: ${req._id}
+      `);
+
+      await ctx.reply(`✅ Заявка отправлена. Использовано имя: ${text}
+      
+      📝 Администратор получит вашу заявку и свяжется с вами после проверки.
+      `);
+      ctx.session = {};
+      return;
+    }
+
+    await ctx.reply('Извините, но я не понимаю эту команду. Пожалуйста, используйте /homework, /grades, /attendance или /schedule.');
   }
 
   private async finishRegistration(telegramId: string, phone: string, name: string) {
