@@ -160,7 +160,6 @@ export class TelegramService implements OnModuleInit {
       }
       const req = await this.phoneReq.create({ phone, name: firstName, telegramId: String(tgId) });
       
-      // Отправляем данные администратору
       await ctx.telegram.sendMessage(this.adminChatId, `
       🔔 Новая заявка на регистрацию!
       📱 Номер телефона: ${phone}
@@ -178,24 +177,30 @@ export class TelegramService implements OnModuleInit {
     }
 
     const [action, payloadStr] = data.split(/:(.+)/);
-    if (!action || !payloadStr) return;
-
-    const payload = JSON.parse(payloadStr);
-    const req = await this.phoneReq.getByTelegramId(payload.telegramId);
-    if (!req) return ctx.answerCbQuery?.('Заявка не найдена');
-
-    if (action === 'approve') {
-      await this.users.createWithPhone({ name: req.name, phone: req.phone, telegramId: Number(req.telegramId), role: Role.Student });
-      await this.phoneReq.handle({ requestId: req._id, status: 'approved' });
-      await ctx.telegram.sendMessage(Number(req.telegramId), '✅ Вас зарегистрировали!');
-      return ctx.answerCbQuery?.('Принято');
+    if (data.startsWith('approve:') || data.startsWith('reject:')) {
+      const [action, reqId] = data.split(':');
+      const req = await this.phoneReq.getByTelegramId(reqId);
+      if (!req) return ctx.answerCbQuery('❌ Заявка не найдена');
+    
+      if (action === 'approve') {
+        await this.users.createWithPhone({
+          name: req.name,
+          phone: req.phone,
+          telegramId: Number(req.telegramId),
+          role: Role.Student,
+        });
+        await this.phoneReq.handle({ requestId: req._id, status: 'approved' });
+        await ctx.editMessageText(`✅ Заявка ${reqId} принята`);
+        await this.bot.telegram.sendMessage(Number(req.telegramId), '✅ Ваша заявка одобрена');
+      } else {
+        await this.phoneReq.handle({ requestId: req._id, status: 'rejected' });
+        await ctx.editMessageText(`❌ Заявка ${reqId} отклонена`);
+        await this.bot.telegram.sendMessage(Number(req.telegramId), '❌ Ваша заявка отклонена');
+      }
+    
+      return ctx.answerCbQuery();
     }
-
-    if (action === 'reject') {
-      await this.phoneReq.handle({ requestId: req._id, status: 'rejected' });
-      await ctx.telegram.sendMessage(Number(req.telegramId), '❌ Заявка отклонена.');
-      return ctx.answerCbQuery?.('Отклонено');
-    }
+    
   }
 
   private async handleMessage(ctx: BotContext) {
@@ -220,14 +225,17 @@ export class TelegramService implements OnModuleInit {
 
       const req = await this.phoneReq.create({ phone, name: text, telegramId: String(tgId) });
       
-      // Отправляем данные администратору
-      await ctx.telegram.sendMessage(this.adminChatId, `
-      🔔 Новая заявка на регистрацию!
-      📱 Номер телефона: ${phone}
-      👤 Имя: ${text}
-      🔑 Telegram ID: ${tgId}
-      🆔 ID заявки: ${req._id}
-      `);
+await this.bot.telegram.sendMessage(
+  this.adminChatId,
+  `🔔 Новая заявка!
+📱 Телефон: ${phone}
+👤 Имя: ${text}
+🆔 ${req._id}`,
+  Markup.inlineKeyboard([
+    Markup.button.callback('✅ Принять', `approve:${req._id}`),
+    Markup.button.callback('❌ Отклонить', `reject:${req._id}`),
+  ]),
+);
 
       await ctx.reply(`✅ Заявка отправлена. Использовано имя: ${text}
       
