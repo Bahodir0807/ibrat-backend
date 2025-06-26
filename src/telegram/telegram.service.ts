@@ -160,13 +160,18 @@ export class TelegramService implements OnModuleInit {
       }
       const req = await this.phoneReq.create({ phone, name: firstName, telegramId: String(tgId) });
       
-      await ctx.telegram.sendMessage(this.adminChatId, `
-      🔔 Новая заявка на регистрацию!
-      📱 Номер телефона: ${phone}
+      await ctx.telegram.sendMessage(
+        this.adminChatId,
+        `🔔 Новая заявка!
+      📱 Телефон: ${phone}
       👤 Имя: ${firstName}
-      🔑 Telegram ID: ${tgId}
-      🆔 ID заявки: ${req._id}
-      `);
+      🆔 ${req._id}`,
+        Markup.inlineKeyboard([
+          Markup.button.callback('✅ Принять', `approve:${req._id}`),
+          Markup.button.callback('❌ Отклонить', `reject:${req._id}`),
+        ])
+      );
+      
 
       await ctx.reply(`✅ Заявка отправлена. Использовано имя: ${firstName}
       
