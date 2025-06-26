@@ -26,13 +26,14 @@ export class PhoneRequestService {
     return request.save();
   }
 
-  async getByTelegramId(telegramId: string): Promise<PhoneRequest | null> {
-    return this.phoneRequestModel.findOne({ telegramId: Number(telegramId) });
+  async getById(id: string) {
+    return this.phoneRequestModel.findById(id);
   }
 
   async getPending(): Promise<PhoneRequest[]> {
     return this.phoneRequestModel.find({ status: 'pending' });
   }
+
   async updateName(id: string, name: string) {
     return this.phoneRequestModel.findByIdAndUpdate(id, { name });
   }
