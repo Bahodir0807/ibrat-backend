@@ -146,7 +146,7 @@ export class TelegramService implements OnModuleInit {
     const data = ctx.callbackQuery.data;
     await ctx.answerCbQuery();
   
-    console.log('⚡ Callback data:', data); // <-- для дебага
+    console.log('⚡ Callback data:', data); 
   
     if (data === 'write_name') {
       ctx.session.step = 'enter_name';
@@ -183,7 +183,7 @@ export class TelegramService implements OnModuleInit {
   
     if (data.startsWith('approve:') || data.startsWith('reject:')) {
       const [action, reqId] = data.split(':');
-      const req = await this.phoneReq.getById(reqId); // 💥 Вот тут fix
+      const req = await this.phoneReq.getById(reqId); 
   
       if (!req) return ctx.answerCbQuery('❌ Заявка не найдена');
   
@@ -229,17 +229,21 @@ export class TelegramService implements OnModuleInit {
 
       const req = await this.phoneReq.create({ phone, name: text, telegramId: String(tgId) });
       
-await this.bot.telegram.sendMessage(
-  this.adminChatId,
-  `🔔 Новая заявка!
-📱 Телефон: ${phone}
-👤 Имя: ${text}
-🆔 ${req._id}`,
-  Markup.inlineKeyboard([
-    Markup.button.callback('✅ Принять', `approve:${req._id}`),
-    Markup.button.callback('❌ Отклонить', `reject:${req._id}`),
-  ]),
-);
+      await ctx.telegram.sendMessage(
+        this.adminChatId,
+        `🔔 Новая заявка!
+      📱 Телефон: ${phone}
+      👤 Имя: ${text}
+      🆔 ${req._id}`,
+        {
+          reply_markup: Markup.inlineKeyboard([
+            Markup.button.callback('✅ Принять', `approve:${req._id}`),
+            Markup.button.callback('❌ Отклонить', `reject:${req._id}`),
+          ]).reply_markup
+        }
+      );
+      
+      
 
       await ctx.reply(`✅ Заявка отправлена. Использовано имя: ${text}
       
