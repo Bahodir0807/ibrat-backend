@@ -15,4 +15,8 @@ export class RegisterDto {
   @IsString()
   @IsOptional()
   roleKey?: string;
+
+  @IsString()
+  @IsOptional()
+  phoneNumber?: string;
 }

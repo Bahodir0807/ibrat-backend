@@ -18,8 +18,8 @@ export class PhoneRequestController {
   }
 
   @Get()
-  getByTelegramId(@Query('telegramId') telegramId: string) {
-    return this.service.getByTelegramId(telegramId);
+  getById(@Query('telegramId') telegramId: string) {
+    return this.service.getById(telegramId);
   }
 
   @Get('pending')
@@ -34,6 +34,6 @@ export class PhoneRequestController {
 
   @Get('tg-check')
   checkFromTelegram(@Query('telegramId') telegramId: string) {
-    return this.service.getByTelegramId(telegramId);
+    return this.service.getById(telegramId);
   }
 }

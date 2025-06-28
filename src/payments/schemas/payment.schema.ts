@@ -1,24 +1,23 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
-export type PaymentDocument = Payment & Document;
-
-@Schema()
+@Schema({ timestamps: true })
 export class Payment {
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  student: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Course', required: true })
+  course: Types.ObjectId;
+
   @Prop({ required: true })
   amount: number;
 
-  @Prop({ required: true })
-  status: string;
+  @Prop()
+  paidAt: Date;
 
-  @Prop({ required: true })
-  studentId: string;
-
-  @Prop({ required: true })
-  courseId: string;
-
-  @Prop({ default: Date.now })
-  paymentDate: Date;
+  @Prop({ default: false })
+  isConfirmed: boolean;
 }
 
+export type PaymentDocument = HydratedDocument<Payment>;
 export const PaymentSchema = SchemaFactory.createForClass(Payment);

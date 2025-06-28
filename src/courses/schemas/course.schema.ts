@@ -16,6 +16,9 @@ export class Course {
 
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
   students?: Types.ObjectId[];
+
+  @Prop({ required: true })
+  price: number;
 }
 
 export const CourseSchema = SchemaFactory.createForClass(Course);

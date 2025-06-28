@@ -1,9 +1,15 @@
-import { IsNotEmpty } from "class-validator";
+import { IsMongoId, IsArray, ArrayNotEmpty, IsOptional, IsDateString } from 'class-validator';
 
-export class CreatePaymentsDto {
-    @IsNotEmpty()
-    amount: number;
+export class CreatePaymentDto {
+  @IsMongoId()
+  student: string;
 
-    @IsNotEmpty()
-    status: string;
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsMongoId({ each: true })
+  courseIds: string[];
+
+  @IsOptional()
+  @IsDateString()
+  paidAt?: string;
 }
