@@ -7,6 +7,7 @@ import { HandlePhoneRequestDto } from './dto/handle-phone-request.dto';
 
 @Injectable()
 export class PhoneRequestService {
+  model: any;
   constructor(
     @InjectModel(PhoneRequest.name)
     private phoneRequestModel: Model<PhoneRequestDocument>
@@ -26,9 +27,10 @@ export class PhoneRequestService {
     return request.save();
   }
 
-  async getById(id: string) {
-    return this.phoneRequestModel.findById(id);
+  async getByTelegramId(tgId: string) {
+    return this.model.findOne({ telegramId: tgId });
   }
+  
 
   async getPending(): Promise<PhoneRequest[]> {
     return this.phoneRequestModel.find({ status: 'pending' });

@@ -114,17 +114,17 @@ export class TelegramService implements OnModuleInit {
   private async handleCheck(ctx: BotContext) {
     const tgId = ctx.from?.id;
     if (!tgId) return ctx.reply('Не удалось получить ID Telegram');
-
+  
     const user = await this.users.findByTelegramId(tgId);
     if (user) {
       return ctx.reply('🎉 Вы зарегистрированы! Команды: /homework /grades /attendance /schedule');
     }
-
-    const req = await this.phoneReq.getById(String(tgId));
+  
+    const req = await this.phoneReq.getByTelegramId(String(tgId));
     if (!req) return ctx.reply('Вы не отправляли заявку.');
     if (req.status === 'pending') return ctx.reply('Заявка в обработке. Ждите.');
     if (req.status === 'rejected') return ctx.reply('К сожалению, вас отклонили.');
-
+  
     return ctx.reply('Произошла ошибка. Свяжитесь с админом.');
   }
 
@@ -164,9 +164,9 @@ export class TelegramService implements OnModuleInit {
       await ctx.telegram.sendMessage(
         this.adminChatId,
         `🔔 Новая заявка!
-  📱 Телефон: ${phone}
-  👤 Имя: ${firstName}
-  🆔 ${req._id}`,
+        📱 Телефон: ${phone}
+        👤 Имя: ${firstName}
+        🆔 ${req._id}`,
         Markup.inlineKeyboard([
           Markup.button.callback('✅ Принять', `approve:${req._id}`),
           Markup.button.callback('❌ Отклонить', `reject:${req._id}`),
@@ -175,7 +175,7 @@ export class TelegramService implements OnModuleInit {
   
       await ctx.reply(`✅ Заявка отправлена. Использовано имя: ${firstName}
   
-  📝 Администратор получит вашу заявку и свяжется с вами после проверки.
+  📝 Команда для проверки статуса заявки: /check
   `);
       ctx.session = {};
       return;
@@ -183,7 +183,7 @@ export class TelegramService implements OnModuleInit {
   
     if (data.startsWith('approve:') || data.startsWith('reject:')) {
       const [action, reqId] = data.split(':');
-      const req = await this.phoneReq.getById(reqId); 
+      const req = await this.phoneReq.getByTelegramId(reqId); 
   
       if (!req) return ctx.answerCbQuery('❌ Заявка не найдена');
   
@@ -229,6 +229,11 @@ export class TelegramService implements OnModuleInit {
 
       const req = await this.phoneReq.create({ phone, name: text, telegramId: String(tgId) });
       
+      if (!ctx.from?.id) {
+        throw new Error('❌ Не удалось получить Telegram ID пользователя');
+      }
+      
+
       await ctx.telegram.sendMessage(
         this.adminChatId,
         `🔔 Новая заявка!
@@ -236,18 +241,23 @@ export class TelegramService implements OnModuleInit {
       👤 Имя: ${text}
       🆔 ${req._id}`,
         {
-          reply_markup: Markup.inlineKeyboard([
-            Markup.button.callback('✅ Принять', `approve:${req._id}`),
-            Markup.button.callback('❌ Отклонить', `reject:${req._id}`),
-          ]).reply_markup
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Принять', callback_data: `approve:${req._id}` },
+                { text: '❌ Отклонить', callback_data: `reject:${req._id}` }
+              ]
+            ]
+          }
         }
       );
+      
       
       
 
       await ctx.reply(`✅ Заявка отправлена. Использовано имя: ${text}
       
-      📝 Администратор получит вашу заявку и свяжется с вами после проверки.
+      📝 Заявка отправлена, проверьте статус с помощью: /check
       `);
       ctx.session = {};
       return;
@@ -257,7 +267,7 @@ export class TelegramService implements OnModuleInit {
   }
 
   private async finishRegistration(telegramId: string, phone: string, name: string) {
-    const req = await this.phoneReq.getById(telegramId);
+    const req = await this.phoneReq.getByTelegramId(telegramId);
     if (!req) throw new NotFoundException('Заявка не найдена');
 
     await this.phoneReq.updateName(req._id, name);
