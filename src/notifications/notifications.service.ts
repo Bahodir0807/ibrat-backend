@@ -16,7 +16,7 @@ export class NotificationsService {
     private readonly telegramService: TelegramService,
   ) {}
 
-  async sendManualNotification(dto: CreateNotificationDto & { type: NotificationType }) {
+  async sendManualNotification(dto: CreateNotificationDto) {
     const user = await this.usersService.findById(dto.userId);
     if (!user || !user.telegramId) throw new NotFoundException('Пользователь не найден или Telegram не подключён');
 
