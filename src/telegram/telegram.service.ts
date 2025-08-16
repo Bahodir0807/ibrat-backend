@@ -136,6 +136,9 @@ export class TelegramService implements OnModuleInit {
 
   private async handleContact(ctx: BotContext & { message: Message.ContactMessage }) {
     const { phone_number: phone, user_id: tgId, first_name: firstName } = ctx.message.contact;
+    if (!ctx.session) {
+      ctx.session = {};
+    }
     ctx.session = { step: 'ask_name', phone, tgId, firstName };
     await ctx.reply(
       `📛 Ваш номер: ${phone}. Хочешь использовать имя Telegram (${firstName}) или ввести своё?`,
@@ -153,6 +156,11 @@ export class TelegramService implements OnModuleInit {
     await ctx.answerCbQuery();
   
     console.log('⚡ Callback data:', data); 
+    
+    // Инициализируем сессию если её нет
+    if (!ctx.session) {
+      ctx.session = {};
+    }
   
     if (data === 'write_name') {
       ctx.session.step = 'enter_name';
@@ -218,6 +226,11 @@ export class TelegramService implements OnModuleInit {
   }
 
   private async handleMessage(ctx: BotContext) {
+    // Инициализируем сессию если её нет
+    if (!ctx.session) {
+      ctx.session = {};
+    }
+    
     const session = ctx.session;
     const message = ctx.message;
 
@@ -432,6 +445,11 @@ export class TelegramService implements OnModuleInit {
   }
 
   private async handleLogin(ctx: BotContext) {
+    // Инициализируем сессию если её нет
+    if (!ctx.session) {
+      ctx.session = {};
+    }
+
     // Проверяем, уже авторизован ли пользователь
     if (ctx.session.isAuthenticated) {
       try {
