@@ -20,6 +20,7 @@ interface SessionData {
   phone?: string;
   tgId?: number;
   firstName?: string;
+  notificationType?: NotificationType;
 }
 
 interface BotContext extends TelegrafContext {
@@ -183,6 +184,10 @@ export class TelegramService implements OnModuleInit {
       return;
     }
   
+    if (data.startsWith('notify:')) {
+      return this.handleNotificationCallback(ctx);
+    }
+
     if (data.startsWith('approve:') || data.startsWith('reject:')) {
       const [action, reqId] = data.split(':');
       const req = await this.phoneReq.getByTelegramId(reqId); 
@@ -344,5 +349,31 @@ export class TelegramService implements OnModuleInit {
         [Markup.button.callback('📢 Общие', 'notify:GENERAL')],
       ])
     );
+  }
+
+  private async handleNotificationCallback(
+    ctx: BotContext & { callbackQuery: { data: string }; answerCbQuery: (text?: string) => void },
+  ) {
+    const data = ctx.callbackQuery.data;
+    await ctx.answerCbQuery();
+
+    const user = await this.ensureUser(ctx);
+    if (![Role.Admin, Role.Teacher].includes(user.role)) return ctx.reply('❌ У вас нет прав.');
+
+    if (data.startsWith('notify:')) {
+      const type = data.split(':')[1] as NotificationType;
+
+      if (user.role === Role.Admin) {
+        ctx.session.step = 'send_admin_notify';
+        ctx.session.notificationType = type;
+        return ctx.reply('Введите текст уведомления и выберите роль после этого:');
+      }
+
+      if (user.role === Role.Teacher) {
+        ctx.session.step = 'send_teacher_notify';
+        ctx.session.notificationType = type;
+        return ctx.reply('Введите текст уведомления для ваших учеников:');
+      }
+    }
   }
 }
