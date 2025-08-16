@@ -40,4 +40,8 @@ export class CreateUserDto {
   @IsString()
   roleKey?: string;
 
+  @IsOptional()
+  @IsString()
+  telegramId?: string;
+
 }

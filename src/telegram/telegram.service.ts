@@ -21,6 +21,8 @@ interface SessionData {
   tgId?: number;
   firstName?: string;
   notificationType?: NotificationType;
+  username?: string;
+  isAuthenticated?: boolean;
 }
 
 interface BotContext extends TelegrafContext {
@@ -77,6 +79,7 @@ export class TelegramService implements OnModuleInit {
     this.bot.command('attendance', ctx => this.handleSafe(ctx, () => this.handleAttendance(ctx)));
     this.bot.command('schedule', ctx => this.handleSafe(ctx, () => this.handleSchedule(ctx)));
     this.bot.command('notify', ctx => this.handleSafe(ctx, () => this.setupNotifications(ctx)));
+    this.bot.command('login', ctx => this.handleSafe(ctx, () => this.handleLogin(ctx)));
     this.bot.on('contact', ctx => this.handleSafe(ctx, () => this.handleContact(ctx)));
     this.bot.on('callback_query', ctx => this.handleSafe(ctx, () => this.handleCallback(ctx as BotContext & { callbackQuery: { data: string; }; answerCbQuery: (text?: string | undefined) => void; })))
     this.bot.on('message', ctx => this.handleSafe(ctx, () => this.handleMessage(ctx)));
@@ -224,6 +227,57 @@ export class TelegramService implements OnModuleInit {
 
     const text = message.text.trim();
     
+    if (session?.step === 'login_username') {
+      if (!text) {
+        return ctx.reply('❌ Username не может быть пустым. Попробуйте снова.');
+      }
+      
+      ctx.session.username = text;
+      ctx.session.step = 'login_password';
+      return ctx.reply('🔑 Введите ваш пароль:');
+    }
+
+    if (session?.step === 'login_password') {
+      if (!text) {
+        return ctx.reply('❌ Пароль не может быть пустым. Попробуйте снова.');
+      }
+
+      const { username } = session;
+      if (!username) {
+        return ctx.reply('❌ Ошибка сессии. Попробуйте начать заново /login');
+      }
+
+      try {
+        // Проверяем пароль через UsersService
+        const user = await this.users.findByUsername(username);
+        if (!user) {
+          ctx.session = {};
+          return ctx.reply('❌ Пользователь не найден.');
+        }
+
+        const decryptedPassword = this.users.decryptPassword(user.password);
+        if (decryptedPassword !== text) {
+          ctx.session = {};
+          return ctx.reply('❌ Неверный пароль.');
+        }
+
+        // Связываем Telegram ID с пользователем
+        const tgId = ctx.from?.id;
+        if (tgId && 'id' in user) {
+          await this.users.update((user as any).id || (user as any)._id, { telegramId: String(tgId) });
+        }
+
+        ctx.session.isAuthenticated = true;
+        ctx.session.step = undefined;
+        
+        await ctx.reply(`✅ Успешная авторизация!\nДобро пожаловать, ${user.username} (${user.role})`);
+        return;
+      } catch (error) {
+        ctx.session = {};
+        return ctx.reply('❌ Ошибка при авторизации. Попробуйте снова.');
+      }
+    }
+
     if (session?.step === 'enter_name') {
       if (!text) {
         return ctx.reply('❌ Имя не может быть пустым. Попробуйте снова.');
@@ -375,5 +429,21 @@ export class TelegramService implements OnModuleInit {
         return ctx.reply('Введите текст уведомления для ваших учеников:');
       }
     }
+  }
+
+  private async handleLogin(ctx: BotContext) {
+    // Проверяем, уже авторизован ли пользователь
+    if (ctx.session.isAuthenticated) {
+      try {
+        const user = await this.ensureUser(ctx);
+        return ctx.reply(`✅ Вы уже авторизованы как ${user.username} (${user.role})`);
+      } catch (e) {
+        ctx.session.isAuthenticated = false;
+      }
+    }
+
+    // Начинаем процесс авторизации
+    ctx.session.step = 'login_username';
+    await ctx.reply('🔐 Авторизация\n\nВведите ваш username:');
   }
 }
