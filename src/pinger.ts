@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-const URL = 'https://ibrat.onrender.com/ping';
+const URL = 'https://b.sultonoway.uz/ping';
 
 setInterval(async () => {
   try {
