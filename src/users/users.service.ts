@@ -10,6 +10,9 @@ import { encrypt, decrypt } from '../common/encryption';
 
 @Injectable()
 export class UsersService {
+  async findByRole(role: Role): Promise<UserDocument[]> {
+    return this.userModel.find({ role }).exec();
+  }
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
   async findAll(shouldDecrypt: boolean = false): Promise<User[]> {

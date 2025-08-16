@@ -10,6 +10,7 @@ import { AttendanceService } from '../attendance/attendance.service';
 import { ScheduleService } from '../schedule/schedule.service';
 import { Role } from '../roles/roles.enum';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/notification-type.enum';
 import { Document } from 'mongoose';
 import { CallbackQuery, Message, Update } from 'telegraf/typings/core/types/typegram';
 import { Context as TelegrafContext } from 'telegraf';
@@ -74,6 +75,7 @@ export class TelegramService implements OnModuleInit {
     this.bot.command('grades', ctx => this.handleSafe(ctx, () => this.handleGrades(ctx)));
     this.bot.command('attendance', ctx => this.handleSafe(ctx, () => this.handleAttendance(ctx)));
     this.bot.command('schedule', ctx => this.handleSafe(ctx, () => this.handleSchedule(ctx)));
+    this.bot.command('notify', ctx => this.handleSafe(ctx, () => this.setupNotifications(ctx)));
     this.bot.on('contact', ctx => this.handleSafe(ctx, () => this.handleContact(ctx)));
     this.bot.on('callback_query', ctx => this.handleSafe(ctx, () => this.handleCallback(ctx as BotContext & { callbackQuery: { data: string; }; answerCbQuery: (text?: string | undefined) => void; })))
     this.bot.on('message', ctx => this.handleSafe(ctx, () => this.handleMessage(ctx)));
@@ -323,5 +325,24 @@ export class TelegramService implements OnModuleInit {
     });
 
     return ctx.reply(formatted.join('\n\n'));
+  }
+
+  private async setupNotifications(ctx: BotContext) {
+    const user = await this.ensureUser(ctx);
+
+    if (![Role.Admin, Role.Teacher].includes(user.role)) {
+      return ctx.reply('❌ У вас нет прав на отправку уведомлений.');
+    }
+
+    await ctx.reply(
+      'Выберите тип уведомления:',
+      Markup.inlineKeyboard([
+        [Markup.button.callback('💰 Оплата', 'notify:PAYMENT')],
+        [Markup.button.callback('📝 Домашка', 'notify:HOMEWORK')],
+        [Markup.button.callback('📊 Оценки', 'notify:GRADES')],
+        [Markup.button.callback('📅 Посещаемость', 'notify:ATTENDANCE')],
+        [Markup.button.callback('📢 Общие', 'notify:GENERAL')],
+      ])
+    );
   }
 }
