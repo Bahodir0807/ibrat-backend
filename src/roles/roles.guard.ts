@@ -29,16 +29,13 @@ export class RolesGuard implements CanActivate {
 
     const userRole = user.role.toLowerCase();
 
-    if (userRole === Role.Extra) {
-      console.log('🛡️ EXTRA: полный доступ');
+    if (userRole === Role.Extra || userRole === Role.Owner) {
+      console.log(`🛡️ ${userRole.toUpperCase()}: полный доступ`);
       return true;
     }
 
     const hasAccess = requiredRoles.some(role => {
       const requiredRole = role.toLowerCase();
-
-      if (requiredRole === Role.Owner && userRole === Role.Owner) return true;
-
       return requiredRole === userRole;
     });
 

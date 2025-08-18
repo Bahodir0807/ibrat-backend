@@ -8,9 +8,9 @@ export class RegisterDto {
   @IsString()
   password: string;
 
-  @IsEnum(Role)
+  @IsEnum([Role.Student, Role.Guest], { message: 'При регистрации доступны только роли "student" или "guest"' })
   @IsOptional()
-  role?: Role;
+  role?: Role.Student | Role.Guest;
 
   @IsString()
   @IsOptional()

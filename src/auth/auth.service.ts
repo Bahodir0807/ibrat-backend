@@ -17,11 +17,14 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto & { roleKey?: string }) {
-    let role: Role = Role.Student;
-
-    if (dto.roleKey === SUPER_ROLE_KEY) {
-      if (!dto.role) throw new BadRequestException('Роль обязательна при использовании ключа');
-      role = dto.role;
+    let role: Role = Role.Guest;
+    
+    if (dto.role === Role.Student) {
+      role = Role.Student;
+    }
+    
+    if (dto.role && dto.role !== Role.Student && dto.role !== Role.Guest) {
+      throw new BadRequestException('При регистрации доступны только роли "student" или "guest"');
     }
 
     return this.usersService.create({
