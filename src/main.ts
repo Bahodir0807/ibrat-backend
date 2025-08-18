@@ -54,6 +54,43 @@ async function bootstrap() {
 
   app.use(bot.webhookCallback(webhookPath));
 
+app.use((req, res) => {
+  const accept = (req.headers.accept || '').toString();
+
+  if (accept.includes('application/json') || req.xhr || req.headers['content-type']?.includes('application/json')) {
+    return res.status(404).json({
+      statusCode: 404,
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+      message: 'Not Found'
+    });
+  }
+
+  res.status(404).send(`
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>404 — Тут пусто</title>
+<style>
+  body{display:flex;justify-content:center;align-items:center;height:100vh;margin:0;font-family:sans-serif;background:#0f172a;color:#fff;flex-direction:column;text-align:center}
+  h1{font-size:80px;margin:0;letter-spacing:-5px;color:#fb7185}
+  p{margin:10px 0 0;color:#94a3b8;font-size:18px}
+  a{margin-top:20px;text-decoration:none;color:#fff;background:#3b82f6;padding:10px 20px;border-radius:8px;transition:0.3s}
+  a:hover{background:#2563eb}
+</style>
+</head>
+<body>
+  <h1>404</h1>
+  <p>Страница не найдена.</p>
+  <a href="/">Вернуться на главную</a>
+</body>
+</html>
+  `);
+});
+
+
   try {
     await bot.telegram.setWebhook(`${domain}${webhookPath}`);
     console.log(`✅ Webhook установлен: ${domain}${webhookPath}`);
