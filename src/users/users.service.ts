@@ -17,6 +17,19 @@ export class UsersService {
     return obj;
   }
 
+  async findByIdDoc(id: string): Promise<UserDocument | null> {
+    return this.userModel.findById(id).exec();
+  }
+
+  async findByTelegramIdDoc(telegramId: number): Promise<UserDocument | null> {
+    return this.userModel.findOne({ telegramId }).exec();
+  }
+
+  verifyPassword(encrypted: string, plain: string): boolean {
+    return decrypt(encrypted) === plain;
+  }
+
+
   // Найти всех пользователей
   async findAll(): Promise<User[]> {
     const users = await this.userModel.find().exec();

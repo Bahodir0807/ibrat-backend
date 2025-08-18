@@ -3,7 +3,7 @@ import { Telegraf, Context, Markup, session } from 'telegraf';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { PhoneRequestService } from '../phone-request/phone-request.service';
-import { UserDocument } from '../users/schemas/user.schema';
+import { User } from '../users/schemas/user.schema';
 import { HomeworkService } from '../homework/homework.service';
 import { GradesService } from '../grades/grades.service';
 import { AttendanceService } from '../attendance/attendance.service';
@@ -11,9 +11,6 @@ import { ScheduleService } from '../schedule/schedule.service';
 import { Role } from '../roles/roles.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/notification-type.enum';
-import { Document } from 'mongoose';
-import { CallbackQuery, Message, Update } from 'telegraf/typings/core/types/typegram';
-import { Context as TelegrafContext } from 'telegraf';
 
 interface SessionData {
   step?: string;
@@ -23,9 +20,12 @@ interface SessionData {
   notificationType?: NotificationType;
   username?: string;
   isAuthenticated?: boolean;
+  // temporary fields for notifications
+  pendingMessage?: string;
+  pendingRole?: Role;
 }
 
-interface BotContext extends TelegrafContext {
+interface BotContext extends Context {
   session: SessionData;
 }
 
@@ -52,9 +52,14 @@ export class TelegramService implements OnModuleInit {
     this.bot = new Telegraf<BotContext>(token);
     this.bot.use(session());
 
+    // subscribe to external notifications emitter if present
     this.notify.onNotification(({ message, telegramIds }) => {
       telegramIds.forEach(id => {
-        this.bot.telegram.sendMessage(id, `📢 ${message}`);
+        try {
+          this.bot.telegram.sendMessage(id, `📢 ${message}`);
+        } catch (err) {
+          console.error('Failed to send notify to', id, err);
+        }
       });
     });
   }
@@ -72,7 +77,7 @@ export class TelegramService implements OnModuleInit {
   }
 
   private setupBot() {
-    this.bot.start(ctx => this.sendStartMessage(ctx));
+    this.bot.start(ctx => this.handleSafe(ctx, () => this.sendStartMessage(ctx)));
     this.bot.command('check', ctx => this.handleSafe(ctx, () => this.handleCheck(ctx)));
     this.bot.command('homework', ctx => this.handleSafe(ctx, () => this.handleHomework(ctx)));
     this.bot.command('grades', ctx => this.handleSafe(ctx, () => this.handleGrades(ctx)));
@@ -81,19 +86,40 @@ export class TelegramService implements OnModuleInit {
     this.bot.command('notify', ctx => this.handleSafe(ctx, () => this.setupNotifications(ctx)));
     this.bot.command('login', ctx => this.handleSafe(ctx, () => this.handleLogin(ctx)));
     this.bot.on('contact', ctx => this.handleSafe(ctx, () => this.handleContact(ctx)));
-    this.bot.on('callback_query', ctx => this.handleSafe(ctx, () => this.handleCallback(ctx as BotContext & { callbackQuery: { data: string; }; answerCbQuery: (text?: string | undefined) => void; })))
+    this.bot.on('callback_query', ctx => this.handleSafe(ctx, () => this.handleCallback(ctx as any)));
     this.bot.on('message', ctx => this.handleSafe(ctx, () => this.handleMessage(ctx)));
   }
+
+  private async handleLogin(ctx: BotContext) {
+    if (!ctx.session) ctx.session = {};
+    if (ctx.session.isAuthenticated) {
+      try {
+        const user = await this.ensureUser(ctx);
+        return ctx.reply(`✅ Вы уже авторизованы как ${user.username} (${user.role})`);
+    } catch {
+      ctx.session.isAuthenticated = false;
+    }
+  }
+  ctx.session.step = 'login_username';
+  await ctx.reply('🔐 Авторизация\n\nВведите ваш username:');
+}
 
   private async handleSafe(ctx: BotContext, handler: () => Promise<any>) {
     try {
       await handler();
     } catch (e) {
-      console.error(e);
-      ctx.reply('❌ Произошла ошибка. Попробуйте позже.');
+      console.error('Telegram handler error:', e);
+      try {
+        await ctx.reply('❌ Произошла ошибка. Попробуйте позже.');
+      } catch {}
     }
   }
 
+  // ---------- Helpers ----------
+
+  /**
+   * Получить пользователя (plain User) по id. Используется для отправки сообщений.
+   */
   async sendMessage(userId: string, message: string) {
     const user = await this.users.findById(userId);
     if (!user || !user.telegramId) {
@@ -102,13 +128,20 @@ export class TelegramService implements OnModuleInit {
     await this.bot.telegram.sendMessage(user.telegramId, message);
   }
 
-  private async ensureUser(ctx: BotContext): Promise<UserDocument & Document> {
+  /**
+   * ensureUser возвращает plain User (как возвращает UsersService).
+   * Если твой UsersService возвращает Mongoose document, этот метод всё равно будет работать,
+   * т.к. мы работаем с полями user.username/user.role/user._id и т.д.
+   */
+  private async ensureUser(ctx: BotContext): Promise<User> {
     const tgId = ctx.from?.id;
     if (!tgId) throw new Error('no-id');
-    const user = await this.users.findByTelegramId(tgId);
+    const user = await this.users.findByTelegramId(tgId as number);
     if (!user) throw new Error('no-user');
     return user;
   }
+
+  // ---------- Core flows ----------
 
   private async sendStartMessage(ctx: BotContext) {
     await ctx.reply(
@@ -120,91 +153,75 @@ export class TelegramService implements OnModuleInit {
   private async handleCheck(ctx: BotContext) {
     const tgId = ctx.from?.id;
     if (!tgId) return ctx.reply('Не удалось получить ID Telegram');
-  
-    const user = await this.users.findByTelegramId(tgId);
+
+    const user = await this.users.findByTelegramId(tgId as number);
     if (user) {
       return ctx.reply('🎉 Вы зарегистрированы! Команды: /homework /grades /attendance /schedule');
     }
-  
+
     const req = await this.phoneReq.getByTelegramId(String(tgId));
     if (!req) return ctx.reply('Вы не отправляли заявку.');
     if (req.status === 'pending') return ctx.reply('Заявка в обработке. Ждите.');
     if (req.status === 'rejected') return ctx.reply('К сожалению, вас отклонили.');
-  
     return ctx.reply('Произошла ошибка. Свяжитесь с админом.');
   }
 
-  private async handleContact(ctx: BotContext & { message: Message.ContactMessage }) {
-    const { phone_number: phone, user_id: tgId, first_name: firstName } = ctx.message.contact;
-    if (!ctx.session) {
-      ctx.session = {};
-    }
+  private async handleContact(ctx: BotContext & { message: any }) {
+    const contact = ctx.message.contact;
+    if (!contact) return ctx.reply('Не удалось получить контакт.');
+    const { phone_number: phone, user_id: tgId, first_name: firstName } = contact;
+
+    if (!ctx.session) ctx.session = {};
     ctx.session = { step: 'ask_name', phone, tgId, firstName };
+
     await ctx.reply(
       `📛 Ваш номер: ${phone}. Хочешь использовать имя Telegram (${firstName}) или ввести своё?`,
       Markup.inlineKeyboard([
         Markup.button.callback('✅ Telegram', 'use_telegram_name'),
         Markup.button.callback('✍️ Ввести своё', 'write_name'),
-      ]),
+      ])
     );
   }
 
-  private async handleCallback(
-    ctx: BotContext & { callbackQuery: { data: string }; answerCbQuery: (text?: string) => void },
-  ) {
-    const data = ctx.callbackQuery.data;
-    await ctx.answerCbQuery();
-  
-    console.log('⚡ Callback data:', data); 
-    
-    // Инициализируем сессию если её нет
-    if (!ctx.session) {
-      ctx.session = {};
-    }
-  
+  private async handleCallback(ctx: BotContext & any) {
+    const data = ctx.callbackQuery?.data;
+    if (!data) return;
+    await ctx.answerCbQuery().catch(() => {});
+
+    if (!ctx.session) ctx.session = {};
+
     if (data === 'write_name') {
       ctx.session.step = 'enter_name';
       return ctx.reply('✍️ Введите своё имя:');
     }
-  
+
     if (data === 'use_telegram_name') {
       const { tgId, phone, firstName } = ctx.session;
       if (!tgId || !phone || !firstName) {
         return ctx.reply('❌ Ошибка сессии. Попробуйте начать заново /start');
       }
-  
+
       const req = await this.phoneReq.create({ phone, name: firstName, telegramId: String(tgId) });
-  
+
       await ctx.telegram.sendMessage(
         this.adminChatId,
-        `🔔 Новая заявка!
-        📱 Телефон: ${phone}
-        👤 Имя: ${firstName}
-        🆔 ${req._id}`,
+        `🔔 Новая заявка!\n📱 Телефон: ${phone}\n👤 Имя: ${firstName}\n🆔 ${req._id}`,
         Markup.inlineKeyboard([
           Markup.button.callback('✅ Принять', `approve:${req._id}`),
           Markup.button.callback('❌ Отклонить', `reject:${req._id}`),
         ])
       );
-  
-      await ctx.reply(`✅ Заявка отправлена. Использовано имя: ${firstName}
-  
-  📝 Команда для проверки статуса заявки: /check
-  `);
+
+      await ctx.reply(`✅ Заявка отправлена. Использовано имя: ${firstName}\n📝 /check`);
       ctx.session = {};
       return;
-    }
-  
-    if (data.startsWith('notify:')) {
-      return this.handleNotificationCallback(ctx);
     }
 
     if (data.startsWith('approve:') || data.startsWith('reject:')) {
       const [action, reqId] = data.split(':');
-      const req = await this.phoneReq.getByTelegramId(reqId); 
-  
+      const req = await this.phoneReq.getByTelegramId(reqId);
       if (!req) return ctx.answerCbQuery('❌ Заявка не найдена');
-  
+
       if (action === 'approve') {
         await this.users.createWithPhone({
           name: req.name,
@@ -214,106 +231,101 @@ export class TelegramService implements OnModuleInit {
         });
         await this.phoneReq.handle({ requestId: req._id, status: 'approved' });
         await ctx.editMessageText(`✅ Заявка ${reqId} принята`);
-        await this.bot.telegram.sendMessage(Number(req.telegramId), '✅ Ваша заявка одобрена');
+        await this.bot.telegram.sendMessage(Number(req.telegramId), '🎉 Ваша заявка принята!');
       } else {
         await this.phoneReq.handle({ requestId: req._id, status: 'rejected' });
         await ctx.editMessageText(`❌ Заявка ${reqId} отклонена`);
         await this.bot.telegram.sendMessage(Number(req.telegramId), '❌ Ваша заявка отклонена');
       }
-  
-      return ctx.answerCbQuery();
+
+      return ctx.answerCbQuery().catch(() => {});
+    }
+
+    if (data.startsWith('notify:')) {
+      // delegate to notification handler
+      return this.handleNotificationCallback(ctx as any);
     }
   }
 
   private async handleMessage(ctx: BotContext) {
-    // Инициализируем сессию если её нет
-    if (!ctx.session) {
-      ctx.session = {};
-    }
-    
+    if (!ctx.session) ctx.session = {};
     const session = ctx.session;
     const message = ctx.message;
+    if (!message) return;
+    if (!('text' in message)) return;
 
-    if (!message || !('text' in message)) {
-      return;
-    }
+    const text = (message as any).text?.trim();
+    if (!text) return;
 
-    const text = message.text.trim();
-    
+    // LOGIN flow
     if (session?.step === 'login_username') {
-      if (!text) {
-        return ctx.reply('❌ Username не может быть пустым. Попробуйте снова.');
-      }
-      
+      if (!text) return ctx.reply('❌ Username не может быть пустым. Попробуйте снова.');
       ctx.session.username = text;
       ctx.session.step = 'login_password';
       return ctx.reply('🔑 Введите ваш пароль:');
     }
 
     if (session?.step === 'login_password') {
-      if (!text) {
-        return ctx.reply('❌ Пароль не может быть пустым. Попробуйте снова.');
-      }
-
-      const { username } = session;
-      if (!username) {
-        return ctx.reply('❌ Ошибка сессии. Попробуйте начать заново /login');
-      }
+      if (!text) return ctx.reply('❌ Пароль не может быть пустым. Попробуйте снова.');
+      const username = session.username;
+      if (!username) return ctx.reply('❌ Ошибка сессии. Попробуйте начать заново /login');
 
       try {
-        // Проверяем пароль через UsersService
         const user = await this.users.findByUsername(username);
         if (!user) {
           ctx.session = {};
           return ctx.reply('❌ Пользователь не найден.');
         }
 
-        const decryptedPassword = this.users.decryptPassword(user.password);
-        if (decryptedPassword !== text) {
+        // verifyPassword: prefer method from UsersService, otherwise fallback
+        let ok = false;
+        // @ts-ignore - check at runtime
+        if (typeof (this.users as any).verifyPassword === 'function') {
+          // UsersService.verifyPassword(encrypted, plain)
+          ok = (this.users as any).verifyPassword(user.password, text);
+        } else {
+          // if UsersService already returns decrypted password
+          ok = user.password === text;
+        }
+
+        if (!ok) {
           ctx.session = {};
           return ctx.reply('❌ Неверный пароль.');
         }
 
-        // Связываем Telegram ID с пользователем
+        // link telegram id to user
         const tgId = ctx.from?.id;
-        if (tgId && 'id' in user) {
-          await this.users.update((user as any).id || (user as any)._id, { telegramId: String(tgId) });
+        if (tgId) {
+          const id = (user as any)._id || (user as any).id || (user as any).username;
+          // Try to update by id if we have it
+          if (id) {
+            await this.users.update(String(id), { telegramId: String(tgId) } as any).catch(err => {
+              console.warn('Failed to set telegramId for user', id, err);
+            });
+          }
         }
 
         ctx.session.isAuthenticated = true;
         ctx.session.step = undefined;
-        
-        await ctx.reply(`✅ Успешная авторизация!\nДобро пожаловать, ${user.username} (${user.role})`);
-        return;
-      } catch (error) {
+        return ctx.reply(`✅ Успешная авторизация!\nДобро пожаловать, ${user.username} (${user.role})`);
+      } catch (err) {
+        console.error('Login error:', err);
         ctx.session = {};
         return ctx.reply('❌ Ошибка при авторизации. Попробуйте снова.');
       }
     }
 
+    // enter_name flow (manual name entry after contact)
     if (session?.step === 'enter_name') {
-      if (!text) {
-        return ctx.reply('❌ Имя не может быть пустым. Попробуйте снова.');
-      }
-      
+      if (!text) return ctx.reply('❌ Имя не может быть пустым. Попробуйте снова.');
       const { tgId, phone } = session;
-      if (!tgId || !phone) {
-        return ctx.reply('❌ Ошибка сессии. Попробуйте начать заново /start');
-      }
+      if (!tgId || !phone) return ctx.reply('❌ Ошибка сессии. Попробуйте начать заново /start');
 
       const req = await this.phoneReq.create({ phone, name: text, telegramId: String(tgId) });
-      
-      if (!ctx.from?.id) {
-        throw new Error('❌ Не удалось получить Telegram ID пользователя');
-      }
-      
 
-      await ctx.telegram.sendMessage(
+      await this.bot.telegram.sendMessage(
         this.adminChatId,
-        `🔔 Новая заявка!
-      📱 Телефон: ${phone}
-      👤 Имя: ${text}
-      🆔 ${req._id}`,
+        `🔔 Новая заявка!\n📱 Телефон: ${phone}\n👤 Имя: ${text}\n🆔 ${req._id}`,
         {
           reply_markup: {
             inline_keyboard: [
@@ -325,20 +337,55 @@ export class TelegramService implements OnModuleInit {
           }
         }
       );
-      
-      
-      
 
-      await ctx.reply(`✅ Заявка отправлена. Использовано имя: ${text}
-      
-      📝 Заявка отправлена, проверьте статус с помощью: /check
-      `);
+      await ctx.reply(`✅ Заявка отправлена. Использовано имя: ${text}\n📝 /check`);
       ctx.session = {};
       return;
     }
 
-    await ctx.reply('Извините, но я не понимаю эту команду. Пожалуйста, используйте /homework, /grades, /attendance или /schedule.');
+    // Notification sending flows (admin/teacher)
+    if (session?.step === 'send_admin_notify' || session?.step === 'send_teacher_notify') {
+      // admin: choose role then send; teacher: send to own students
+      const pendingType = session.notificationType;
+      if (!pendingType) {
+        ctx.session = {};
+        return ctx.reply('❌ Ошибка сессии. Попробуйте /notify заново.');
+      }
+
+      // store message for next step if admin needs to choose role
+      if (session.step === 'send_admin_notify' && !session.pendingRole) {
+        // admin sent message; ask to choose role
+        ctx.session.pendingMessage = text;
+        // ask role selection
+        await ctx.reply('Выберите роль, которой отправить уведомление:', Markup.inlineKeyboard([
+          [Markup.button.callback('Ученикам', 'notifyRole:student')],
+          [Markup.button.callback('Учителям', 'notifyRole:teacher')],
+          [Markup.button.callback('Админам', 'notifyRole:admin')],
+          [Markup.button.callback('Panda', 'notifyRole:panda')],
+        ]));
+        ctx.session.step = 'choose_role_for_notify';
+        return;
+      }
+
+      if (session.step === 'send_teacher_notify') {
+        // teacher: send to their students (we'll assume that teachers have groups or relationships; fallback: broadcast to students)
+        const user = await this.ensureUser(ctx);
+        // send to students (simple approach: all students)
+        const students = await this.users.findByRole(Role.Student);
+        const telegramIds = students.filter(s => (s as any).telegramId).map(s => (s as any).telegramId as number);
+        telegramIds.forEach(id => {
+          this.bot.telegram.sendMessage(id, `📝 [Домашка]\n${text}`).catch(() => {});
+        });
+        ctx.session = {};
+        return ctx.reply(`✅ Уведомление отправлено ${telegramIds.length} ученикам.`);
+      }
+    }
+
+    // default
+    return ctx.reply('Извините, но я не понимаю эту команду. Пожалуйста, используйте /homework, /grades, /attendance или /schedule.');
   }
+
+  // ---------- More handlers (homework / grades / attendance / schedule) ----------
 
   private async finishRegistration(telegramId: string, phone: string, name: string) {
     const req = await this.phoneReq.getByTelegramId(telegramId);
@@ -351,19 +398,18 @@ export class TelegramService implements OnModuleInit {
 
   private async handleHomework(ctx: BotContext) {
     const user = await this.ensureUser(ctx);
-    const list = await this.hw.getByUser(user._id.toString());
-    if (!list.length) return ctx.reply('📭 Домашки нет.');
+    const list = await this.hw.getByUser((user as any)._id.toString());
+    if (!list || !list.length) return ctx.reply('📭 Домашки нет.');
 
     return ctx.reply(
-      list.map(h => `📅 ${new Date(h.date).toLocaleDateString('ru-RU')}
-📝 ${h.tasks.join(', ')}`).join('\n\n'),
+      list.map(h => `📅 ${new Date(h.date).toLocaleDateString('ru-RU')}\n📝 ${Array.isArray(h.tasks) ? h.tasks.join(', ') : h.tasks}`).join('\n\n'),
     );
   }
 
   private async handleGrades(ctx: BotContext) {
     const user = await this.ensureUser(ctx);
-    const list = await this.grades.getByUser(user._id.toString());
-    if (!list.length) return ctx.reply('📭 Оценок нет.');
+    const list = await this.grades.getByUser((user as any)._id.toString());
+    if (!list || !list.length) return ctx.reply('📭 Оценок нет.');
 
     return ctx.reply(
       list.map(g => `📅 ${new Date(g.date).toLocaleDateString('ru-RU')} — ${g.subject}: ${g.score}`).join('\n'),
@@ -372,8 +418,8 @@ export class TelegramService implements OnModuleInit {
 
   private async handleAttendance(ctx: BotContext) {
     const user = await this.ensureUser(ctx);
-    const list = await this.attendance.getByUser(user._id);
-    if (!list.length) return ctx.reply('📭 Посещаемость пустая.');
+    const list = await this.attendance.getByUser((user as any)._id);
+    if (!list || !list.length) return ctx.reply('📭 Посещаемость пустая.');
 
     return ctx.reply(
       list.map(a => `📅 ${new Date(a.date).toLocaleDateString('ru-RU')} — ${a.status === 'present' ? '✅' : '❌'}`).join('\n'),
@@ -382,8 +428,8 @@ export class TelegramService implements OnModuleInit {
 
   private async handleSchedule(ctx: BotContext) {
     const user = await this.ensureUser(ctx);
-    const list = await this.schedule.getScheduleForUser(user._id.toString(), user.role);
-    if (!list.length) return ctx.reply('📭 У вас пока нет расписания.');
+    const list = await this.schedule.getScheduleForUser((user as any)._id.toString(), (user as any).role);
+    if (!list || !list.length) return ctx.reply('📭 У вас пока нет расписания.');
 
     const formatted = list.map(s => {
       const day = new Date(s.date).toLocaleDateString('ru-RU');
@@ -402,7 +448,7 @@ export class TelegramService implements OnModuleInit {
   private async setupNotifications(ctx: BotContext) {
     const user = await this.ensureUser(ctx);
 
-    if (![Role.Admin, Role.Teacher].includes(user.role)) {
+    if (!user || ![Role.Admin, Role.Teacher].includes((user as any).role)) {
       return ctx.reply('❌ У вас нет прав на отправку уведомлений.');
     }
 
@@ -418,50 +464,55 @@ export class TelegramService implements OnModuleInit {
     );
   }
 
-  private async handleNotificationCallback(
-    ctx: BotContext & { callbackQuery: { data: string }; answerCbQuery: (text?: string) => void },
-  ) {
-    const data = ctx.callbackQuery.data;
-    await ctx.answerCbQuery();
+  private async handleNotificationCallback(ctx: BotContext & any) {
+    const data = ctx.callbackQuery?.data;
+    if (!data) return;
+    await ctx.answerCbQuery().catch(() => {});
 
     const user = await this.ensureUser(ctx);
-    if (![Role.Admin, Role.Teacher].includes(user.role)) return ctx.reply('❌ У вас нет прав.');
+    if (!user || ![Role.Admin, Role.Teacher].includes((user as any).role)) {
+      return ctx.reply('❌ У вас нет прав.');
+    }
 
     if (data.startsWith('notify:')) {
       const type = data.split(':')[1] as NotificationType;
 
-      if (user.role === Role.Admin) {
+      if ((user as any).role === Role.Admin) {
         ctx.session.step = 'send_admin_notify';
         ctx.session.notificationType = type;
-        return ctx.reply('Введите текст уведомления и выберите роль после этого:');
+        return ctx.reply('Введите текст уведомления и затем выберите роль (через кнопку).');
       }
 
-      if (user.role === Role.Teacher) {
+      if ((user as any).role === Role.Teacher) {
         ctx.session.step = 'send_teacher_notify';
         ctx.session.notificationType = type;
         return ctx.reply('Введите текст уведомления для ваших учеников:');
       }
     }
-  }
 
-  private async handleLogin(ctx: BotContext) {
-    // Инициализируем сессию если её нет
-    if (!ctx.session) {
+    if (data.startsWith('notifyRole:')) {
+      // admin selected role for previously stored pending message
+      const roleStr = data.split(':')[1];
+      const roleMap: Record<string, Role> = {
+        student: Role.Student,
+        teacher: Role.Teacher,
+        admin: Role.Admin,
+        panda: Role.Extra,
+      };
+      const role = roleMap[roleStr] || Role.Student;
+
+      const msg = ctx.session.pendingMessage;
+      if (!msg) return ctx.reply('❌ Нет сообщения в сессии. Начните /notify заново.');
+
+      // send to users with role
+      const targets = await this.users.findByRole(role);
+      const telegramIds = targets.filter(t => (t as any).telegramId).map(t => (t as any).telegramId as number);
+      telegramIds.forEach(id => this.bot.telegram.sendMessage(id, `📢 ${msg}`).catch(() => {}));
+
       ctx.session = {};
+      return ctx.reply(`✅ Уведомление отправлено ${telegramIds.length} пользователям роли ${role}.`);
     }
-
-    // Проверяем, уже авторизован ли пользователь
-    if (ctx.session.isAuthenticated) {
-      try {
-        const user = await this.ensureUser(ctx);
-        return ctx.reply(`✅ Вы уже авторизованы как ${user.username} (${user.role})`);
-      } catch (e) {
-        ctx.session.isAuthenticated = false;
-      }
-    }
-
-    // Начинаем процесс авторизации
-    ctx.session.step = 'login_username';
-    await ctx.reply('🔐 Авторизация\n\nВведите ваш username:');
   }
+
+  // ---------- end of class ----------
 }

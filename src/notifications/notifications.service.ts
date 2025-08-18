@@ -1,10 +1,11 @@
 import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { TelegramService } from '../telegram/telegram.service';
-import { UserDocument, UsersService } from '../users/users.service';
+import { UsersService } from '../users/users.service';
 import { CreateNotificationDto } from './dto/create-notify.dto';
 import { EventEmitter } from 'events';
 import { Role } from '../roles/roles.enum';
 import { NotificationType } from './notification-type.enum';
+import { UserDocument } from 'src/users/schemas/user.schema';
 
 @Injectable()
 export class NotificationsService {
