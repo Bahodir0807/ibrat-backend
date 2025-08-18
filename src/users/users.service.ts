@@ -2,7 +2,6 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
-export { UserDocument };
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from '../roles/roles.enum';
@@ -12,7 +11,7 @@ import { encrypt, decrypt } from '../common/encryption';
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-  private toDecryptedObject(user: UserDocument): User {
+  private decryptUser(user: UserDocument): User {
     const obj = user.toObject();
     obj.password = decrypt(obj.password);
     return obj;
@@ -20,41 +19,28 @@ export class UsersService {
 
   async findAll(): Promise<User[]> {
     const users = await this.userModel.find().exec();
-    return users.map(u => this.toDecryptedObject(u));
-  }
-
-  async findByRole(role: Role): Promise<User[]> {
-    const users = await this.userModel.find({ role }).exec();
-    return users.map(u => this.toDecryptedObject(u));
-  }
-
-  async findStudentById(id: string): Promise<User> {
-    const user = await this.userModel.findById(id).exec();
-    if (!user || user.role !== Role.Student) {
-      throw new NotFoundException('Ученик не найден');
-    }
-    return this.toDecryptedObject(user);
+    return users.map(user => this.decryptUser(user));
   }
 
   async findById(id: string): Promise<User> {
     const user = await this.userModel.findById(id).exec();
-    if (!user) throw new NotFoundException('Пользователь не найден');
-    return this.toDecryptedObject(user);
+    if (!user) throw new NotFoundException('User not found');
+    return this.decryptUser(user);
   }
 
   async findByUsername(username: string): Promise<User | null> {
     const user = await this.userModel.findOne({ username }).exec();
-    return user ? this.toDecryptedObject(user) : null;
+    return user ? this.decryptUser(user) : null;
   }
 
   async findByPhone(phone: string): Promise<User | null> {
     const user = await this.userModel.findOne({ phone }).exec();
-    return user ? this.toDecryptedObject(user) : null;
+    return user ? this.decryptUser(user) : null;
   }
 
   async findByTelegramId(telegramId: number): Promise<User | null> {
     const user = await this.userModel.findOne({ telegramId }).exec();
-    return user ? this.toDecryptedObject(user) : null;
+    return user ? this.decryptUser(user) : null;
   }
 
   async create(dto: CreateUserDto): Promise<User> {
@@ -67,8 +53,41 @@ export class UsersService {
       role: dto.role || Role.Guest,
     });
 
-    const saved = await createdUser.save();
-    return this.toDecryptedObject(saved);
+    const savedUser = await createdUser.save();
+    return this.decryptUser(savedUser);
+  }
+
+  async update(id: string, dto: UpdateUserDto): Promise<User> {
+    if (dto.password) {
+      (dto as any).password = encrypt(dto.password);
+    }
+
+    const updatedUser = await this.userModel.findByIdAndUpdate(id, dto, { new: true }).exec();
+    if (!updatedUser) throw new NotFoundException('User not found');
+
+    return this.decryptUser(updatedUser);
+  }
+
+  async updateRole(id: string, role: Role): Promise<User> {
+    if (!Object.values(Role).includes(role)) {
+      throw new BadRequestException('Некорректная роль');
+    }
+
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+      id,
+      { role },
+      { new: true }
+    ).exec();
+
+    if (!updatedUser) throw new NotFoundException('User not found');
+
+    return this.decryptUser(updatedUser);
+  }
+
+  async remove(id: string): Promise<boolean> {
+    const result = await this.userModel.findByIdAndDelete(id).exec();
+    if (!result) throw new NotFoundException('User not found');
+    return true;
   }
 
   async createWithPhone(dto: { name: string; phone: string; telegramId: number; role: Role }): Promise<User> {
@@ -87,39 +106,7 @@ export class UsersService {
       password: encryptedPassword,
     });
 
-    const saved = await createdUser.save();
-    return this.toDecryptedObject(saved);
-  }
-
-  async update(id: string, dto: UpdateUserDto): Promise<User> {
-    if (dto.password) {
-      (dto as any).password = encrypt(dto.password);
-    }
-
-    const updatedUser = await this.userModel.findByIdAndUpdate(id, dto, { new: true }).exec();
-    if (!updatedUser) throw new NotFoundException('Пользователь не найден');
-
-    return this.toDecryptedObject(updatedUser);
-  }
-
-  async updateRole(id: string, role: Role): Promise<User> {
-    if (!Object.values(Role).includes(role)) {
-      throw new BadRequestException('Некорректная роль');
-    }
-
-    const updatedUser = await this.userModel.findByIdAndUpdate(id, { role }, { new: true }).exec();
-    if (!updatedUser) throw new NotFoundException('Пользователь не найден');
-
-    return this.toDecryptedObject(updatedUser);
-  }
-
-  async remove(id: string): Promise<boolean> {
-    const result = await this.userModel.findByIdAndDelete(id).exec();
-    if (!result) throw new NotFoundException('Пользователь не найден');
-    return true;
-  }
-
-  decryptPassword(encryptedPassword: string): string {
-    return decrypt(encryptedPassword);
+    const savedUser = await createdUser.save();
+    return this.decryptUser(savedUser);
   }
 }
