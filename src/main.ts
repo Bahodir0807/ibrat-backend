@@ -11,15 +11,13 @@ dotenv.config();
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Глобальные фильтры и пайпы
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.useGlobalPipes(new CustomValidationPipe());
 
-  // CORS и preflight
   app.enableCors({
     origin: (origin, callback) => {
-      const allowedOrigins = ['http://localhost:5173', 'https://r.sultonoway.uz'];
+      const allowedOrigins = ['https://r.sultonoway.uz'];
       if (!origin || allowedOrigins.includes(origin)) callback(null, true);
       else callback(new Error('Not allowed by CORS'));
     },
@@ -36,7 +34,6 @@ async function bootstrap() {
     exposedHeaders: ['Access-Control-Allow-Origin'],
   });
 
-  // Telegram бот
   const telegramService = app.get(TelegramService);
   const bot = telegramService.getBot();
   const webhookPath = '/bot';
@@ -44,48 +41,47 @@ async function bootstrap() {
 
   app.use(bot.webhookCallback(webhookPath));
 
-  try {
-    await bot.telegram.setWebhook(`${domain}${webhookPath}`);
-    console.log(`✅ Webhook установлен: ${domain}${webhookPath}`);
-  } catch (err) {
-    console.error('❌ Ошибка установки webhook:', err);
-  }
+  // try {
+  //   await bot.telegram.setWebhook(`${domain}${webhookPath}`);
+  //   console.log(`✅ Webhook установлен: ${domain}${webhookPath}`);
+  // } catch (err) {
+  //   console.error('❌ Ошибка установки webhook:', err);
+  // }
 
-  // 404 обработчик (после всех маршрутов)
-  app.use((req, res) => {
-    res.status(404);
-    const accept = (req.headers.accept || '').toString();
-    if (accept.includes('application/json') || req.xhr || req.headers['content-type']?.includes('application/json')) {
-      return res.json({
-        statusCode: 404,
-        timestamp: new Date().toISOString(),
-        path: req.originalUrl,
-        message: 'Not Found',
-      });
-    }
+  // app.use((req, res) => {
+  //   res.status(404);
+  //   const accept = (req.headers.accept || '').toString();
+  //   if (accept.includes('application/json') || req.xhr || req.headers['content-type']?.includes('application/json')) {
+  //     return res.json({
+  //       statusCode: 404,
+  //       timestamp: new Date().toISOString(),
+  //       path: req.originalUrl,
+  //       message: 'Not Found',
+  //     });
+  //   }
 
-    res.send(`
-      <!doctype html>
-      <html lang="ru">
-      <head>
-        <meta charset="utf-8">
-        <title>404</title>
-        <style>
-          body { text-align:center; margin-top:50px; font-family: Arial, sans-serif; }
-          h1 { font-size: 48px; color: #e74c3c; }
-          p { font-size: 20px; }
-          a { color: #3498db; text-decoration: none; }
-          a:hover { text-decoration: underline; }
-        </style>
-      </head>
-      <body>
-        <h1>404 — Тут пусто</h1>
-        <p>Страница не найдена.</p>
-        <a href="/">На главную</a>
-      </body>
-      </html>
-    `);
-  });
+  //   res.send(`
+  //     <!doctype html>
+  //     <html lang="ru">
+  //     <head>
+  //       <meta charset="utf-8">
+  //       <title>404</title>
+  //       <style>
+  //         body { text-align:center; margin-top:50px; font-family: Arial, sans-serif; }
+  //         h1 { font-size: 48px; color: #e74c3c; }
+  //         p { font-size: 20px; }
+  //         a { color: #3498db; text-decoration: none; }
+  //         a:hover { text-decoration: underline; }
+  //       </style>
+  //     </head>
+  //     <body>
+  //       <h1>404 — Тут пусто</h1>
+  //       <p>Страница не найдена.</p>
+  //       <a href="/">На главную</a>
+  //     </body>
+  //     </html>
+  //   `);
+  // });
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
