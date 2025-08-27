@@ -15,6 +15,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.useGlobalPipes(new CustomValidationPipe());
 
+  // Настройка CORS
   app.enableCors({
     origin: (origin, callback) => {
       const allowedOrigins = ['https://r.sultonoway.uz'];
@@ -34,54 +35,13 @@ async function bootstrap() {
     exposedHeaders: ['Access-Control-Allow-Origin'],
   });
 
+  // Telegram webhook
   const telegramService = app.get(TelegramService);
   const bot = telegramService.getBot();
   const webhookPath = '/bot';
   const domain = process.env.DOMAIN || 'https://b.sultonoway.uz';
 
-  app.use(bot.webhookCallback(webhookPath));
-
-  // try {
-  //   await bot.telegram.setWebhook(`${domain}${webhookPath}`);
-  //   console.log(`✅ Webhook установлен: ${domain}${webhookPath}`);
-  // } catch (err) {
-  //   console.error('❌ Ошибка установки webhook:', err);
-  // }
-
-  // app.use((req, res) => {
-  //   res.status(404);
-  //   const accept = (req.headers.accept || '').toString();
-  //   if (accept.includes('application/json') || req.xhr || req.headers['content-type']?.includes('application/json')) {
-  //     return res.json({
-  //       statusCode: 404,
-  //       timestamp: new Date().toISOString(),
-  //       path: req.originalUrl,
-  //       message: 'Not Found',
-  //     });
-  //   }
-
-  //   res.send(`
-  //     <!doctype html>
-  //     <html lang="ru">
-  //     <head>
-  //       <meta charset="utf-8">
-  //       <title>404</title>
-  //       <style>
-  //         body { text-align:center; margin-top:50px; font-family: Arial, sans-serif; }
-  //         h1 { font-size: 48px; color: #e74c3c; }
-  //         p { font-size: 20px; }
-  //         a { color: #3498db; text-decoration: none; }
-  //         a:hover { text-decoration: underline; }
-  //       </style>
-  //     </head>
-  //     <body>
-  //       <h1>404 — Тут пусто</h1>
-  //       <p>Страница не найдена.</p>
-  //       <a href="/">На главную</a>
-  //     </body>
-  //     </html>
-  //   `);
-  // });
+  app.use(webhookPath, bot.webhookCallback(webhookPath));
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
