@@ -14,8 +14,6 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.useGlobalPipes(new CustomValidationPipe());
-
-  // Настройка CORS
   app.enableCors({
     origin: (origin, callback) => {
       const allowedOrigins = ['https://r.sultonoway.uz'];
@@ -35,7 +33,6 @@ async function bootstrap() {
     exposedHeaders: ['Access-Control-Allow-Origin'],
   });
 
-  // Telegram webhook
   const telegramService = app.get(TelegramService);
   const bot = telegramService.getBot();
   const webhookPath = '/bot';
@@ -43,9 +40,19 @@ async function bootstrap() {
 
   app.use(webhookPath, bot.webhookCallback(webhookPath));
 
+  try {
+    console.log('⏳ Проверяю подключение к Telegram API...');
+    await bot.telegram.getMe();
+    await bot.telegram.setWebhook(`${domain}${webhookPath}`);
+    console.log(`✅ Telegram webhook установлен: ${domain}${webhookPath}`);
+  } catch (err) {
+    console.error('⚠️ Ошибка при подключении к Telegram API:', err.message);
+    console.error('🚨 Бот не запущен, но сервер продолжает работать.');
+  }
+
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
-  console.log(`🚀 Server запущен на http://localhost:${port}`);
+  console.log(`🚀 Server запущен: ${domain}  Port: ${port}`);
 }
 
 bootstrap();
