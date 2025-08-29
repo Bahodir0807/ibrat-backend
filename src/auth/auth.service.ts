@@ -5,6 +5,7 @@ import { RegisterDto } from './dto/register.dto';
 import { encrypt, decrypt } from '../common/encryption';
 import { Role } from '../roles/roles.enum';
 import * as dotenv from 'dotenv';
+
 dotenv.config();
 
 const SUPER_ROLE_KEY = process.env.SUPER_ROLE_KEY;
@@ -18,17 +19,20 @@ export class AuthService {
 
   async register(dto: RegisterDto & { roleKey?: string }) {
     let role: Role = Role.Guest;
-    
+
     if (dto.role === Role.Student) {
       role = Role.Student;
     }
-    
+
     if (dto.role && dto.role !== Role.Student && dto.role !== Role.Guest) {
-      throw new BadRequestException('При регистрации доступны только роли "student" или "guest"');
+      throw new BadRequestException(
+        'При регистрации доступны только роли "student" или "guest"',
+      );
     }
 
     return this.usersService.create({
       ...dto,
+      password: encrypt(dto.password),
       role,
     });
   }
@@ -54,7 +58,7 @@ export class AuthService {
       sub: user._id,
       role: user.role,
     };
-  
+
     return {
       token: this.jwtService.sign(payload),
       role: user.role,
