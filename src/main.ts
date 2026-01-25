@@ -14,23 +14,23 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.useGlobalPipes(new CustomValidationPipe());
-  app.enableCors({
-  origin: [
-    'https://sultonoway.uz',
-    'http://localhost:5173',
-    'https://b.sultonoway.uz',
-    'http://localhost:3000',
-  ],
+app.enableCors({
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'https://sultonoway.uz',
+      'http://localhost:5173',
+      'https://b.sultonoway.uz',
+      'http://localhost:3000',
+    ];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true); // разрешено
+    } else {
+      callback(null, false); // запрещено
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'Accept',
-    'Origin',
-    'X-Requested-With',
-  ],
-  exposedHeaders: ['Access-Control-Allow-Origin'],
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','Accept','Origin','X-Requested-With'],
 });
 
 
