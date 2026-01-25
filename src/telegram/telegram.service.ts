@@ -52,7 +52,6 @@ export class TelegramService implements OnModuleInit {
     this.bot = new Telegraf<BotContext>(token);
     this.bot.use(session());
 
-    // subscribe to external notifications emitter if present
     this.notify.onNotification(({ message, telegramIds }) => {
       telegramIds.forEach(id => {
         try {
@@ -504,7 +503,6 @@ export class TelegramService implements OnModuleInit {
       const msg = ctx.session.pendingMessage;
       if (!msg) return ctx.reply('❌ Нет сообщения в сессии. Начните /notify заново.');
 
-      // send to users with role
       const targets = await this.users.findByRole(role);
       const telegramIds = targets.filter(t => (t as any).telegramId).map(t => (t as any).telegramId as number);
       telegramIds.forEach(id => this.bot.telegram.sendMessage(id, `📢 ${msg}`).catch(() => {}));
@@ -513,6 +511,4 @@ export class TelegramService implements OnModuleInit {
       return ctx.reply(`✅ Уведомление отправлено ${telegramIds.length} пользователям роли ${role}.`);
     }
   }
-
-  // ---------- end of class ----------
 }
