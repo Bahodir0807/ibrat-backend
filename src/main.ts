@@ -16,7 +16,7 @@ async function bootstrap() {
   app.useGlobalPipes(new CustomValidationPipe());
   app.enableCors({
     origin: (origin, callback) => {
-      const allowedOrigins = ['https://r.sultonoway.uz'];
+      const allowedOrigins = ['https://sultonoway.uz', 'http://localhost:5173', 'https://b.sultonoway.uz', 'http://localhost:3000'];
       if (!origin || allowedOrigins.includes(origin)) callback(null, true);
       else callback(new Error('Not allowed by CORS'));
     },
