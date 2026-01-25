@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../roles/roles.guard';
 import { Roles } from '../roles/roles.decorator';
 import { Role } from '../roles/roles.enum';
+import { decrypt } from '../common/encryption';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -99,4 +100,12 @@ export class UsersController {
     await this.usersService.remove(id);
     return { message: 'User deleted successfully' };
   }
+@Roles(Role.Admin, Role.Owner)
+@Get(':id/password')
+async getDecryptedPassword(@Param('id') id: string) {
+  const user = await this.usersService.findById(id);
+  if (!user) throw new NotFoundException('User not found');
+
+  return { password: decrypt(user.password) };
+}
 }
