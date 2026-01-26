@@ -100,7 +100,7 @@ export class UsersController {
     await this.usersService.remove(id);
     return { message: 'User deleted successfully' };
   }
-@Roles(Role.Admin, Role.Owner)
+@Roles(Role.Admin, Role.Owner, Role.Extra)
 @Get(':id/password')
 async getDecryptedPassword(@Param('id') id: string) {
   const user = await this.usersService.findById(id);
