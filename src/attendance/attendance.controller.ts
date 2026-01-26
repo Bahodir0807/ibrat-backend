@@ -20,7 +20,7 @@ export class AttendanceController {
   @Post()
   @Roles(Role.Teacher, Role.Admin, Role.Owner)
   async markAttendance(
-    @Body() body: { userId: string; date: string; status: 'present' | 'absent' },
+    @Body() body: { userId: string; date: string; status: 'present' | 'absent' | 'late' | 'excused' },
   ) {
     return this.attendanceService.markAttendance(body);
   }

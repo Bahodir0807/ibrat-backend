@@ -15,6 +15,7 @@ import {
   Request,
   Patch,
   Query,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -106,6 +107,17 @@ async getDecryptedPassword(@Param('id') id: string) {
   const user = await this.usersService.findById(id);
   if (!user) throw new NotFoundException('User not found');
 
-  return { password: decrypt(user.password) };
+  if (!user.password) {
+    throw new InternalServerErrorException('Password field empty');
+  }
+
+  try {
+    const decrypted = decrypt(user.password);
+    return { password: decrypted };
+  } catch (e) {
+    console.error('DECRYPT ERROR:', e.message);
+    throw new InternalServerErrorException('Decryption failed');
+  }
 }
 }
+

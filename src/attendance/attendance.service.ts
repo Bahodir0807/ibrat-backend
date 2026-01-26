@@ -15,9 +15,9 @@ export class AttendanceService {
   }
 
   async markAttendance(
-    @Body() body: { userId: string; date: string; status: 'present' | 'absent' },
+    @Body() body: { userId: string; date: string; status: 'present' | 'absent' | 'late' | 'excused' },
   ) {
-    if (!body.userId || !body.date || !['present', 'absent'].includes(body.status)) {
+    if (!body.userId || !body.date || !['present', 'absent', 'late', 'excused'].includes(body.status)) {
       throw new BadRequestException('Некорректные данные');
     }
     return this.attendanceModel.updateOne(
