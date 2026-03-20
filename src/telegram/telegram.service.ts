@@ -3,7 +3,6 @@ import { Telegraf, Context, Markup, session } from 'telegraf';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { PhoneRequestService } from '../phone-request/phone-request.service';
-import { User } from '../users/schemas/user.schema';
 import { HomeworkService } from '../homework/homework.service';
 import { GradesService } from '../grades/grades.service';
 import { AttendanceService } from '../attendance/attendance.service';
@@ -11,6 +10,7 @@ import { ScheduleService } from '../schedule/schedule.service';
 import { Role } from '../roles/roles.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/notification-type.enum';
+import { PublicUser } from '../users/types/public-user.type';
 
 interface SessionData {
   step?: string;
@@ -132,7 +132,7 @@ export class TelegramService implements OnModuleInit {
    * Если твой UsersService возвращает Mongoose document, этот метод всё равно будет работать,
    * т.к. мы работаем с полями user.username/user.role/user._id и т.д.
    */
-  private async ensureUser(ctx: BotContext): Promise<User> {
+  private async ensureUser(ctx: BotContext): Promise<PublicUser> {
     const tgId = ctx.from?.id;
     if (!tgId) throw new Error('no-id');
     const user = await this.users.findByTelegramId(tgId as number);
@@ -218,7 +218,7 @@ export class TelegramService implements OnModuleInit {
 
     if (data.startsWith('approve:') || data.startsWith('reject:')) {
       const [action, reqId] = data.split(':');
-      const req = await this.phoneReq.getByTelegramId(reqId);
+      const req = await this.phoneReq.getById(reqId);
       if (!req) return ctx.answerCbQuery('❌ Заявка не найдена');
 
       if (action === 'approve') {
@@ -276,16 +276,10 @@ export class TelegramService implements OnModuleInit {
           return ctx.reply('❌ Пользователь не найден.');
         }
 
-        // verifyPassword: prefer method from UsersService, otherwise fallback
-        let ok = false;
-        // @ts-ignore - check at runtime
-        if (typeof (this.users as any).verifyPassword === 'function') {
-          // UsersService.verifyPassword(encrypted, plain)
-          ok = (this.users as any).verifyPassword(user.password, text);
-        } else {
-          // if UsersService already returns decrypted password
-          ok = user.password === text;
-        }
+        const authUser = await this.users.findByUsernameForAuth(username);
+        const ok = authUser
+          ? await this.users.verifyPassword(authUser.password, text)
+          : false;
 
         if (!ok) {
           ctx.session = {};

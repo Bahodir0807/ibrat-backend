@@ -1,13 +1,11 @@
-import { IsMongoId, IsArray, ArrayNotEmpty, IsOptional, IsDateString } from 'class-validator';
+import { IsDateString, IsMongoId, IsOptional } from 'class-validator';
 
 export class CreatePaymentDto {
   @IsMongoId()
   student: string;
 
-  @IsArray()
-  @ArrayNotEmpty()
-  @IsMongoId({ each: true })
-  courseIds: string[];
+  @IsMongoId()
+  courseId: string;
 
   @IsOptional()
   @IsDateString()

@@ -1,17 +1,28 @@
-import { IsArray, IsMongoId, IsOptional, IsString } from "class-validator";
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsMongoId,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class CreateCourseDto {
   @IsString()
   name: string;
-  @IsString()
-  description: string;
 
-  @IsString()
   @IsOptional()
-  price?: string;
+  @IsString()
+  description?: string;
 
-  @IsString()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  price: number;
+
   @IsOptional()
+  @IsMongoId()
   teacherId?: string;
 
   @IsOptional()

@@ -1,8 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config'; 
+import { APP_GUARD, Reflector } from '@nestjs/core';
+import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Reflector, APP_GUARD } from '@nestjs/core';
-import { RolesGuard } from './roles/roles.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -23,13 +22,20 @@ import { StatisticsModule } from './statistics/statistics.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { GradesModule } from './grades/grades.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
-
+import { RolesGuard } from './roles/roles.guard';
+import configuration from './config/configuration';
+import { configValidationSchema } from './config/validation';
+import { RoomModule } from './rooms/room.module';
 
 @Module({
   imports: [
-    AuthModule,
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [configuration],
+      validationSchema: configValidationSchema,
+    }),
     MongooseModule.forRoot(process.env.MONGO_URI || 'mongodb://localhost:27017'),
+    AuthModule,
     UsersModule,
     CoursesModule,
     DecoratorsModule,
@@ -45,7 +51,8 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     forwardRef(() => NotificationsModule),
     StatisticsModule,
     forwardRef(() => TelegramModule),
-    GradesModule
+    GradesModule,
+    RoomModule,
   ],
   controllers: [AppController],
   providers: [
@@ -62,4 +69,3 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
   ],
 })
 export class AppModule {}
-console.log("http://localhost:3000"); 

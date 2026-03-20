@@ -1,25 +1,32 @@
-import { IsString, IsDateString, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsArray, IsDateString, IsMongoId, IsOptional } from 'class-validator';
 
 export class CreateScheduleDto {
-  @IsString()
-  title: string;
+  @IsMongoId()
+  course: string;
+
+  @IsMongoId()
+  room: string;
 
   @IsDateString()
-  startTime: string;
+  date: string;
 
   @IsDateString()
-  endTime: string;
+  timeStart: string;
 
-  @IsString()
-  courseId: string;
+  @IsDateString()
+  timeEnd: string;
 
-  @IsString()
-  teacherId: string;
-
-  @IsString()
-  roomId: string;
+  @IsMongoId()
+  teacher: string;
 
   @IsOptional()
-  @IsString()
-  description?: string;
+  @IsArray()
+  @IsMongoId({ each: true })
+  @Type(() => String)
+  students?: string[];
+
+  @IsOptional()
+  @IsMongoId()
+  group?: string;
 }

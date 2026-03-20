@@ -1,21 +1,19 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
+  Delete,
   Get,
+  NotFoundException,
+  Param,
+  Patch,
   Post,
   Put,
-  Delete,
-  Param,
-  Body,
-  NotFoundException,
-  BadRequestException,
+  Query,
+  Request,
+  UseGuards,
   UsePipes,
   ValidationPipe,
-  Logger,
-  UseGuards,
-  Request,
-  Patch,
-  Query,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -24,14 +22,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../roles/roles.guard';
 import { Roles } from '../roles/roles.decorator';
 import { Role } from '../roles/roles.enum';
-import { decrypt } from '../common/encryption';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
-  private readonly logger = new Logger(UsersController.name);
-
   constructor(private readonly usersService: UsersService) {}
+
+  @Get('me')
+  async getMe(@Request() req) {
+    return this.usersService.findById(req.user.userId);
+  }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Get()
@@ -46,9 +46,18 @@ export class UsersController {
     @Query('phone') phone?: string,
     @Query('telegramId') telegramId?: string,
   ) {
-    if (username) return this.usersService.findByUsername(username);
-    if (phone) return this.usersService.findByPhone(phone);
-    if (telegramId) return this.usersService.findByTelegramId(+telegramId);
+    if (username) {
+      return this.usersService.findByUsername(username);
+    }
+
+    if (phone) {
+      return this.usersService.findByPhone(phone);
+    }
+
+    if (telegramId) {
+      return this.usersService.findByTelegramId(Number(telegramId));
+    }
+
     throw new BadRequestException('Provide at least one search parameter');
   }
 
@@ -62,7 +71,10 @@ export class UsersController {
   @Get(':id')
   async getOne(@Param('id') id: string) {
     const user = await this.usersService.findById(id);
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
     return user;
   }
 
@@ -70,11 +82,7 @@ export class UsersController {
   @UsePipes(new ValidationPipe({ transform: true }))
   @Post()
   async create(@Body() dto: CreateUserDto) {
-    try {
-      return await this.usersService.create(dto);
-    } catch (e) {
-      throw new BadRequestException(e.message);
-    }
+    return this.usersService.create(dto);
   }
 
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -82,7 +90,7 @@ export class UsersController {
   async update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Request() req) {
     const requester = req.user;
 
-    if (requester.role !== Role.Admin && requester.userId !== id) {
+    if (requester.role !== Role.Admin && requester.role !== Role.Owner && requester.userId !== id) {
       throw new BadRequestException('You are not allowed to update this user');
     }
 
@@ -101,23 +109,4 @@ export class UsersController {
     await this.usersService.remove(id);
     return { message: 'User deleted successfully' };
   }
-@Roles(Role.Admin, Role.Owner, Role.Extra)
-@Get(':id/password')
-async getDecryptedPassword(@Param('id') id: string) {
-  const user = await this.usersService.findById(id);
-  if (!user) throw new NotFoundException('User not found');
-
-  if (!user.password) {
-    throw new InternalServerErrorException('Password field empty');
-  }
-
-  try {
-    const decrypted = decrypt(user.password);
-    return { password: decrypted };
-  } catch (e) {
-    console.error('DECRYPT ERROR:', e.message);
-    throw new InternalServerErrorException('Decryption failed');
-  }
 }
-}
-

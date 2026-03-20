@@ -1,20 +1,42 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { randomUUID } from 'crypto';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from '../roles/roles.enum';
-import { encrypt, decrypt } from '../common/encryption';
+import {
+  hashPassword,
+  verifyPassword as comparePassword,
+} from '../common/password';
+import { PublicUser } from './types/public-user.type';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(@InjectModel(User.name) private readonly userModel: Model<UserDocument>) {}
 
-  private decryptUser(user: UserDocument): User {
-    const obj = user.toObject();
-    obj.password = decrypt(obj.password);
-    return obj;
+  private sanitizeUser(user: UserDocument): PublicUser {
+    const obj = user.toObject() as User & {
+      _id?: string;
+      createdAt?: Date;
+      updatedAt?: Date;
+    };
+
+    return {
+      _id: String(user._id),
+      username: obj.username,
+      telegramId: obj.telegramId,
+      email: obj.email,
+      firstName: obj.firstName,
+      lastName: obj.lastName,
+      role: obj.role,
+      phoneNumber: obj.phoneNumber,
+      isActive: obj.isActive,
+      avatarUrl: obj.avatarUrl,
+      createdAt: obj.createdAt,
+      updatedAt: obj.updatedAt,
+    };
   }
 
   async findByIdDoc(id: string): Promise<UserDocument | null> {
@@ -22,113 +44,131 @@ export class UsersService {
   }
 
   async findByTelegramIdDoc(telegramId: number): Promise<UserDocument | null> {
-    return this.userModel.findOne({ telegramId }).exec();
+    return this.userModel.findOne({ telegramId: String(telegramId) }).exec();
   }
 
-  verifyPassword(encrypted: string, plain: string): boolean {
-    return decrypt(encrypted) === plain;
+  async findByUsernameForAuth(username: string): Promise<UserDocument | null> {
+    return this.userModel.findOne({ username }).exec();
   }
 
+  async verifyPassword(hashedPassword: string, plainPassword: string): Promise<boolean> {
+    return comparePassword(plainPassword, hashedPassword);
+  }
 
-  // Найти всех пользователей
-  async findAll(): Promise<User[]> {
+  async findAll(): Promise<PublicUser[]> {
     const users = await this.userModel.find().exec();
-    return users.map(user => this.decryptUser(user));
+    return users.map(user => this.sanitizeUser(user));
   }
 
-  // Найти по ID
-  async findById(id: string): Promise<User> {
+  async findById(id: string): Promise<PublicUser> {
     const user = await this.userModel.findById(id).exec();
-    if (!user) throw new NotFoundException('User not found');
-    return this.decryptUser(user);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return this.sanitizeUser(user);
   }
 
-  // Найти по username
-  async findByUsername(username: string): Promise<User | null> {
+  async findByUsername(username: string): Promise<PublicUser | null> {
     const user = await this.userModel.findOne({ username }).exec();
-    return user ? this.decryptUser(user) : null;
+    return user ? this.sanitizeUser(user) : null;
   }
 
-  // Найти по телефону
-  async findByPhone(phone: string): Promise<User | null> {
-    const user = await this.userModel.findOne({ phone }).exec();
-    return user ? this.decryptUser(user) : null;
+  async findByPhone(phoneNumber: string): Promise<PublicUser | null> {
+    const user = await this.userModel.findOne({ phoneNumber }).exec();
+    return user ? this.sanitizeUser(user) : null;
   }
 
-  // Найти по Telegram ID
-  async findByTelegramId(telegramId: number): Promise<User | null> {
-    const user = await this.userModel.findOne({ telegramId }).exec();
-    return user ? this.decryptUser(user) : null;
+  async findByTelegramId(telegramId: number): Promise<PublicUser | null> {
+    const user = await this.userModel.findOne({ telegramId: String(telegramId) }).exec();
+    return user ? this.sanitizeUser(user) : null;
   }
 
-  // Найти по роли
-  async findByRole(role: Role): Promise<User[]> {
+  async findByRole(role: Role): Promise<PublicUser[]> {
     const users = await this.userModel.find({ role }).exec();
-    return users.map(user => this.decryptUser(user));
+    return users.map(user => this.sanitizeUser(user));
   }
 
-  // Создать пользователя
-  async create(dto: CreateUserDto): Promise<User> {
+  async create(dto: CreateUserDto): Promise<PublicUser> {
     const existingUser = await this.userModel.findOne({ username: dto.username }).exec();
-    if (existingUser) throw new BadRequestException('Имя пользователя уже занято');
+    if (existingUser) {
+      throw new BadRequestException('Username is already taken');
+    }
 
     const createdUser = new this.userModel({
-      username: dto.username,
-      password: encrypt(dto.password),
+      ...dto,
+      password: await hashPassword(dto.password),
       role: dto.role || Role.Guest,
     });
 
     const savedUser = await createdUser.save();
-    return this.decryptUser(savedUser);
+    return this.sanitizeUser(savedUser);
   }
 
-  // Создать пользователя с телефоном
-  async createWithPhone(dto: { name: string; phone: string; telegramId: number; role: Role }): Promise<User> {
+  async createWithPhone(dto: {
+    name: string;
+    phone: string;
+    telegramId: number;
+    role: Role;
+  }): Promise<PublicUser> {
     const existingUser = await this.findByPhone(dto.phone);
-    if (existingUser) throw new BadRequestException('Пользователь с таким номером уже существует');
-
-    const rawPassword = '123456';
-    const encryptedPassword = encrypt(rawPassword);
+    if (existingUser) {
+      throw new BadRequestException('User with this phone number already exists');
+    }
 
     const createdUser = new this.userModel({
-      name: dto.name,
-      phone: dto.phone,
-      telegramId: dto.telegramId,
+      firstName: dto.name,
+      phoneNumber: dto.phone,
+      telegramId: String(dto.telegramId),
       role: dto.role,
       username: dto.phone,
-      password: encryptedPassword,
+      isActive: true,
+      password: await hashPassword(randomUUID()),
     });
 
     const savedUser = await createdUser.save();
-    return this.decryptUser(savedUser);
+    return this.sanitizeUser(savedUser);
   }
 
-  // Обновить пользователя
-  async update(id: string, dto: UpdateUserDto): Promise<User> {
-    if (dto.password) {
-      (dto as any).password = encrypt(dto.password);
+  async update(id: string, dto: UpdateUserDto): Promise<PublicUser> {
+    const updatePayload = { ...dto } as UpdateUserDto;
+    if (updatePayload.password) {
+      updatePayload.password = await hashPassword(updatePayload.password);
     }
 
-    const updatedUser = await this.userModel.findByIdAndUpdate(id, dto, { new: true }).exec();
-    if (!updatedUser) throw new NotFoundException('User not found');
-    return this.decryptUser(updatedUser);
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(id, updatePayload, { new: true })
+      .exec();
+
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    return this.sanitizeUser(updatedUser);
   }
 
-  // Обновить роль
-  async updateRole(id: string, role: Role): Promise<User> {
+  async updateRole(id: string, role: Role): Promise<PublicUser> {
     if (!Object.values(Role).includes(role)) {
-      throw new BadRequestException('Некорректная роль');
+      throw new BadRequestException('Invalid role');
     }
 
-    const updatedUser = await this.userModel.findByIdAndUpdate(id, { role }, { new: true }).exec();
-    if (!updatedUser) throw new NotFoundException('User not found');
-    return this.decryptUser(updatedUser);
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(id, { role }, { new: true })
+      .exec();
+
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    return this.sanitizeUser(updatedUser);
   }
 
-  // Удалить пользователя
   async remove(id: string): Promise<boolean> {
     const result = await this.userModel.findByIdAndDelete(id).exec();
-    if (!result) throw new NotFoundException('User not found');
+    if (!result) {
+      throw new NotFoundException('User not found');
+    }
+
     return true;
   }
 }

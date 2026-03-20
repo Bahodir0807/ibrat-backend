@@ -6,7 +6,7 @@ export class AppService {
   constructor(private readonly usersService: UsersService) {}
 
   getHello(): string {
-    return 'Тудум тудум...';
+    return 'Tudum tudum...';
   }
 
   async getUserCount(): Promise<number> {

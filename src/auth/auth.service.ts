@@ -1,14 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
-import { encrypt, decrypt } from '../common/encryption';
 import { Role } from '../roles/roles.enum';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
-
-const SUPER_ROLE_KEY = process.env.SUPER_ROLE_KEY;
+import { PublicUser } from '../users/types/public-user.type';
+import { verifyPassword } from '../common/password';
 
 @Injectable()
 export class AuthService {
@@ -26,33 +22,31 @@ export class AuthService {
 
     if (dto.role && dto.role !== Role.Student && dto.role !== Role.Guest) {
       throw new BadRequestException(
-        'При регистрации доступны только роли "student" или "guest"',
+        'Only "student" and "guest" roles are available during self-registration',
       );
     }
 
     return this.usersService.create({
       ...dto,
-      password: encrypt(dto.password),
       role,
     });
   }
 
-  async validateUser(username: string, pass: string) {
-    const user = await this.usersService.findByUsername(username);
-    if (!user) return null;
-
-    try {
-      const decryptedPassword = decrypt(user.password);
-      if (decryptedPassword !== pass) return null;
-    } catch (err) {
-      console.error('Ошибка расшифровки:', err);
+  async validateUser(username: string, password: string): Promise<PublicUser | null> {
+    const user = await this.usersService.findByUsernameForAuth(username);
+    if (!user) {
       return null;
     }
 
-    return user;
+    const isPasswordValid = await verifyPassword(password, user.password);
+    if (!isPasswordValid) {
+      return null;
+    }
+
+    return this.usersService.findById(String(user._id));
   }
 
-  async login(user: any) {
+  async login(user: PublicUser) {
     const payload = {
       username: user.username,
       sub: user._id,
@@ -62,6 +56,7 @@ export class AuthService {
     return {
       token: this.jwtService.sign(payload),
       role: user.role,
+      user,
     };
   }
 }

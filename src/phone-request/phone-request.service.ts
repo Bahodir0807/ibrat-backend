@@ -7,10 +7,9 @@ import { HandlePhoneRequestDto } from './dto/handle-phone-request.dto';
 
 @Injectable()
 export class PhoneRequestService {
-  model: any;
   constructor(
     @InjectModel(PhoneRequest.name)
-    private phoneRequestModel: Model<PhoneRequestDocument>
+    private readonly phoneRequestModel: Model<PhoneRequestDocument>,
   ) {}
 
   async create(dto: CreatePhoneRequestDto): Promise<PhoneRequest> {
@@ -20,23 +19,28 @@ export class PhoneRequestService {
 
   async handle(dto: HandlePhoneRequestDto): Promise<PhoneRequest> {
     const request = await this.phoneRequestModel.findById(dto.requestId);
-    if (!request) throw new NotFoundException('Заявка не найдена');
+    if (!request) {
+      throw new NotFoundException('Request not found');
+    }
 
     request.status = dto.status;
     request.updatedAt = new Date();
     return request.save();
   }
 
-  async getByTelegramId(tgId: string) {
-    return this.model.findOne({ telegramId: tgId });
+  async getByTelegramId(telegramId: string) {
+    return this.phoneRequestModel.findOne({ telegramId }).exec();
   }
-  
+
+  async getById(id: string) {
+    return this.phoneRequestModel.findById(id).exec();
+  }
 
   async getPending(): Promise<PhoneRequest[]> {
-    return this.phoneRequestModel.find({ status: 'pending' });
+    return this.phoneRequestModel.find({ status: 'pending' }).exec();
   }
 
   async updateName(id: string, name: string) {
-    return this.phoneRequestModel.findByIdAndUpdate(id, { name });
+    return this.phoneRequestModel.findByIdAndUpdate(id, { name }, { new: true }).exec();
   }
 }
