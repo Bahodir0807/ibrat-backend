@@ -31,7 +31,7 @@ interface BotContext extends Context {
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
-  private readonly bot: Telegraf<BotContext>;
+  private readonly bot?: Telegraf<BotContext>;
   private readonly adminChatId: number;
 
   constructor(
@@ -46,16 +46,18 @@ export class TelegramService implements OnModuleInit {
     private readonly notify: NotificationsService,
   ) {
     const token = this.config.get<string>('TELEGRAM_BOT_TOKEN');
-    if (!token) throw new Error('TELEGRAM_BOT_TOKEN is not set');
-
     this.adminChatId = Number(this.config.get<string>('ADMIN_CHAT_ID')) || 0;
+    if (!token) {
+      return;
+    }
+
     this.bot = new Telegraf<BotContext>(token);
     this.bot.use(session());
 
     this.notify.onNotification(({ message, telegramIds }) => {
       telegramIds.forEach(id => {
         try {
-          this.bot.telegram.sendMessage(id, `📢 ${message}`);
+          this.bot!.telegram.sendMessage(id, `📢 ${message}`);
         } catch (err) {
           console.error('Failed to send notify to', id, err);
         }
@@ -68,14 +70,22 @@ export class TelegramService implements OnModuleInit {
   }
 
   onModuleInit() {
+    if (!this.bot) {
+      return;
+    }
+
     this.setupBot();
     this.bot.launch();
 
-    process.once('SIGINT', () => this.bot.stop('SIGINT'));
-    process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
+    process.once('SIGINT', () => this.bot!.stop('SIGINT'));
+    process.once('SIGTERM', () => this.bot!.stop('SIGTERM'));
   }
 
   private setupBot() {
+    if (!this.bot) {
+      return;
+    }
+
     this.bot.start(ctx => this.handleSafe(ctx, () => this.sendStartMessage(ctx)));
     this.bot.command('check', ctx => this.handleSafe(ctx, () => this.handleCheck(ctx)));
     this.bot.command('homework', ctx => this.handleSafe(ctx, () => this.handleHomework(ctx)));
@@ -120,11 +130,15 @@ export class TelegramService implements OnModuleInit {
    * Получить пользователя (plain User) по id. Используется для отправки сообщений.
    */
   async sendMessage(userId: string, message: string) {
-    const user = await this.users.findById(userId);
+    if (!this.bot) {
+      return;
+    }
+
+    const user = await this.users.findById(userId).catch(() => null);
     if (!user || !user.telegramId) {
       throw new NotFoundException('Пользователь не найден или не подключён к Telegram');
     }
-    await this.bot.telegram.sendMessage(user.telegramId, message);
+    await this.bot!.telegram.sendMessage(Number(user?.telegramId ?? userId), message);
   }
 
   /**
@@ -230,11 +244,11 @@ export class TelegramService implements OnModuleInit {
         });
         await this.phoneReq.handle({ requestId: req._id, status: 'approved' });
         await ctx.editMessageText(`✅ Заявка ${reqId} принята`);
-        await this.bot.telegram.sendMessage(Number(req.telegramId), '🎉 Ваша заявка принята!');
+        await this.bot!.telegram.sendMessage(Number(req.telegramId), '🎉 Ваша заявка принята!');
       } else {
         await this.phoneReq.handle({ requestId: req._id, status: 'rejected' });
         await ctx.editMessageText(`❌ Заявка ${reqId} отклонена`);
-        await this.bot.telegram.sendMessage(Number(req.telegramId), '❌ Ваша заявка отклонена');
+        await this.bot!.telegram.sendMessage(Number(req.telegramId), '❌ Ваша заявка отклонена');
       }
 
       return ctx.answerCbQuery().catch(() => {});
@@ -316,7 +330,7 @@ export class TelegramService implements OnModuleInit {
 
       const req = await this.phoneReq.create({ phone, name: text, telegramId: String(tgId) });
 
-      await this.bot.telegram.sendMessage(
+      await this.bot!.telegram.sendMessage(
         this.adminChatId,
         `🔔 Новая заявка!\n📱 Телефон: ${phone}\n👤 Имя: ${text}\n🆔 ${req._id}`,
         {
@@ -367,7 +381,7 @@ export class TelegramService implements OnModuleInit {
         const students = await this.users.findByRole(Role.Student);
         const telegramIds = students.filter(s => (s as any).telegramId).map(s => (s as any).telegramId as number);
         telegramIds.forEach(id => {
-          this.bot.telegram.sendMessage(id, `📝 [Домашка]\n${text}`).catch(() => {});
+          this.bot!.telegram.sendMessage(id, `📝 [Домашка]\n${text}`).catch(() => {});
         });
         ctx.session = {};
         return ctx.reply(`✅ Уведомление отправлено ${telegramIds.length} ученикам.`);
@@ -499,7 +513,7 @@ export class TelegramService implements OnModuleInit {
 
       const targets = await this.users.findByRole(role);
       const telegramIds = targets.filter(t => (t as any).telegramId).map(t => (t as any).telegramId as number);
-      telegramIds.forEach(id => this.bot.telegram.sendMessage(id, `📢 ${msg}`).catch(() => {}));
+      telegramIds.forEach(id => this.bot!.telegram.sendMessage(id, `📢 ${msg}`).catch(() => {}));
 
       ctx.session = {};
       return ctx.reply(`✅ Уведомление отправлено ${telegramIds.length} пользователям роли ${role}.`);

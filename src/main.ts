@@ -43,23 +43,27 @@ async function bootstrap() {
   const webhookPath = '/bot';
   const domain = configService.get<string>('domain');
 
-  app.use(webhookPath, bot.webhookCallback(webhookPath));
+  if (bot) {
+    app.use(webhookPath, bot.webhookCallback(webhookPath));
 
-  try {
-    logger.log('Checking Telegram API connection');
-    await bot.telegram.getMe();
+    try {
+      logger.log('Checking Telegram API connection');
+      await bot.telegram.getMe();
 
-    if (domain) {
-      await bot.telegram.setWebhook(`${domain}${webhookPath}`);
-      logger.log(`Telegram webhook configured at ${domain}${webhookPath}`);
-    } else {
-      logger.warn('DOMAIN is not set, Telegram webhook configuration skipped');
+      if (domain) {
+        await bot.telegram.setWebhook(`${domain}${webhookPath}`);
+        logger.log(`Telegram webhook configured at ${domain}${webhookPath}`);
+      } else {
+        logger.warn('DOMAIN is not set, Telegram webhook configuration skipped');
+      }
+    } catch (error) {
+      logger.error(
+        'Telegram API initialization failed',
+        error instanceof Error ? error.stack : String(error),
+      );
     }
-  } catch (error) {
-    logger.error(
-      'Telegram API initialization failed',
-      error instanceof Error ? error.stack : String(error),
-    );
+  } else {
+    logger.warn('Telegram bot is disabled because TELEGRAM_BOT_TOKEN is not set');
   }
 
   const port = configService.get<number>('port') ?? 3000;
