@@ -1,5 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
+import { Course } from 'src/courses/schemas/course.schema';
+import { User } from 'src/users/schemas/user.schema';
 
 export type GroupDocument = Group & Document;
 
@@ -8,14 +10,14 @@ export class Group {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true })
-  course: string;
+  @Prop({ required: true, type: Types.ObjectId, ref: Course.name })
+  course: Types.ObjectId;
 
-  @Prop({ required: true })
-  teacher: string;
+  @Prop({ required: true, type: Types.ObjectId, ref: User.name })
+  teacher: Types.ObjectId;
 
-  @Prop({ type: [String] })
-  students: string[];
+  @Prop({ type: [Types.ObjectId], ref: User.name, default: [] })
+  students: Types.ObjectId[];
 }
 
 export const GroupSchema = SchemaFactory.createForClass(Group);
