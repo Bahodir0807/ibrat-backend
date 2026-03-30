@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -91,7 +92,7 @@ export class UsersController {
     const requester = req.user;
 
     if (requester.role !== Role.Admin && requester.role !== Role.Owner && requester.userId !== id) {
-      throw new BadRequestException('You are not allowed to update this user');
+      throw new ForbiddenException('You are not allowed to update this user');
     }
 
     return this.usersService.update(id, dto);

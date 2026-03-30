@@ -33,11 +33,11 @@ describe('RolesGuard', () => {
     expect(guard.canActivate(createContext())).toBe(true);
   });
 
-  it('grants owner and extra full access', () => {
+  it('grants owner full access', () => {
     (reflector.getAllAndOverride as jest.Mock).mockReturnValue([Role.Admin]);
 
     expect(guard.canActivate(createContext(Role.Owner))).toBe(true);
-    expect(guard.canActivate(createContext(Role.Extra))).toBe(true);
+    expect(guard.canActivate(createContext(Role.Extra))).toBe(false);
   });
 
   it('matches regular roles exactly', () => {

@@ -1,0 +1,5 @@
+deployment:
+  tasks:
+    - /bin/bash -lc "npm install"
+    - /bin/bash -lc "npm run build"
+    - /bin/bash -lc "mkdir -p tmp && touch tmp/restart.txt"

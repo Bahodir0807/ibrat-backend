@@ -27,17 +27,49 @@ pnpm run build
 pnpm run start:prod
 ```
 
+## cPanel deploy
+
+Backend is prepared for cPanel Node.js hosting.
+
+What is already added:
+
+- startup file [app.js](/c:/Users/User/Desktop/MyProjects/ibrat-backend/app.js)
+- auto-deploy recipe [`.cpanel.yml`](/c:/Users/User/Desktop/MyProjects/ibrat-backend/.cpanel.yml)
+- production env template [`.env.example`](/c:/Users/User/Desktop/MyProjects/ibrat-backend/.env.example)
+
+Recommended cPanel setup:
+
+1. Create a Node.js app in cPanel.
+2. Set the application root to this backend folder.
+3. Set the startup file to `app.js`.
+4. Use your real production `.env` values.
+5. Run `npm install` once if cPanel does not do it automatically.
+6. Restart the app after the first build.
+
+If you use cPanel Git deployment, [`.cpanel.yml`](/c:/Users/User/Desktop/MyProjects/ibrat-backend/.cpanel.yml) will:
+
+- install dependencies
+- build NestJS
+- touch `tmp/restart.txt` for Passenger restart
+
 ## Required env
 
 ```env
+NODE_ENV=production
 PORT=3000
-MONGO_URI=mongodb://localhost:27017/ibrat
+MONGO_URI=mongodb+srv://user:password@cluster.example.mongodb.net/ibrat
 JWT_SECRET=your_long_secret
-TELEGRAM_BOT_TOKEN=your_bot_token
-ADMIN_CHAT_ID=123456789
-DOMAIN=https://your-domain.com
-CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+TELEGRAM_BOT_TOKEN=
+ADMIN_CHAT_ID=
+DOMAIN=https://api.example.com
+CORS_ORIGINS=https://app.example.com,https://www.app.example.com
 ```
+
+Notes:
+
+- `MONGO_URI` should point to your external production MongoDB instance.
+- `TELEGRAM_BOT_TOKEN`, `ADMIN_CHAT_ID`, and `DOMAIN` are optional only if Telegram integration is intentionally disabled.
+- `CORS_ORIGINS` should contain your real frontend domain list, not localhost values.
 
 ## Auth
 

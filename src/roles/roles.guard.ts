@@ -23,7 +23,7 @@ export class RolesGuard implements CanActivate {
     }
 
     const userRole = String(user.role).toLowerCase();
-    if (userRole === Role.Extra || userRole === Role.Owner) {
+    if (userRole === Role.Owner) {
       return true;
     }
 

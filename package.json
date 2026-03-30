@@ -10,6 +10,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
+    "start:cpanel": "node app.js",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:watch": "jest --watch",
@@ -84,6 +85,9 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "setupFiles": [
+      "<rootDir>/test/jest.setup.ts"
+    ],
     "collectCoverageFrom": [
       "src/**/*.(t|j)s"
     ],

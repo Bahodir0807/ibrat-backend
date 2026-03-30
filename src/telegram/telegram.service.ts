@@ -1,4 +1,12 @@
-import { Injectable, OnModuleInit, NotFoundException, forwardRef, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  NotFoundException,
+  UnauthorizedException,
+  forwardRef,
+  Inject,
+} from '@nestjs/common';
 import { Telegraf, Context, Markup, session } from 'telegraf';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
@@ -31,6 +39,7 @@ interface BotContext extends Context {
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
+  private readonly logger = new Logger(TelegramService.name);
   private readonly bot?: Telegraf<BotContext>;
   private readonly adminChatId: number;
 
@@ -45,8 +54,8 @@ export class TelegramService implements OnModuleInit {
     @Inject(forwardRef(() => NotificationsService))
     private readonly notify: NotificationsService,
   ) {
-    const token = this.config.get<string>('TELEGRAM_BOT_TOKEN');
-    this.adminChatId = Number(this.config.get<string>('ADMIN_CHAT_ID')) || 0;
+    const token = this.config.get<string>('telegramBotToken');
+    this.adminChatId = Number(this.config.get<string>('adminChatId')) || 0;
     if (!token) {
       return;
     }
@@ -57,9 +66,9 @@ export class TelegramService implements OnModuleInit {
     this.notify.onNotification(({ message, telegramIds }) => {
       telegramIds.forEach(id => {
         try {
-          this.bot!.telegram.sendMessage(id, `📢 ${message}`);
+          void this.sendTelegramMessageSafe(id, `📢 ${message}`);
         } catch (err) {
-          console.error('Failed to send notify to', id, err);
+          this.logger.warn(`Failed to send notify to chat ${id}: ${err instanceof Error ? err.message : String(err)}`);
         }
       });
     });
@@ -75,10 +84,27 @@ export class TelegramService implements OnModuleInit {
     }
 
     this.setupBot();
-    this.bot.launch();
+    if (this.isWebhookMode()) {
+      this.logger.log('Telegram bot initialized in webhook mode');
+      return;
+    }
+
+    this.bot
+      .launch()
+      .then(() => this.logger.log('Telegram bot polling started'))
+      .catch(error => {
+        this.logger.error(
+          'Failed to start Telegram polling',
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
 
     process.once('SIGINT', () => this.bot!.stop('SIGINT'));
     process.once('SIGTERM', () => this.bot!.stop('SIGTERM'));
+  }
+
+  private isWebhookMode(): boolean {
+    return Boolean(this.config.get<string>('domain'));
   }
 
   private setupBot() {
@@ -117,10 +143,29 @@ export class TelegramService implements OnModuleInit {
     try {
       await handler();
     } catch (e) {
-      console.error('Telegram handler error:', e);
+      this.logger.error(
+        'Telegram handler error',
+        e instanceof Error ? e.stack : String(e),
+      );
       try {
         await ctx.reply('❌ Произошла ошибка. Попробуйте позже.');
       } catch {}
+    }
+  }
+
+  private async sendTelegramMessageSafe(chatId: number, message: string) {
+    if (!this.bot) {
+      return;
+    }
+
+    try {
+      await this.bot.telegram.sendMessage(chatId, message);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send Telegram message to chat ${chatId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 
@@ -148,9 +193,13 @@ export class TelegramService implements OnModuleInit {
    */
   private async ensureUser(ctx: BotContext): Promise<PublicUser> {
     const tgId = ctx.from?.id;
-    if (!tgId) throw new Error('no-id');
+    if (!tgId) {
+      throw new UnauthorizedException('Telegram user id is missing');
+    }
     const user = await this.users.findByTelegramId(tgId as number);
-    if (!user) throw new Error('no-user');
+    if (!user) {
+      throw new UnauthorizedException('Telegram account is not linked to a user');
+    }
     return user;
   }
 
@@ -212,6 +261,11 @@ export class TelegramService implements OnModuleInit {
       const { tgId, phone, firstName } = ctx.session;
       if (!tgId || !phone || !firstName) {
         return ctx.reply('❌ Ошибка сессии. Попробуйте начать заново /start');
+      }
+
+      if (!this.adminChatId) {
+        this.logger.warn('Phone request skipped because ADMIN_CHAT_ID is not configured');
+        return ctx.reply('❌ Регистрация временно недоступна. Свяжитесь с администратором.');
       }
 
       const req = await this.phoneReq.create({ phone, name: firstName, telegramId: String(tgId) });
@@ -307,7 +361,11 @@ export class TelegramService implements OnModuleInit {
           // Try to update by id if we have it
           if (id) {
             await this.users.update(String(id), { telegramId: String(tgId) } as any).catch(err => {
-              console.warn('Failed to set telegramId for user', id, err);
+              this.logger.warn(
+                `Failed to set telegramId for user ${id}: ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              );
             });
           }
         }
@@ -316,7 +374,10 @@ export class TelegramService implements OnModuleInit {
         ctx.session.step = undefined;
         return ctx.reply(`✅ Успешная авторизация!\nДобро пожаловать, ${user.username} (${user.role})`);
       } catch (err) {
-        console.error('Login error:', err);
+        this.logger.error(
+          'Telegram login error',
+          err instanceof Error ? err.stack : String(err),
+        );
         ctx.session = {};
         return ctx.reply('❌ Ошибка при авторизации. Попробуйте снова.');
       }
@@ -327,6 +388,11 @@ export class TelegramService implements OnModuleInit {
       if (!text) return ctx.reply('❌ Имя не может быть пустым. Попробуйте снова.');
       const { tgId, phone } = session;
       if (!tgId || !phone) return ctx.reply('❌ Ошибка сессии. Попробуйте начать заново /start');
+
+      if (!this.adminChatId) {
+        this.logger.warn('Phone request skipped because ADMIN_CHAT_ID is not configured');
+        return ctx.reply('❌ Регистрация временно недоступна. Свяжитесь с администратором.');
+      }
 
       const req = await this.phoneReq.create({ phone, name: text, telegramId: String(tgId) });
 
@@ -381,7 +447,7 @@ export class TelegramService implements OnModuleInit {
         const students = await this.users.findByRole(Role.Student);
         const telegramIds = students.filter(s => (s as any).telegramId).map(s => (s as any).telegramId as number);
         telegramIds.forEach(id => {
-          this.bot!.telegram.sendMessage(id, `📝 [Домашка]\n${text}`).catch(() => {});
+          void this.sendTelegramMessageSafe(id, `📝 [Домашка]\n${text}`);
         });
         ctx.session = {};
         return ctx.reply(`✅ Уведомление отправлено ${telegramIds.length} ученикам.`);
@@ -513,7 +579,7 @@ export class TelegramService implements OnModuleInit {
 
       const targets = await this.users.findByRole(role);
       const telegramIds = targets.filter(t => (t as any).telegramId).map(t => (t as any).telegramId as number);
-      telegramIds.forEach(id => this.bot!.telegram.sendMessage(id, `📢 ${msg}`).catch(() => {}));
+      telegramIds.forEach(id => void this.sendTelegramMessageSafe(id, `📢 ${msg}`));
 
       ctx.session = {};
       return ctx.reply(`✅ Уведомление отправлено ${telegramIds.length} пользователям роли ${role}.`);

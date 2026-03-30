@@ -66,7 +66,7 @@ async function bootstrap() {
     logger.warn('Telegram bot is disabled because TELEGRAM_BOT_TOKEN is not set');
   }
 
-  const port = configService.get<number>('port') ?? 3000;
+  const port = configService.getOrThrow<number>('port');
   await app.listen(port, '0.0.0.0');
   logger.log(`Server started on port ${port}`);
 }

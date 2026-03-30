@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Role, RoleDocument } from './schemas/role.schema';
@@ -11,7 +11,7 @@ export class RolesService {
 
   async create(dto: CreateRoleDto): Promise<Role> {
     const exists = await this.roleModel.findOne({ name: dto.name });
-    if (exists) throw new Error(`Role '${dto.name}' already exists`);
+    if (exists) throw new ConflictException(`Role '${dto.name}' already exists`);
     return this.roleModel.create(dto);
   }
 

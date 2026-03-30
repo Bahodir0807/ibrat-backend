@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
@@ -6,33 +6,12 @@ import { Role } from '../roles/roles.enum';
 import { PublicUser } from '../users/types/public-user.type';
 import { verifyPassword } from '../common/password';
 
-const TEMP_OWNER_CREDENTIALS = {
-  username: 'temp_owner_test',
-  password: 'TempOwner123!',
-};
-
 @Injectable()
-export class AuthService implements OnModuleInit {
+export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
   ) {}
-
-  async onModuleInit() {
-    const existingOwner = await this.usersService.findByUsernameForAuth(
-      TEMP_OWNER_CREDENTIALS.username,
-    );
-
-    if (existingOwner) {
-      return;
-    }
-
-    await this.usersService.create({
-      username: TEMP_OWNER_CREDENTIALS.username,
-      password: TEMP_OWNER_CREDENTIALS.password,
-      role: Role.Owner,
-    });
-  }
 
   async register(dto: RegisterDto & { roleKey?: string }) {
     let role: Role = Role.Guest;

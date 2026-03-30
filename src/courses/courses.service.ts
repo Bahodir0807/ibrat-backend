@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -7,6 +7,8 @@ import { Course, CourseDocument } from './schemas/course.schema';
 
 @Injectable()
 export class CoursesService {
+  private readonly logger = new Logger(CoursesService.name);
+
   constructor(
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
   ) {}
@@ -44,7 +46,10 @@ export class CoursesService {
   
       return await createdCourse.save();
     } catch (err) {
-      console.error('❌ Ошибка при создании курса:', err);
+      this.logger.error(
+        'Failed to create course',
+        err instanceof Error ? err.stack : String(err),
+      );
       throw err;
     }
   }

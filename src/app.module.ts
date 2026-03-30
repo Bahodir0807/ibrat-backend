@@ -1,6 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -34,7 +34,13 @@ import { RoomModule } from './rooms/room.module';
       load: [configuration],
       validationSchema: configValidationSchema,
     }),
-    MongooseModule.forRoot(process.env.MONGO_URI || 'mongodb://localhost:27017'),
+    MongooseModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        uri: configService.getOrThrow<string>('dbUri'),
+      }),
+    }),
     AuthModule,
     UsersModule,
     CoursesModule,
