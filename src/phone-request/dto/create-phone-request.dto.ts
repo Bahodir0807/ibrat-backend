@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreatePhoneRequestDto {
   @IsString()
@@ -15,5 +15,6 @@ export class CreatePhoneRequestDto {
 
   @IsString()
   @IsOptional()
+  @IsIn(['pending', 'approved', 'rejected'])
   status?: 'pending' | 'approved' | 'rejected';
 }

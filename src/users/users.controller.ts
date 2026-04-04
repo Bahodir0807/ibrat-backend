@@ -5,7 +5,6 @@ import {
   Delete,
   ForbiddenException,
   Get,
-  NotFoundException,
   Param,
   Patch,
   Post,
@@ -23,11 +22,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../roles/roles.guard';
 import { Roles } from '../roles/roles.decorator';
 import { Role } from '../roles/roles.enum';
+import { UsersListQueryDto } from './dto/users-list-query.dto';
+import { AuditLogService } from '../common/audit/audit-log.service';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   @Get('me')
   async getMe(@Request() req) {
@@ -36,8 +40,8 @@ export class UsersController {
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Get()
-  async getAll() {
-    return this.usersService.findAll();
+  async getAll(@Query() query: UsersListQueryDto) {
+    return this.usersService.findAll(query);
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
@@ -64,50 +68,97 @@ export class UsersController {
 
   @Roles(Role.Admin, Role.Extra, Role.Owner, Role.Teacher)
   @Get('students')
-  async getStudents() {
-    return this.usersService.findByRole(Role.Student);
+  async getStudents(@Query() query: UsersListQueryDto) {
+    return this.usersService.findAll({ ...query, role: Role.Student });
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Get(':id')
   async getOne(@Param('id') id: string) {
-    const user = await this.usersService.findById(id);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return user;
+    return this.usersService.findById(id);
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @UsePipes(new ValidationPipe({ transform: true }))
   @Post()
-  async create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto);
+  async create(@Body() dto: CreateUserDto, @Request() req) {
+    const user = await this.usersService.create(dto);
+    this.auditLogService.log({
+      action: 'user.create',
+      actor: { id: req.user.userId, role: req.user.role },
+      status: 'success',
+      target: { type: 'user', id: user.id },
+      metadata: { role: user.role },
+    });
+    return user;
   }
 
   @UsePipes(new ValidationPipe({ transform: true }))
   @Put(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Request() req) {
     const requester = req.user;
+    const isPrivileged = [Role.Admin, Role.Owner, Role.Extra].includes(requester.role);
 
-    if (requester.role !== Role.Admin && requester.role !== Role.Owner && requester.userId !== id) {
+    if (!isPrivileged && requester.userId !== id) {
       throw new ForbiddenException('You are not allowed to update this user');
     }
 
-    return this.usersService.update(id, dto);
+    if (!isPrivileged) {
+      const { role, telegramId, roleKey, ...selfPayload } = dto;
+
+      if (role || telegramId || roleKey) {
+        throw new ForbiddenException('Self-update is limited to profile fields only');
+      }
+
+      const updatedUser = await this.usersService.update(id, selfPayload);
+      this.auditLogService.log({
+        action: 'user.update.self',
+        actor: { id: requester.userId, role: requester.role },
+        target: { type: 'user', id },
+        status: 'success',
+      });
+      return updatedUser;
+    }
+
+    const updatedUser = await this.usersService.update(id, dto);
+    this.auditLogService.log({
+      action: 'user.update',
+      actor: { id: requester.userId, role: requester.role },
+      target: { type: 'user', id },
+      status: 'success',
+      metadata: { changedRole: dto.role },
+    });
+    return updatedUser;
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Patch(':id/role')
-  async updateRole(@Param('id') id: string, @Body('role') role: Role) {
-    return this.usersService.updateRole(id, role);
+  async updateRole(@Param('id') id: string, @Body('role') role: Role, @Request() req) {
+    const updatedUser = await this.usersService.updateRole(id, role);
+    this.auditLogService.log({
+      action: 'user.role.update',
+      actor: { id: req.user.userId, role: req.user.role },
+      target: { type: 'user', id },
+      status: 'success',
+      metadata: { role },
+    });
+    return updatedUser;
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Delete(':id')
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @Request() req) {
+    if (req.user.userId === id) {
+      throw new BadRequestException('Self-delete is disabled for safety');
+    }
+
     await this.usersService.remove(id);
-    return { message: 'User deleted successfully' };
+    this.auditLogService.log({
+      action: 'user.delete',
+      actor: { id: req.user.userId, role: req.user.role },
+      target: { type: 'user', id },
+      status: 'success',
+    });
+    return { success: true, message: 'User deleted successfully' };
   }
 }

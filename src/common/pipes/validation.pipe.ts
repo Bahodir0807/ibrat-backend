@@ -6,11 +6,21 @@ export class CustomValidationPipe extends ValidationPipe {
       whitelist: true, 
       forbidNonWhitelisted: true, 
       transform: true, 
-      exceptionFactory: (errors) => {
-        const messages = errors.map(err => {
-          const constraints = err.constraints ? Object.values(err.constraints).join(', ') : '';
-          return `${err.property} - ${constraints}`;
+      exceptionFactory: errors => {
+        const messages = errors.flatMap(error => {
+          const directConstraints = error.constraints ? Object.values(error.constraints) : [];
+          const childConstraints = (error.children ?? []).flatMap(child =>
+            child.constraints ? Object.values(child.constraints) : [],
+          );
+
+          const constraints = [...directConstraints, ...childConstraints];
+          if (constraints.length === 0) {
+            return [`${error.property} is invalid`];
+          }
+
+          return constraints.map(message => `${error.property} - ${message}`);
         });
+
         return new BadRequestException(messages);
       },
     });

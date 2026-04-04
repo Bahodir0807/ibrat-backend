@@ -1,16 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model, SortOrder } from 'mongoose';
 import { randomUUID } from 'crypto';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from '../roles/roles.enum';
-import {
-  hashPassword,
-  verifyPassword as comparePassword,
-} from '../common/password';
+import { hashPassword, verifyPassword as comparePassword } from '../common/password';
 import { PublicUser } from './types/public-user.type';
+import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
+import { UsersListQueryDto } from './dto/users-list-query.dto';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +23,7 @@ export class UsersService {
     };
 
     return {
+      id: String(user._id),
       _id: String(user._id),
       username: obj.username,
       telegramId: obj.telegramId,
@@ -37,6 +37,50 @@ export class UsersService {
       createdAt: obj.createdAt,
       updatedAt: obj.updatedAt,
     };
+  }
+
+  private async ensureUniqueFields(dto: Partial<CreateUserDto>, excludeId?: string): Promise<void> {
+    const checks: Array<[keyof CreateUserDto, unknown]> = [
+      ['username', dto.username],
+      ['email', dto.email],
+      ['phoneNumber', dto.phoneNumber],
+      ['telegramId', dto.telegramId],
+    ];
+
+    for (const [field, value] of checks) {
+      if (!value) {
+        continue;
+      }
+
+      const existing = await this.userModel
+        .findOne({
+          [field]: value,
+          ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+        })
+        .lean()
+        .exec();
+
+      if (existing) {
+        throw new ConflictException(`${String(field)} is already in use`);
+      }
+    }
+  }
+
+  private async ensureLastOwnerIsProtected(targetUserId: string, nextRole?: Role): Promise<void> {
+    const existingUser = await this.userModel.findById(targetUserId).lean().exec();
+
+    if (!existingUser || existingUser.role !== Role.Owner) {
+      return;
+    }
+
+    if (nextRole === undefined || nextRole === Role.Owner) {
+      return;
+    }
+
+    const ownersCount = await this.userModel.countDocuments({ role: Role.Owner }).exec();
+    if (ownersCount <= 1) {
+      throw new ConflictException('At least one owner must remain active in the system');
+    }
   }
 
   async findByIdDoc(id: string): Promise<UserDocument | null> {
@@ -55,9 +99,39 @@ export class UsersService {
     return comparePassword(plainPassword, hashedPassword);
   }
 
-  async findAll(): Promise<PublicUser[]> {
-    const users = await this.userModel.find().exec();
-    return users.map(user => this.sanitizeUser(user));
+  async findAll(query: UsersListQueryDto = {}): Promise<PublicUser[]> {
+    const filter: FilterQuery<UserDocument> = {};
+
+    if (query.role) {
+      filter.role = query.role;
+    }
+
+    if (query.search) {
+      const regex = new RegExp(query.search.trim(), 'i');
+      filter.$or = [
+        { username: regex },
+        { firstName: regex },
+        { lastName: regex },
+        { email: regex },
+        { phoneNumber: regex },
+      ];
+    }
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const sortBy = query.sortBy && ['username', 'firstName', 'createdAt', 'role'].includes(query.sortBy)
+      ? query.sortBy
+      : 'createdAt';
+    const sortOrder = query.sortOrder === 'desc' ? -1 : 1;
+
+    const users = await this.userModel
+      .find(filter)
+      .sort({ [sortBy]: sortOrder as SortOrder })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .exec();
+
+    return serializeResources(users.map(user => this.sanitizeUser(user)));
   }
 
   async findById(id: string): Promise<PublicUser> {
@@ -66,34 +140,30 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return this.sanitizeUser(user);
+    return serializeResource(this.sanitizeUser(user));
   }
 
   async findByUsername(username: string): Promise<PublicUser | null> {
     const user = await this.userModel.findOne({ username }).exec();
-    return user ? this.sanitizeUser(user) : null;
+    return user ? serializeResource(this.sanitizeUser(user)) : null;
   }
 
   async findByPhone(phoneNumber: string): Promise<PublicUser | null> {
     const user = await this.userModel.findOne({ phoneNumber }).exec();
-    return user ? this.sanitizeUser(user) : null;
+    return user ? serializeResource(this.sanitizeUser(user)) : null;
   }
 
   async findByTelegramId(telegramId: number): Promise<PublicUser | null> {
     const user = await this.userModel.findOne({ telegramId: String(telegramId) }).exec();
-    return user ? this.sanitizeUser(user) : null;
+    return user ? serializeResource(this.sanitizeUser(user)) : null;
   }
 
   async findByRole(role: Role): Promise<PublicUser[]> {
-    const users = await this.userModel.find({ role }).exec();
-    return users.map(user => this.sanitizeUser(user));
+    return this.findAll({ role });
   }
 
   async create(dto: CreateUserDto): Promise<PublicUser> {
-    const existingUser = await this.userModel.findOne({ username: dto.username }).exec();
-    if (existingUser) {
-      throw new BadRequestException('Username is already taken');
-    }
+    await this.ensureUniqueFields(dto);
 
     const createdUser = new this.userModel({
       ...dto,
@@ -102,7 +172,7 @@ export class UsersService {
     });
 
     const savedUser = await createdUser.save();
-    return this.sanitizeUser(savedUser);
+    return serializeResource(this.sanitizeUser(savedUser));
   }
 
   async createWithPhone(dto: {
@@ -111,11 +181,6 @@ export class UsersService {
     telegramId: number;
     role: Role;
   }): Promise<PublicUser> {
-    const existingUser = await this.findByPhone(dto.phone);
-    if (existingUser) {
-      throw new BadRequestException('User with this phone number already exists');
-    }
-
     const createdUser = new this.userModel({
       firstName: dto.name,
       phoneNumber: dto.phone,
@@ -126,44 +191,53 @@ export class UsersService {
       password: await hashPassword(randomUUID()),
     });
 
+    await this.ensureUniqueFields({
+      username: createdUser.username,
+      phoneNumber: createdUser.phoneNumber,
+      telegramId: createdUser.telegramId,
+    });
+
     const savedUser = await createdUser.save();
-    return this.sanitizeUser(savedUser);
+    return serializeResource(this.sanitizeUser(savedUser));
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<PublicUser> {
     const updatePayload = { ...dto } as UpdateUserDto;
+    await this.ensureUniqueFields(updatePayload, id);
+    await this.ensureLastOwnerIsProtected(id, updatePayload.role);
+
     if (updatePayload.password) {
       updatePayload.password = await hashPassword(updatePayload.password);
     }
 
-    const updatedUser = await this.userModel
-      .findByIdAndUpdate(id, updatePayload, { new: true })
-      .exec();
+    const updatedUser = await this.userModel.findByIdAndUpdate(id, updatePayload, { new: true }).exec();
 
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
 
-    return this.sanitizeUser(updatedUser);
+    return serializeResource(this.sanitizeUser(updatedUser));
   }
 
   async updateRole(id: string, role: Role): Promise<PublicUser> {
     if (!Object.values(Role).includes(role)) {
-      throw new BadRequestException('Invalid role');
+      throw new ConflictException('Invalid role');
     }
 
-    const updatedUser = await this.userModel
-      .findByIdAndUpdate(id, { role }, { new: true })
-      .exec();
+    await this.ensureLastOwnerIsProtected(id, role);
+
+    const updatedUser = await this.userModel.findByIdAndUpdate(id, { role }, { new: true }).exec();
 
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
 
-    return this.sanitizeUser(updatedUser);
+    return serializeResource(this.sanitizeUser(updatedUser));
   }
 
   async remove(id: string): Promise<boolean> {
+    await this.ensureLastOwnerIsProtected(id, Role.Guest);
+
     const result = await this.userModel.findByIdAndDelete(id).exec();
     if (!result) {
       throw new NotFoundException('User not found');

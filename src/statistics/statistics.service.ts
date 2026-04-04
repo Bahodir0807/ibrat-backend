@@ -3,21 +3,27 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Statistic, StatisticDocument } from './schemas/statistic.schema';
 import { CreateStatisticDto } from './dto/create-statistic.dto';
+import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
 
 @Injectable()
 export class StatisticsService {
   constructor(@InjectModel(Statistic.name) private statisticModel: Model<StatisticDocument>) {}
 
   async create(dto: CreateStatisticDto) {
-    const created = new this.statisticModel(dto);
-    return created.save();
+    const created = new this.statisticModel({
+      ...dto,
+      date: new Date(dto.date),
+    });
+    return serializeResource(await created.save());
   }
 
   async findAll() {
-    return this.statisticModel.find().exec();
+    const statistics = await this.statisticModel.find().sort({ date: -1 }).exec();
+    return serializeResources(statistics);
   }
 
   async findByType(type: string) {
-    return this.statisticModel.find({ type }).exec();
+    const statistics = await this.statisticModel.find({ type }).sort({ date: -1 }).exec();
+    return serializeResources(statistics);
   }
 }

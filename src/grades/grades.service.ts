@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Grade, GradeDocument } from './schemas/grade.schema';
+import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
 
 @Injectable()
 export class GradesService {
@@ -10,7 +11,8 @@ export class GradesService {
   ) {}
 
   async getByUser(userId: string) {
-    return this.gradeModel.find({ user: userId }).exec();
+    const grades = await this.gradeModel.find({ user: userId }).sort({ date: -1 }).exec();
+    return serializeResources(grades);
   }
 
   async add(userId: string, subject: string, score: number) {
@@ -20,14 +22,16 @@ export class GradesService {
       score,
       date: new Date(),
     });
-    return entry.save();
+    return serializeResource(await entry.save());
   }
 
   async update(id: string, score: number) {
-    return this.gradeModel.findByIdAndUpdate(id, { score }, { new: true }).exec();
+    const grade = await this.gradeModel.findByIdAndUpdate(id, { score }, { new: true }).exec();
+    return grade ? serializeResource(grade) : null;
   }
 
   async remove(id: string) {
-    return this.gradeModel.findByIdAndDelete(id).exec();
+    const grade = await this.gradeModel.findByIdAndDelete(id).exec();
+    return grade ? serializeResource(grade) : null;
   }
 }

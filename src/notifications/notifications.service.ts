@@ -1,15 +1,15 @@
-import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { EventEmitter } from 'events';
 import { TelegramService } from '../telegram/telegram.service';
 import { UsersService } from '../users/users.service';
 import { CreateNotificationDto } from './dto/create-notify.dto';
-import { EventEmitter } from 'events';
 import { Role } from '../roles/roles.enum';
 import { NotificationType } from './notification-type.enum';
-import { UserDocument } from 'src/users/schemas/user.schema';
 
 @Injectable()
 export class NotificationsService {
-  private emitter = new EventEmitter();
+  private readonly emitter = new EventEmitter();
+  private readonly logger = new Logger(NotificationsService.name);
 
   constructor(
     private readonly usersService: UsersService,
@@ -17,12 +17,30 @@ export class NotificationsService {
     private readonly telegramService: TelegramService,
   ) {}
 
-  async sendManualNotification(dto: CreateNotificationDto) {
+  async sendManualNotification(
+    dto: CreateNotificationDto,
+    sender?: { userId: string; role: Role },
+  ) {
     const user = await this.usersService.findById(dto.userId);
-    if (!user || !user.telegramId) throw new NotFoundException('Пользователь не найден или Telegram не подключён');
+    if (!user || !user.telegramId) {
+      throw new NotFoundException('User not found or Telegram is not connected');
+    }
+
+    if (sender?.role === Role.Teacher && user.role !== Role.Student) {
+      throw new BadRequestException('Teachers can send notifications only to students');
+    }
 
     const prefix = this.getNotificationPrefix(dto.type);
     await this.telegramService.sendMessage(user.telegramId, `${prefix} ${dto.message}`);
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'notification.manual.sent',
+        sender,
+        recipient: { id: user.id, role: user.role },
+        type: dto.type,
+      }),
+    );
 
     return { success: true, sentTo: user.username, type: dto.type };
   }
@@ -31,32 +49,48 @@ export class NotificationsService {
     type: NotificationType,
     role: Role,
     message: string,
-    senderRole: Role
+    senderRole: Role,
   ) {
     if (senderRole === Role.Teacher && role !== Role.Student) {
-      throw new BadRequestException('Учитель может отправлять уведомления только своим ученикам');
+      throw new BadRequestException('Teachers can send role-based notifications only to students');
     }
-  
+
     const users = await this.usersService.findByRole(role);
-    const telegramIds = users.filter((u: UserDocument) => u.telegramId).map(u => u.telegramId!);
-  
-    if (!telegramIds.length) return { success: false, reason: 'Нет пользователей с такой ролью' };
-  
+    const telegramIds = users.filter(user => user.telegramId).map(user => user.telegramId!);
+
+    if (!telegramIds.length) {
+      return { success: false, reason: 'No users with Telegram were found for this role' };
+    }
+
     const prefix = this.getNotificationPrefix(type);
     telegramIds.forEach(id => this.telegramService.sendMessage(id, `${prefix} ${message}`));
-  
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'notification.role.sent',
+        senderRole,
+        targetRole: role,
+        type,
+        recipients: telegramIds.length,
+      }),
+    );
+
     return { success: true, sentTo: telegramIds.length };
   }
-  
 
   private getNotificationPrefix(type: NotificationType) {
     switch (type) {
-      case NotificationType.PAYMENT: return '💰 [Оплата]';
-      case NotificationType.HOMEWORK: return '📝 [Домашка]';
-      case NotificationType.GRADES: return '📊 [Оценки]';
-      case NotificationType.ATTENDANCE: return '📅 [Посещаемость]';
+      case NotificationType.PAYMENT:
+        return '[Payment]';
+      case NotificationType.HOMEWORK:
+        return '[Homework]';
+      case NotificationType.GRADES:
+        return '[Grades]';
+      case NotificationType.ATTENDANCE:
+        return '[Attendance]';
       case NotificationType.GENERAL:
-      default: return '📢';
+      default:
+        return '[Notice]';
     }
   }
 

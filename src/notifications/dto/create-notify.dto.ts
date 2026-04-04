@@ -1,8 +1,8 @@
-import { IsString, IsEnum } from 'class-validator';
+import { IsEnum, IsMongoId, IsString } from 'class-validator';
 import { NotificationType } from '../notification-type.enum';
 
 export class CreateNotificationDto {
-  @IsString()
+  @IsMongoId()
   userId: string;
 
   @IsString()

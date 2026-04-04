@@ -12,8 +12,8 @@ export class Attendance {
   @Prop({ required: true })
   date: Date;
 
-  @Prop({ required: true, enum: ['present', 'absent'] })
-  status: 'present' | 'absent';
+  @Prop({ required: true, enum: ['present', 'absent', 'late', 'excused'] })
+  status: 'present' | 'absent' | 'late' | 'excused';
 }
 
 export const AttendanceSchema = SchemaFactory.createForClass(Attendance);

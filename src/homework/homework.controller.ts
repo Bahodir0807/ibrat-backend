@@ -17,11 +17,15 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../roles/roles.guard';
 import { Roles } from '../roles/roles.decorator';
 import { Role } from '../roles/roles.enum';
+import { AuditLogService } from '../common/audit/audit-log.service';
 
 @Controller('homework')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class HomeworkController {
-  constructor(private readonly hwService: HomeworkService) {}
+  constructor(
+    private readonly hwService: HomeworkService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   @Get('me')
   @Roles(Role.Student, Role.Teacher, Role.Admin, Role.Owner)
@@ -48,7 +52,17 @@ export class HomeworkController {
 
   @Patch(':id/complete')
   @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Student)
-  async complete(@Param('id') id: string) {
-    return this.hwService.markComplete(id);
+  async complete(@Param('id') id: string, @Request() req) {
+    const homework = await this.hwService.markComplete(id, {
+      userId: req.user.userId,
+      role: req.user.role,
+    });
+    this.auditLogService.log({
+      action: 'homework.complete',
+      actor: { id: req.user.userId, role: req.user.role },
+      target: { type: 'homework', id },
+      status: 'success',
+    });
+    return homework;
   }
 }

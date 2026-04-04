@@ -26,6 +26,7 @@ import { RolesGuard } from './roles/roles.guard';
 import configuration from './config/configuration';
 import { configValidationSchema } from './config/validation';
 import { RoomModule } from './rooms/room.module';
+import { AuditModule } from './common/audit/audit.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { RoomModule } from './rooms/room.module';
       }),
     }),
     AuthModule,
+    AuditModule,
     UsersModule,
     CoursesModule,
     DecoratorsModule,

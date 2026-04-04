@@ -27,7 +27,7 @@ describe('AuthService', () => {
   });
 
   it('registers guest/student users without double hashing', async () => {
-    usersService.create.mockResolvedValue({ _id: '1', username: 'demo', role: Role.Student });
+    usersService.create.mockResolvedValue({ id: '1', _id: '1', username: 'demo', role: Role.Student });
 
     await service.register({
       username: 'demo',
@@ -60,6 +60,7 @@ describe('AuthService', () => {
       role: Role.Student,
     });
     usersService.findById.mockResolvedValue({
+      id: '42',
       _id: '42',
       username: 'demo',
       role: Role.Student,
@@ -71,6 +72,7 @@ describe('AuthService', () => {
 
     expect(verifyPassword).toHaveBeenCalledWith('secret123', 'hashed-password');
     expect(user).toEqual({
+      id: '42',
       _id: '42',
       username: 'demo',
       role: Role.Student,
@@ -94,6 +96,7 @@ describe('AuthService', () => {
 
   it('builds a stable JWT payload', async () => {
     const response = await service.login({
+      id: '42',
       _id: '42',
       username: 'demo',
       role: Role.Student,
@@ -109,6 +112,7 @@ describe('AuthService', () => {
       token: 'signed-token',
       role: Role.Student,
       user: {
+        id: '42',
         _id: '42',
         username: 'demo',
         role: Role.Student,

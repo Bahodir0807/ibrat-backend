@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Homework, HomeworkDocument } from './schemas/homework.schema';
 import { CreateHomeworkDto } from './dto/create-homework.dto';
+import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
 
 @Injectable()
 export class HomeworkService {
@@ -11,7 +12,8 @@ export class HomeworkService {
   ) {}
 
   async getByUser(userId: string) {
-    return this.hwModel.find({ user: userId }).exec();
+    const homework = await this.hwModel.find({ user: userId }).sort({ date: -1 }).exec();
+    return serializeResources(homework);
   }
 
   async create(dto: CreateHomeworkDto) {
@@ -20,11 +22,22 @@ export class HomeworkService {
       date: new Date(dto.date),
       tasks: dto.tasks,
     });
-    return entry.save();
+    return serializeResource(await entry.save());
   }
   
 
-  async markComplete(id: string) {
-    return this.hwModel.findByIdAndUpdate(id, { completed: true }, { new: true }).exec();
+  async markComplete(id: string, actor?: { userId: string; role: string }) {
+    const homework = await this.hwModel.findById(id).exec();
+    if (!homework) {
+      throw new NotFoundException('Homework not found');
+    }
+
+    if (actor?.role === 'student' && String(homework.user) !== actor.userId) {
+      throw new ForbiddenException('Students can complete only their own homework');
+    }
+
+    homework.completed = true;
+    await homework.save();
+    return serializeResource(homework);
   }
 }

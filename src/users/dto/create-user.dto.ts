@@ -1,23 +1,23 @@
-import { IsString, MinLength, MaxLength, IsEnum, IsEmail, IsOptional } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { Role } from '../../roles/roles.enum';
 
 export class CreateUserDto {
   @IsString()
-  @MinLength(3, { message: 'Имя должно быть не менее 3 символов' })
-  @MaxLength(20, { message: 'Имя должно быть не более 20 символов' })
+  @MinLength(3, { message: 'Username must be at least 3 characters long' })
+  @MaxLength(20, { message: 'Username must be at most 20 characters long' })
   username: string;
 
   @IsString()
-  @MinLength(8, { message: 'Пароль должен быть не менее 8 символов' })
-  @MaxLength(20, { message: 'Пароль должен быть не более 20 символов' })
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @MaxLength(50, { message: 'Password must be at most 50 characters long' })
   password: string;
 
   @IsOptional()
-  @IsEnum(Role, { message: 'Роль должна быть "teacher", "admin", "student", "owner" или "parent"' })
+  @IsEnum(Role, { message: 'Role must be one of: admin, teacher, student, owner, panda, guest' })
   role?: Role;
 
   @IsOptional()
-  @IsEmail({}, { message: 'Некорректный email' })
+  @IsEmail({}, { message: 'Email must be valid' })
   email?: string;
 
   @IsOptional()
@@ -43,5 +43,4 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   telegramId?: string;
-
 }
