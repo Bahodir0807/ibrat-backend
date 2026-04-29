@@ -8,7 +8,6 @@ import {
   Inject,
 } from '@nestjs/common';
 import { Telegraf, Context, Markup, session } from 'telegraf';
-import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { PhoneRequestService } from '../phone-request/phone-request.service';
 import { HomeworkService } from '../homework/homework.service';
@@ -19,6 +18,7 @@ import { Role } from '../roles/roles.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/notification-type.enum';
 import { PublicUser } from '../users/types/public-user.type';
+import { AppConfigService } from '../config/app-config.service';
 
 interface SessionData {
   step?: string;
@@ -44,7 +44,7 @@ export class TelegramService implements OnModuleInit {
   private readonly adminChatId: number;
 
   constructor(
-    private readonly config: ConfigService,
+    private readonly appConfig: AppConfigService,
     private readonly users: UsersService,
     private readonly phoneReq: PhoneRequestService,
     private readonly hw: HomeworkService,
@@ -54,8 +54,8 @@ export class TelegramService implements OnModuleInit {
     @Inject(forwardRef(() => NotificationsService))
     private readonly notify: NotificationsService,
   ) {
-    const token = this.config.get<string>('telegramBotToken');
-    this.adminChatId = Number(this.config.get<string>('adminChatId')) || 0;
+    const token = this.appConfig.telegramBotToken;
+    this.adminChatId = this.appConfig.telegramAdminChatId ?? 0;
     if (!token) {
       return;
     }
@@ -89,22 +89,30 @@ export class TelegramService implements OnModuleInit {
       return;
     }
 
-    this.bot
-      .launch()
-      .then(() => this.logger.log('Telegram bot polling started'))
-      .catch(error => {
-        this.logger.error(
-          'Failed to start Telegram polling',
-          error instanceof Error ? error.stack : String(error),
-        );
-      });
+    void this.launchPolling();
 
     process.once('SIGINT', () => this.bot!.stop('SIGINT'));
     process.once('SIGTERM', () => this.bot!.stop('SIGTERM'));
   }
 
+  private async launchPolling() {
+    if (!this.bot) {
+      return;
+    }
+
+    try {
+      await this.bot.launch();
+      this.logger.log('Telegram bot polling started');
+    } catch (error) {
+      this.logger.error(
+        'Failed to start Telegram polling',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
   private isWebhookMode(): boolean {
-    return Boolean(this.config.get<string>('domain'));
+    return Boolean(this.appConfig.telegramWebhookBaseUrl);
   }
 
   private setupBot() {
@@ -221,7 +229,7 @@ export class TelegramService implements OnModuleInit {
       return ctx.reply('🎉 Вы зарегистрированы! Команды: /homework /grades /attendance /schedule');
     }
 
-    const req = await this.phoneReq.getByTelegramId(String(tgId));
+    const req = await this.phoneReq.findByTelegramIdOptional(String(tgId));
     if (!req) return ctx.reply('Вы не отправляли заявку.');
     if (req.status === 'pending') return ctx.reply('Заявка в обработке. Ждите.');
     if (req.status === 'rejected') return ctx.reply('К сожалению, вас отклонили.');
@@ -461,7 +469,7 @@ export class TelegramService implements OnModuleInit {
   // ---------- More handlers (homework / grades / attendance / schedule) ----------
 
   private async finishRegistration(telegramId: string, phone: string, name: string) {
-    const req = await this.phoneReq.getByTelegramId(telegramId);
+    const req = await this.phoneReq.findByTelegramIdOptional(telegramId);
     if (!req) throw new NotFoundException('Заявка не найдена');
 
     await this.phoneReq.updateName(req._id, name);
@@ -501,7 +509,7 @@ export class TelegramService implements OnModuleInit {
 
   private async handleSchedule(ctx: BotContext) {
     const user = await this.ensureUser(ctx);
-    const list = await this.schedule.getScheduleForUser((user as any)._id.toString(), (user as any).role);
+    const list = (await this.schedule.getScheduleForUser((user as any)._id.toString(), (user as any).role)).items;
     if (!list || !list.length) return ctx.reply('📭 У вас пока нет расписания.');
 
     const formatted = list.map(s => {

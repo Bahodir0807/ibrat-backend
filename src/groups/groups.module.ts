@@ -3,9 +3,17 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { GroupsController } from './groups.controller';
 import { GroupsService } from './groups.service';
 import { Group, GroupSchema } from './schemas/group.schema';
+import { Course, CourseSchema } from '../courses/schemas/course.schema';
+import { User, UserSchema } from '../users/schemas/user.schema';
+import { Schedule, ScheduleSchema } from '../schedule/schemas/schedule.schema';
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: Group.name, schema: GroupSchema }])],
+  imports: [MongooseModule.forFeature([
+    { name: Group.name, schema: GroupSchema },
+    { name: Course.name, schema: CourseSchema },
+    { name: User.name, schema: UserSchema },
+    { name: Schedule.name, schema: ScheduleSchema },
+  ])],
   controllers: [GroupsController],
   providers: [GroupsService],
   exports: [GroupsService],

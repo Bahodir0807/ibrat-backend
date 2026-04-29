@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { Role } from '../../roles/roles.enum';
+import { UserStatus } from '../user-status.enum';
 
 export type UserDocument = User & Document & { _id: string; };
 
@@ -30,11 +31,20 @@ export class User {
   @Prop()
   phoneNumber?: string;
   
-  @Prop({ default: false })
+  @Prop({ default: true })
   isActive: boolean;
+
+  @Prop({ enum: UserStatus, default: UserStatus.Active })
+  status: UserStatus;
+
+  @Prop()
+  passwordChangedAt?: Date;
   
   @Prop()
   avatarUrl?: string;
+
+  @Prop({ type: [String], default: [] })
+  branchIds: string[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -5,6 +5,8 @@ import { Role, RoleDocument } from './schemas/role.schema';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
+import { RolesListQueryDto } from './dto/roles-list-query.dto';
+import { createPaginatedResult } from '../common/responses/paginated-result';
 
 @Injectable()
 export class RolesService {
@@ -20,9 +22,19 @@ export class RolesService {
     return serializeResource(role);
   }
 
-  async findAll() {
-    const roles = await this.roleModel.find().sort({ name: 1 }).exec();
-    return serializeResources(roles);
+  async findAll(query: RolesListQueryDto = {}) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const filter = query.search?.trim()
+      ? { name: new RegExp(query.search.trim(), 'i') }
+      : {};
+
+    const [roles, total] = await Promise.all([
+      this.roleModel.find(filter).sort({ name: 1 }).skip((page - 1) * limit).limit(limit).exec(),
+      this.roleModel.countDocuments(filter).exec(),
+    ]);
+
+    return createPaginatedResult(serializeResources(roles), total, page, limit);
   }
 
   async findOne(name: string) {

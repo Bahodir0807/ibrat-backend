@@ -42,7 +42,7 @@ export class NotificationsService {
       }),
     );
 
-    return { success: true, sentTo: user.username, type: dto.type };
+    return { sentTo: user.username, type: dto.type };
   }
 
   async sendRoleNotification(
@@ -75,7 +75,7 @@ export class NotificationsService {
       }),
     );
 
-    return { success: true, sentTo: telegramIds.length };
+    return { sentTo: telegramIds.length };
   }
 
   private getNotificationPrefix(type: NotificationType) {

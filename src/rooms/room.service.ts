@@ -1,16 +1,19 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model, SortOrder } from 'mongoose';
+import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { Room, RoomDocument } from './schemas/room.schema';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
 import { RoomsListQueryDto } from './dto/rooms-list-query.dto';
+import { createPaginatedResult } from '../common/responses/paginated-result';
+import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
 
 @Injectable()
 export class RoomService {
   constructor(
     @InjectModel(Room.name) private readonly roomModel: Model<RoomDocument>,
+    @InjectModel(Schedule.name) private readonly scheduleModel: Model<ScheduleDocument>,
   ) {}
 
   private getSort(query: RoomsListQueryDto) {
@@ -22,8 +25,9 @@ export class RoomService {
     return { [sortBy]: sortOrder as SortOrder };
   }
 
-  create(dto: CreateRoomDto) {
-    return this.roomModel.create(dto).then(room => serializeResource(room));
+  async create(dto: CreateRoomDto) {
+    const room = await this.roomModel.create(dto);
+    return serializeResource(room);
   }
 
   async findAll(query: RoomsListQueryDto = {}) {
@@ -48,17 +52,24 @@ export class RoomService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
-    const rooms = await this.roomModel
-      .find(filter)
-      .sort(this.getSort(query))
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .exec();
+    const [rooms, total] = await Promise.all([
+      this.roomModel
+        .find(filter)
+        .sort(this.getSort(query))
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
+      this.roomModel.countDocuments(filter).exec(),
+    ]);
 
-    return serializeResources(rooms);
+    return createPaginatedResult(serializeResources(rooms), total, page, limit);
   }
 
   async findById(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid room ID');
+    }
+
     const room = await this.roomModel.findById(id).exec();
     if (!room) {
       throw new NotFoundException('Room not found');
@@ -68,6 +79,10 @@ export class RoomService {
   }
 
   async update(id: string, dto: UpdateRoomDto) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid room ID');
+    }
+
     const updated = await this.roomModel.findByIdAndUpdate(id, dto, { new: true }).exec();
     if (!updated) {
       throw new NotFoundException('Room not found');
@@ -77,6 +92,15 @@ export class RoomService {
   }
 
   async remove(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid room ID');
+    }
+
+    const scheduleExists = await this.scheduleModel.exists({ room: id }).exec();
+    if (scheduleExists) {
+      throw new BadRequestException('Room cannot be deleted while schedule entries reference it');
+    }
+
     const deleted = await this.roomModel.findByIdAndDelete(id).exec();
     if (!deleted) {
       throw new NotFoundException('Room not found');

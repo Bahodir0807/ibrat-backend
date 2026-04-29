@@ -1,47 +1,44 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
 import { Role } from '../roles/roles.enum';
+import { NameParamDto } from '../common/dto/name-param.dto';
+import { RolesListQueryDto } from './dto/roles-list-query.dto';
 
 @Controller('roles')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Post()
   @Roles(Role.Owner)
-  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   create(@Body() dto: CreateRoleDto) {
     return this.rolesService.create(dto);
   }
 
   @Get()
-  @Roles(Role.Owner, Role.Admin, Role.Extra)
-  findAll() {
-    return this.rolesService.findAll();
+  @Roles(Role.Owner, Role.Extra)
+  findAll(@Query() query: RolesListQueryDto) {
+    return this.rolesService.findAll(query);
   }
 
   @Get(':name')
-  @Roles(Role.Owner, Role.Admin, Role.Extra)
-  findOne(@Param('name') name: string) {
-    return this.rolesService.findOne(name);
+  @Roles(Role.Owner, Role.Extra)
+  findOne(@Param() params: NameParamDto) {
+    return this.rolesService.findOne(params.name);
   }
 
   @Patch(':name')
   @Roles(Role.Owner)
-  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
-  update(@Param('name') name: string, @Body() dto: UpdateRoleDto) {
-    return this.rolesService.update(name, dto);
+  update(@Param() params: NameParamDto, @Body() dto: UpdateRoleDto) {
+    return this.rolesService.update(params.name, dto);
   }
 
   @Delete(':name')
   @Roles(Role.Owner)
-  async remove(@Param('name') name: string) {
-    await this.rolesService.remove(name);
-    return { success: true, message: 'Role deleted successfully' };
+  async remove(@Param() params: NameParamDto) {
+    await this.rolesService.remove(params.name);
+    return { message: 'Role deleted successfully' };
   }
 }

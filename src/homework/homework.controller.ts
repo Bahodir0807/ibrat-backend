@@ -7,20 +7,17 @@ import {
   Patch,
   Post,
   Request,
-  UseGuards,
-  UsePipes,
-  ValidationPipe,
 } from '@nestjs/common';
 import { HomeworkService } from './homework.service';
 import { CreateHomeworkDto } from './dto/create-homework.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../roles/roles.guard';
 import { Roles } from '../roles/roles.decorator';
 import { Role } from '../roles/roles.enum';
 import { AuditLogService } from '../common/audit/audit-log.service';
+import { UserIdParamDto } from '../common/dto/user-id-param.dto';
+import { IdParamDto } from '../common/dto/id-param.dto';
+import { AuthenticatedUser } from '../common/types/authenticated-user.type';
 
 @Controller('homework')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class HomeworkController {
   constructor(
     private readonly hwService: HomeworkService,
@@ -28,35 +25,33 @@ export class HomeworkController {
   ) {}
 
   @Get('me')
-  @Roles(Role.Student, Role.Teacher, Role.Admin, Role.Owner)
+  @Roles(Role.Student)
   async getMine(@Request() req) {
-    return this.hwService.getByUser(req.user.userId);
+    return this.hwService.getByUserForActor(req.user.userId, req.user as AuthenticatedUser);
   }
 
   @Get('user/:userId')
   @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Student)
-  async getByUser(@Param('userId') userId: string, @Request() req) {
+  async getByUser(@Param() params: UserIdParamDto, @Request() req) {
+    const { userId } = params;
     if (req.user.role === Role.Student && req.user.userId !== userId) {
       throw new ForbiddenException('Students can only access their own homework');
     }
 
-    return this.hwService.getByUser(userId);
+    return this.hwService.getByUserForActor(userId, req.user as AuthenticatedUser);
   }
 
   @Post()
   @Roles(Role.Admin, Role.Teacher, Role.Owner)
-  @UsePipes(new ValidationPipe({ whitelist: true }))
-  async create(@Body() dto: CreateHomeworkDto) {
-    return this.hwService.create(dto);
+  async create(@Body() dto: CreateHomeworkDto, @Request() req) {
+    return this.hwService.createForActor(dto, req.user as AuthenticatedUser);
   }
 
   @Patch(':id/complete')
   @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Student)
-  async complete(@Param('id') id: string, @Request() req) {
-    const homework = await this.hwService.markComplete(id, {
-      userId: req.user.userId,
-      role: req.user.role,
-    });
+  async complete(@Param() params: IdParamDto, @Request() req) {
+    const { id } = params;
+    const homework = await this.hwService.markCompleteForActor(id, req.user as AuthenticatedUser);
     this.auditLogService.log({
       action: 'homework.complete',
       actor: { id: req.user.userId, role: req.user.role },

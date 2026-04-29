@@ -5,28 +5,29 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
   Put,
   Query,
   Request,
-  UseGuards,
-  UsePipes,
-  ValidationPipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../roles/roles.guard';
 import { Roles } from '../roles/roles.decorator';
 import { Role } from '../roles/roles.enum';
 import { UsersListQueryDto } from './dto/users-list-query.dto';
 import { AuditLogService } from '../common/audit/audit-log.service';
+import { IdParamDto } from '../common/dto/id-param.dto';
+import { SearchUsersQueryDto } from './dto/search-users-query.dto';
+import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { AuthenticatedUser } from '../common/types/authenticated-user.type';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
@@ -38,127 +39,149 @@ export class UsersController {
     return this.usersService.findById(req.user.userId);
   }
 
+  @Patch('me/profile')
+  async updateMyProfile(@Body() dto: UpdateProfileDto, @Request() req) {
+    const user = await this.usersService.updateOwnProfile(req.user.userId, dto);
+    this.auditLogService.log({
+      action: 'user.profile.update',
+      actor: { id: req.user.userId, role: req.user.role },
+      status: 'success',
+      target: { type: 'user', id: req.user.userId },
+    });
+    return user;
+  }
+
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Get()
-  async getAll(@Query() query: UsersListQueryDto) {
-    return this.usersService.findAll(query);
+  async getAll(@Query() query: UsersListQueryDto, @Request() req) {
+    return this.usersService.findAllForActor(query, req.user as AuthenticatedUser);
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Get('search')
-  async search(
-    @Query('username') username?: string,
-    @Query('phone') phone?: string,
-    @Query('telegramId') telegramId?: string,
-  ) {
-    if (username) {
-      return this.usersService.findByUsername(username);
+  async search(@Query() query: SearchUsersQueryDto, @Request() req) {
+    const { username, phone, telegramId } = query;
+    const providedSearchKeys = [username, phone, telegramId].filter(
+      (value): value is string => typeof value === 'string' && value.length > 0,
+    );
+
+    if (providedSearchKeys.length === 0) {
+      throw new BadRequestException('Provide exactly one search parameter');
     }
 
-    if (phone) {
-      return this.usersService.findByPhone(phone);
+    if (providedSearchKeys.length > 1) {
+      throw new BadRequestException('Use exactly one search parameter at a time');
     }
 
-    if (telegramId) {
-      return this.usersService.findByTelegramId(Number(telegramId));
+    const user = await this.usersService.searchForActor(query, req.user as AuthenticatedUser);
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
-    throw new BadRequestException('Provide at least one search parameter');
+    return user;
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner, Role.Teacher)
   @Get('students')
-  async getStudents(@Query() query: UsersListQueryDto) {
-    return this.usersService.findAll({ ...query, role: Role.Student });
+  async getStudents(@Query() query: UsersListQueryDto, @Request() req) {
+    return this.usersService.findStudentsForActor(query, req.user as AuthenticatedUser);
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Get(':id')
-  async getOne(@Param('id') id: string) {
-    return this.usersService.findById(id);
+  async getOne(@Param() params: IdParamDto, @Request() req) {
+    return this.usersService.findByIdForActor(params.id, req.user as AuthenticatedUser);
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
-  @UsePipes(new ValidationPipe({ transform: true }))
   @Post()
   async create(@Body() dto: CreateUserDto, @Request() req) {
-    const user = await this.usersService.create(dto);
+    const user = await this.usersService.createForActor(dto, req.user as AuthenticatedUser);
     this.auditLogService.log({
       action: 'user.create',
       actor: { id: req.user.userId, role: req.user.role },
       status: 'success',
       target: { type: 'user', id: user.id },
-      metadata: { role: user.role },
+      metadata: { role: user.role, status: user.status },
     });
     return user;
   }
 
-  @UsePipes(new ValidationPipe({ transform: true }))
   @Put(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Request() req) {
-    const requester = req.user;
-    const isPrivileged = [Role.Admin, Role.Owner, Role.Extra].includes(requester.role);
-
-    if (!isPrivileged && requester.userId !== id) {
-      throw new ForbiddenException('You are not allowed to update this user');
-    }
-
-    if (!isPrivileged) {
-      const { role, telegramId, roleKey, ...selfPayload } = dto;
-
-      if (role || telegramId || roleKey) {
-        throw new ForbiddenException('Self-update is limited to profile fields only');
-      }
-
-      const updatedUser = await this.usersService.update(id, selfPayload);
-      this.auditLogService.log({
-        action: 'user.update.self',
-        actor: { id: requester.userId, role: requester.role },
-        target: { type: 'user', id },
-        status: 'success',
-      });
-      return updatedUser;
-    }
-
-    const updatedUser = await this.usersService.update(id, dto);
+  async update(@Param() params: IdParamDto, @Body() dto: UpdateUserDto, @Request() req) {
+    const { id } = params;
+    const requester = req.user as AuthenticatedUser;
+    const updatedUser = await this.usersService.updateForActor(id, dto, requester);
     this.auditLogService.log({
-      action: 'user.update',
+      action: requester.userId === id ? 'user.update.self' : 'user.update',
       actor: { id: requester.userId, role: requester.role },
       target: { type: 'user', id },
       status: 'success',
-      metadata: { changedRole: dto.role },
     });
     return updatedUser;
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Patch(':id/role')
-  async updateRole(@Param('id') id: string, @Body('role') role: Role, @Request() req) {
-    const updatedUser = await this.usersService.updateRole(id, role);
+  async updateRole(@Param() params: IdParamDto, @Body() dto: UpdateUserRoleDto, @Request() req) {
+    const { id } = params;
+    const updatedUser = await this.usersService.updateRoleForActor(
+      id,
+      dto.role,
+      req.user as AuthenticatedUser,
+    );
     this.auditLogService.log({
       action: 'user.role.update',
       actor: { id: req.user.userId, role: req.user.role },
       target: { type: 'user', id },
       status: 'success',
-      metadata: { role },
+      metadata: { role: dto.role },
+    });
+    return updatedUser;
+  }
+
+  @Roles(Role.Admin, Role.Extra, Role.Owner)
+  @Patch(':id/status')
+  async updateStatus(
+    @Param() params: IdParamDto,
+    @Body() dto: UpdateUserStatusDto,
+    @Request() req,
+  ) {
+    const { id } = params;
+    if (req.user.userId === id) {
+      throw new BadRequestException('Self-status change is not allowed');
+    }
+
+    const updatedUser = await this.usersService.updateStatusForActor(
+      id,
+      dto,
+      req.user as AuthenticatedUser,
+    );
+    this.auditLogService.log({
+      action: 'user.status.update',
+      actor: { id: req.user.userId, role: req.user.role },
+      target: { type: 'user', id },
+      status: 'success',
+      metadata: { status: dto.status },
     });
     return updatedUser;
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Delete(':id')
-  async remove(@Param('id') id: string, @Request() req) {
+  async remove(@Param() params: IdParamDto, @Request() req) {
+    const { id } = params;
     if (req.user.userId === id) {
       throw new BadRequestException('Self-delete is disabled for safety');
     }
 
-    await this.usersService.remove(id);
+    await this.usersService.removeForActor(id, req.user as AuthenticatedUser);
     this.auditLogService.log({
       action: 'user.delete',
       actor: { id: req.user.userId, role: req.user.role },
       target: { type: 'user', id },
       status: 'success',
     });
-    return { success: true, message: 'User deleted successfully' };
+    return { message: 'User deleted successfully' };
   }
 }

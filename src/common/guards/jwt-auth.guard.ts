@@ -1,1 +1,0 @@
-export { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';

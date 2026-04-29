@@ -1,6 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
-import { APP_GUARD, Reflector } from '@nestjs/core';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -8,10 +8,6 @@ import { UsersModule } from './users/users.module';
 import { CoursesModule } from './courses/courses.module';
 import { SchedulesModule } from './schedule/schedule.module';
 import { AuthModule } from './auth/auth.module';
-import { DecoratorsModule } from './common/decorators/decorators.module';
-import { GuardsModule } from './common/guards/guards.module';
-import { FiltersModule } from './common/filters/filters.module';
-import { DtoModule } from './common/dto/dto.module';
 import { RolesModule } from './roles/roles.module';
 import { GroupsModule } from './groups/groups.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -24,32 +20,35 @@ import { GradesModule } from './grades/grades.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './roles/roles.guard';
 import configuration from './config/configuration';
+import { getEnvFilePaths } from './config/configuration';
 import { configValidationSchema } from './config/validation';
 import { RoomModule } from './rooms/room.module';
 import { AuditModule } from './common/audit/audit.module';
+import { AppConfigModule } from './config/config.module';
+import { AppConfigService } from './config/app-config.service';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      cache: true,
+      expandVariables: true,
+      envFilePath: getEnvFilePaths(),
       load: [configuration],
       validationSchema: configValidationSchema,
     }),
+    AppConfigModule,
     MongooseModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        uri: configService.getOrThrow<string>('dbUri'),
-      }),
+      imports: [AppConfigModule],
+      inject: [AppConfigService],
+      useFactory: (appConfigService: AppConfigService) =>
+        appConfigService.createMongooseOptions(),
     }),
     AuthModule,
     AuditModule,
     UsersModule,
     CoursesModule,
-    DecoratorsModule,
-    GuardsModule,
-    FiltersModule,
-    DtoModule,
     RolesModule,
     GroupsModule,
     SchedulesModule,
@@ -61,6 +60,7 @@ import { AuditModule } from './common/audit/audit.module';
     forwardRef(() => TelegramModule),
     GradesModule,
     RoomModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [
@@ -71,8 +71,7 @@ import { AuditModule } from './common/audit/audit.module';
     },
     {
       provide: APP_GUARD,
-      useFactory: (reflector: Reflector) => new RolesGuard(reflector),
-      inject: [Reflector],
+      useClass: RolesGuard,
     },
   ],
 })

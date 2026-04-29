@@ -6,6 +6,7 @@ import { CreatePhoneRequestDto } from './dto/create-phone-request.dto';
 import { HandlePhoneRequestDto } from './dto/handle-phone-request.dto';
 import { PhoneRequestListQueryDto } from './dto/phone-request-list-query.dto';
 import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
+import { createPaginatedResult } from '../common/responses/paginated-result';
 
 @Injectable()
 export class PhoneRequestService {
@@ -82,6 +83,19 @@ export class PhoneRequestService {
       throw new BadRequestException('telegramId is required');
     }
 
+    const request = await this.findByTelegramIdOptional(telegramId);
+    if (!request) {
+      throw new NotFoundException('Request not found');
+    }
+
+    return request;
+  }
+
+  async findByTelegramIdOptional(telegramId: string) {
+    if (!telegramId) {
+      throw new BadRequestException('telegramId is required');
+    }
+
     const request = await this.phoneRequestModel.findOne({ telegramId }).exec();
     return request ? serializeResource(request) : null;
   }
@@ -98,15 +112,19 @@ export class PhoneRequestService {
   async findAll(query: PhoneRequestListQueryDto = {}) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+    const filter = this.buildFilter(query);
 
-    const requests = await this.phoneRequestModel
-      .find(this.buildFilter(query))
-      .sort(this.getSort(query))
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .exec();
+    const [requests, total] = await Promise.all([
+      this.phoneRequestModel
+        .find(filter)
+        .sort(this.getSort(query))
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
+      this.phoneRequestModel.countDocuments(filter).exec(),
+    ]);
 
-    return serializeResources(requests);
+    return createPaginatedResult(serializeResources(requests), total, page, limit);
   }
 
   async getPending(query: PhoneRequestListQueryDto = {}) {

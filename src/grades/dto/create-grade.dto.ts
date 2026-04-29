@@ -1,8 +1,9 @@
-import { IsNotEmpty, IsString, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsMongoId, IsNotEmpty, IsNumber, IsString, Max, Min } from 'class-validator';
 
 export class CreateGradeDto {
   @IsNotEmpty()
-  @IsString()
+  @IsMongoId()
   userId: string;
 
   @IsNotEmpty()
@@ -10,6 +11,9 @@ export class CreateGradeDto {
   subject: string;
 
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  @Max(100)
   score: number;
 }

@@ -1,47 +1,62 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { ConfigService } from '@nestjs/config';
+import { RequestMethod, VersioningType } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { CustomValidationPipe } from './common/pipes/validation.pipe';
 import { TelegramService } from './telegram/telegram.service';
+import { AppConfigService } from './config/app-config.service';
 
 const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
+  const appConfig = app.get(AppConfigService);
+
+  app.enableShutdownHooks();
+  app.disable('x-powered-by');
+
+  if (appConfig.trustProxy) {
+    app.set('trust proxy', true);
+  }
+
+  app.use(json({ limit: appConfig.bodyLimit }));
+  app.use(urlencoded({ extended: true, limit: appConfig.bodyLimit }));
 
   app.useGlobalFilters(new AllExceptionsFilter());
-  app.useGlobalInterceptors(new LoggingInterceptor());
+  app.useGlobalInterceptors(new LoggingInterceptor(), new ResponseInterceptor());
   app.useGlobalPipes(new CustomValidationPipe());
 
-  const allowedOrigins = configService.get<string[]>('corsOrigins') ?? [];
-  app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
+  if (appConfig.globalPrefix) {
+    app.setGlobalPrefix(appConfig.globalPrefix, {
+      exclude: [
+        { path: 'ping', method: RequestMethod.GET },
+        { path: 'health', method: RequestMethod.GET },
+        { path: 'health/live', method: RequestMethod.GET },
+        { path: 'health/ready', method: RequestMethod.GET },
+      ],
+    });
+  }
 
-      callback(new Error(`Origin ${origin} is not allowed by CORS`), false);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'Accept',
-      'Origin',
-      'X-Requested-With',
-    ],
-  });
+  if (appConfig.apiVersioningEnabled) {
+    app.enableVersioning({
+      type: VersioningType.URI,
+      defaultVersion: appConfig.apiDefaultVersion,
+    });
+  }
+
+  app.enableCors(appConfig.createCorsOptions());
 
   const telegramService = app.get(TelegramService);
   const bot = telegramService.getBot();
-  const webhookPath = '/bot';
-  const domain = configService.get<string>('domain');
+  const webhookPath = appConfig.telegramWebhookPath;
+  const webhookBaseUrl = appConfig.telegramWebhookBaseUrl;
 
   if (bot) {
     app.use(webhookPath, bot.webhookCallback(webhookPath));
@@ -50,9 +65,9 @@ async function bootstrap() {
       logger.log('Checking Telegram API connection');
       await bot.telegram.getMe();
 
-      if (domain) {
-        await bot.telegram.setWebhook(`${domain}${webhookPath}`);
-        logger.log(`Telegram webhook configured at ${domain}${webhookPath}`);
+      if (webhookBaseUrl) {
+        await bot.telegram.setWebhook(`${webhookBaseUrl}${webhookPath}`);
+        logger.log(`Telegram webhook configured at ${webhookBaseUrl}${webhookPath}`);
       } else {
         logger.warn('DOMAIN is not set, Telegram webhook configuration skipped');
       }
@@ -66,9 +81,10 @@ async function bootstrap() {
     logger.warn('Telegram bot is disabled because TELEGRAM_BOT_TOKEN is not set');
   }
 
-  const port = configService.getOrThrow<number>('port');
-  await app.listen(port, '0.0.0.0');
-  logger.log(`Server started on port ${port}`);
+  await app.listen(appConfig.port, appConfig.host);
+  logger.log(
+    `Server started on ${appConfig.host}:${appConfig.port}${appConfig.globalPrefix ? `/${appConfig.globalPrefix}` : ''}`,
+  );
 }
 
 bootstrap();

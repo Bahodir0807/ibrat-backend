@@ -1,4 +1,5 @@
 import { Role } from '../../roles/roles.enum';
+import { UserStatus } from '../user-status.enum';
 
 export interface PublicUser {
   id: string;
@@ -9,9 +10,11 @@ export interface PublicUser {
   firstName?: string;
   lastName?: string;
   role: Role;
+  status: UserStatus;
   phoneNumber?: string;
   isActive: boolean;
   avatarUrl?: string;
+  branchIds: string[];
   createdAt?: Date;
   updatedAt?: Date;
 }

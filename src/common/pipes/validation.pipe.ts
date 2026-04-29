@@ -3,9 +3,12 @@ import { ValidationPipe, BadRequestException } from '@nestjs/common';
 export class CustomValidationPipe extends ValidationPipe {
   constructor() {
     super({
-      whitelist: true, 
-      forbidNonWhitelisted: true, 
-      transform: true, 
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
       exceptionFactory: errors => {
         const messages = errors.flatMap(error => {
           const directConstraints = error.constraints ? Object.values(error.constraints) : [];

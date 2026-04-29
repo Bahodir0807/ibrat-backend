@@ -15,7 +15,7 @@ export class Statistic {
   value: number;
 
   @Prop({ type: Map })
-  metadata?: Map<string, any>;
+  metadata?: Map<string, unknown>;
 }
 
 export const StatisticSchema = SchemaFactory.createForClass(Statistic);

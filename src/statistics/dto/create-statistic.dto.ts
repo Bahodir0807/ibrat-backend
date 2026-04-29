@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import { IsDateString, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
 
 export class CreateStatisticDto {
@@ -8,6 +9,7 @@ export class CreateStatisticDto {
   @IsNotEmpty()
   readonly type: string;
 
+  @Type(() => Number)
   @IsNumber()
   readonly value: number;
 

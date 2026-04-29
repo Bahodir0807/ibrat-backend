@@ -1,7 +1,10 @@
-import { IsOptional, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsNumber, Max, Min } from 'class-validator';
 
 export class UpdateGradeDto {
-  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
-  score?: number;
+  @Min(0)
+  @Max(100)
+  score: number;
 }

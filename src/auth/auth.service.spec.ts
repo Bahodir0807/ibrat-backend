@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { verifyPassword } from '../common/password';
 import { Role } from '../roles/roles.enum';
 import { AuthService } from './auth.service';
+import { UserStatus } from '../users/user-status.enum';
 
 jest.mock('../common/password', () => ({
   verifyPassword: jest.fn(),
@@ -16,18 +17,43 @@ describe('AuthService', () => {
   };
 
   const jwtService = {
-    sign: jest.fn(() => 'signed-token'),
+    signAsync: jest.fn(),
+    verifyAsync: jest.fn(),
+    decode: jest.fn(),
   } as unknown as JwtService;
+
+  const appConfigService = {
+    jwtSecret: 'access-secret',
+    jwtExpiresIn: '15m',
+    jwtRefreshSecret: 'refresh-secret',
+    jwtRefreshExpiresIn: '7d',
+  };
+
+  const authSessionModel = {
+    create: jest.fn(),
+  };
 
   let service: AuthService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new AuthService(usersService as any, jwtService);
+    service = new AuthService(
+      usersService as any,
+      jwtService,
+      appConfigService as any,
+      authSessionModel as any,
+    );
   });
 
   it('registers guest/student users without double hashing', async () => {
-    usersService.create.mockResolvedValue({ id: '1', _id: '1', username: 'demo', role: Role.Student });
+    usersService.create.mockResolvedValue({
+      id: '1',
+      _id: '1',
+      username: 'demo',
+      role: Role.Student,
+      status: UserStatus.Active,
+      branchIds: [],
+    });
 
     await service.register({
       username: 'demo',
@@ -39,6 +65,7 @@ describe('AuthService', () => {
       username: 'demo',
       password: 'secret123',
       role: Role.Student,
+      status: UserStatus.Active,
     });
   });
 
@@ -58,13 +85,17 @@ describe('AuthService', () => {
       username: 'demo',
       password: 'hashed-password',
       role: Role.Student,
+      isActive: true,
+      status: UserStatus.Active,
     });
     usersService.findById.mockResolvedValue({
       id: '42',
       _id: '42',
       username: 'demo',
       role: Role.Student,
+      status: UserStatus.Active,
       isActive: true,
+      branchIds: [],
     });
     (verifyPassword as jest.Mock).mockResolvedValue(true);
 
@@ -76,7 +107,9 @@ describe('AuthService', () => {
       _id: '42',
       username: 'demo',
       role: Role.Student,
+      status: UserStatus.Active,
       isActive: true,
+      branchIds: [],
     });
   });
 
@@ -86,6 +119,8 @@ describe('AuthService', () => {
       username: 'demo',
       password: 'hashed-password',
       role: Role.Student,
+      isActive: true,
+      status: UserStatus.Active,
     });
     (verifyPassword as jest.Mock).mockResolvedValue(false);
 
@@ -94,30 +129,60 @@ describe('AuthService', () => {
     expect(user).toBeNull();
   });
 
-  it('builds a stable JWT payload', async () => {
+  it('builds access and refresh tokens on login', async () => {
+    (jwtService.signAsync as jest.Mock)
+      .mockResolvedValueOnce('signed-access-token')
+      .mockResolvedValueOnce('signed-refresh-token');
+    (jwtService.decode as jest.Mock).mockReturnValue({ jti: 'refresh-id-1' });
+
     const response = await service.login({
       id: '42',
       _id: '42',
       username: 'demo',
       role: Role.Student,
+      status: UserStatus.Active,
       isActive: true,
+      branchIds: [],
     });
 
-    expect(jwtService.sign).toHaveBeenCalledWith({
-      username: 'demo',
-      sub: '42',
-      role: Role.Student,
-    });
-    expect(response).toEqual({
-      token: 'signed-token',
-      role: Role.Student,
-      user: {
-        id: '42',
-        _id: '42',
+    expect(jwtService.signAsync).toHaveBeenNthCalledWith(
+      1,
+      {
         username: 'demo',
+        sub: '42',
         role: Role.Student,
-        isActive: true,
+        status: UserStatus.Active,
+        branchIds: [],
+        type: 'access',
       },
-    });
+      expect.objectContaining({ secret: 'access-secret', expiresIn: '15m' }),
+    );
+    expect(jwtService.signAsync).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        username: 'demo',
+        sub: '42',
+        role: Role.Student,
+        status: UserStatus.Active,
+        branchIds: [],
+        type: 'refresh',
+      }),
+      expect.objectContaining({ secret: 'refresh-secret', expiresIn: '7d' }),
+    );
+    expect(response).toEqual(
+      expect.objectContaining({
+        accessToken: 'signed-access-token',
+        refreshToken: 'signed-refresh-token',
+        token: 'signed-access-token',
+        tokenType: 'Bearer',
+        user: expect.objectContaining({
+          id: '42',
+          username: 'demo',
+          role: Role.Student,
+          status: UserStatus.Active,
+        }),
+      }),
+    );
+    expect(authSessionModel.create).toHaveBeenCalled();
   });
 });

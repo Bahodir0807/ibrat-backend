@@ -1,4 +1,4 @@
-import { IsIn, IsNotEmpty, IsString } from 'class-validator';
+import { IsIn, IsMongoId, IsNotEmpty, IsString } from 'class-validator';
 
 export class HandlePhoneRequestDto {
   @IsString()
@@ -6,7 +6,6 @@ export class HandlePhoneRequestDto {
   @IsIn(['approved', 'rejected'])
   status: 'approved' | 'rejected';
 
-  @IsString()
-  @IsNotEmpty()
+  @IsMongoId()
   requestId: string;
 }
