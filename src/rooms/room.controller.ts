@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Request,
 } from '@nestjs/common';
 import { RoomService } from './room.service';
 import { CreateRoomDto } from './dto/create-room.dto';
@@ -22,32 +23,32 @@ export class RoomController {
 
   @Post()
   @Roles(Role.Admin, Role.Owner, Role.Extra)
-  create(@Body() dto: CreateRoomDto) {
-    return this.roomService.create(dto);
+  create(@Body() dto: CreateRoomDto, @Request() req) {
+    return this.roomService.createForActor(dto, req.user);
   }
 
   @Get()
   @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
-  findAll(@Query() query: RoomsListQueryDto) {
-    return this.roomService.findAll(query);
+  findAll(@Query() query: RoomsListQueryDto, @Request() req) {
+    return this.roomService.findAllForActor(query, req.user);
   }
 
   @Get(':id')
   @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
-  findOne(@Param() params: IdParamDto) {
-    return this.roomService.findById(params.id);
+  findOne(@Param() params: IdParamDto, @Request() req) {
+    return this.roomService.findByIdForActor(params.id, req.user);
   }
 
   @Patch(':id')
   @Roles(Role.Admin, Role.Owner, Role.Extra)
-  update(@Param() params: IdParamDto, @Body() dto: UpdateRoomDto) {
-    return this.roomService.update(params.id, dto);
+  update(@Param() params: IdParamDto, @Body() dto: UpdateRoomDto, @Request() req) {
+    return this.roomService.updateForActor(params.id, dto, req.user);
   }
 
   @Delete(':id')
   @Roles(Role.Admin, Role.Owner, Role.Extra)
-  async remove(@Param() params: IdParamDto) {
-    await this.roomService.remove(params.id);
+  async remove(@Param() params: IdParamDto, @Request() req) {
+    await this.roomService.removeForActor(params.id, req.user);
     return { message: 'Room deleted successfully' };
   }
 }

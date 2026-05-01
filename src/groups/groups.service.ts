@@ -12,6 +12,12 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { Role } from '../roles/roles.enum';
 import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
+import {
+  ensureActorBranchScope,
+  hasBranchOverlap,
+  isBranchAdminRole,
+  toObjectIds,
+} from '../common/access/actor-scope';
 
 @Injectable()
 export class GroupsService {
@@ -24,8 +30,8 @@ export class GroupsService {
 
   private readonly groupPopulate = [
     { path: 'course', select: 'name description price teacherId students' },
-    { path: 'teacher', select: 'username firstName lastName role email phoneNumber' },
-    { path: 'students', select: 'username firstName lastName role email phoneNumber' },
+    { path: 'teacher', select: 'username firstName lastName role' },
+    { path: 'students', select: 'username firstName lastName role' },
   ];
 
   private extractReferenceId(value: unknown): string {
@@ -43,6 +49,80 @@ export class GroupsService {
 
     if (String(group.teacher ?? '') !== actor.userId) {
       throw new ForbiddenException('Teachers can manage only their own groups');
+    }
+  }
+
+  private async getBranchScopedUserIds(actor: AuthenticatedUser, roles?: Role[]): Promise<string[]> {
+    const actorBranches = ensureActorBranchScope(actor);
+    const filter: FilterQuery<UserDocument> = { branchIds: { $in: actorBranches } };
+    if (roles?.length) {
+      filter.role = { $in: roles };
+    }
+
+    const users = await this.userModel.find(filter, { _id: 1 }).lean().exec();
+    return users.map(user => String(user._id));
+  }
+
+  private async assertBranchAdminCanAccessGroup(
+    group: { teacher?: unknown; students?: unknown[] },
+    actor: AuthenticatedUser,
+  ): Promise<void> {
+    if (!isBranchAdminRole(actor.role)) {
+      return;
+    }
+
+    const actorBranches = ensureActorBranchScope(actor);
+    const relatedUserIds = [
+      this.extractReferenceId(group.teacher),
+      ...(Array.isArray(group.students)
+        ? group.students.map(student => this.extractReferenceId(student))
+        : []),
+    ].filter(id => Types.ObjectId.isValid(id));
+
+    if (relatedUserIds.length === 0) {
+      throw new NotFoundException('Group not found');
+    }
+
+    const relatedUsers = await this.userModel
+      .find({ _id: { $in: relatedUserIds } }, { branchIds: 1 })
+      .lean()
+      .exec();
+
+    if (!relatedUsers.some(user => hasBranchOverlap(actorBranches, user.branchIds))) {
+      throw new NotFoundException('Group not found');
+    }
+  }
+
+  private async assertGroupPayloadWithinActorScope(
+    payload: Record<string, unknown>,
+    actor: AuthenticatedUser,
+    requireRelatedUser = false,
+  ): Promise<void> {
+    if (!isBranchAdminRole(actor.role)) {
+      return;
+    }
+
+    const actorBranches = ensureActorBranchScope(actor);
+    const userIds = [
+      ...(payload.teacher ? [String(payload.teacher)] : []),
+      ...(Array.isArray(payload.students) ? payload.students.map(student => String(student)) : []),
+    ].filter(id => Types.ObjectId.isValid(id));
+
+    if (userIds.length === 0 && !requireRelatedUser) {
+      return;
+    }
+
+    if (userIds.length === 0) {
+      throw new ForbiddenException('Group must be assigned to users inside your branch scope');
+    }
+
+    const users = await this.userModel.find({ _id: { $in: userIds } }, { branchIds: 1 }).lean().exec();
+    if (users.length !== userIds.length) {
+      throw new NotFoundException('One or more users were not found');
+    }
+
+    if (users.some(user => !hasBranchOverlap(actorBranches, user.branchIds))) {
+      throw new ForbiddenException('Cannot manage group outside branch scope');
     }
   }
 
@@ -120,6 +200,28 @@ export class GroupsService {
     return { [sortBy]: sortOrder as SortOrder };
   }
 
+  private buildFilter(query: GroupsListQueryDto = {}): FilterQuery<GroupDocument> {
+    const filter: FilterQuery<GroupDocument> = {};
+
+    if (query.teacherId) {
+      filter.teacher = this.toObjectId(query.teacherId);
+    }
+
+    if (query.courseId) {
+      filter.course = this.toObjectId(query.courseId);
+    }
+
+    if (query.studentId) {
+      filter.students = this.toObjectId(query.studentId);
+    }
+
+    if (query.search?.trim()) {
+      filter.name = new RegExp(query.search.trim(), 'i');
+    }
+
+    return filter;
+  }
+
   private async validateRelations(payload: Record<string, unknown>) {
     const courseId = payload.course ? String(payload.course) : undefined;
     const teacherId = payload.teacher ? String(payload.teacher) : undefined;
@@ -177,27 +279,13 @@ export class GroupsService {
       payload.teacher = actor.userId;
     }
 
+    await this.assertGroupPayloadWithinActorScope(this.normalizePayload(payload), actor, true);
+
     return this.create(payload);
   }
 
   async findAll(query: GroupsListQueryDto = {}) {
-    const filter: FilterQuery<GroupDocument> = {};
-
-    if (query.teacherId) {
-      filter.teacher = this.toObjectId(query.teacherId);
-    }
-
-    if (query.courseId) {
-      filter.course = this.toObjectId(query.courseId);
-    }
-
-    if (query.studentId) {
-      filter.students = this.toObjectId(query.studentId);
-    }
-
-    if (query.search?.trim()) {
-      filter.name = new RegExp(query.search.trim(), 'i');
-    }
+    const filter = this.buildFilter(query);
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -225,6 +313,43 @@ export class GroupsService {
       return this.findAll({ ...query, studentId: actor.userId });
     }
 
+    if (isBranchAdminRole(actor.role)) {
+      const scopedUserIds = await this.getBranchScopedUserIds(actor, [Role.Teacher, Role.Student]);
+      if (scopedUserIds.length === 0) {
+        return createPaginatedResult([], 0, query.page ?? 1, query.limit ?? 20);
+      }
+
+      if (query.teacherId && !scopedUserIds.includes(query.teacherId)) {
+        throw new NotFoundException('Teacher not found');
+      }
+
+      if (query.studentId && !scopedUserIds.includes(query.studentId)) {
+        throw new NotFoundException('Student not found');
+      }
+
+      const page = query.page ?? 1;
+      const limit = query.limit ?? 20;
+      const filter = this.buildFilter(query);
+      const scopedObjectIds = toObjectIds(scopedUserIds);
+      filter.$or = [
+        { teacher: { $in: scopedObjectIds } },
+        { students: { $in: scopedObjectIds } },
+      ];
+
+      const [groups, total] = await Promise.all([
+        this.groupModel
+          .find(filter)
+          .populate(this.groupPopulate)
+          .sort(this.getSort(query))
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .exec(),
+        this.groupModel.countDocuments(filter).exec(),
+      ]);
+
+      return createPaginatedResult(serializeResources(groups), total, page, limit);
+    }
+
     return this.findAll(query);
   }
 
@@ -243,6 +368,7 @@ export class GroupsService {
 
   async findOneForActor(id: string, actor: AuthenticatedUser) {
     const group = await this.findOne(id);
+    await this.assertBranchAdminCanAccessGroup(group as { teacher?: unknown; students?: unknown[] }, actor);
     this.assertActorCanReadGroup(group as { teacher?: unknown; students?: unknown[] }, actor);
     return group;
   }
@@ -268,13 +394,12 @@ export class GroupsService {
 
   async updateForActor(id: string, dto: UpdateGroupDto, actor: AuthenticatedUser) {
     const payload = { ...dto };
+    const group = await this.findDocumentById(id);
+    if (!group) {
+      throw new ForbiddenException('Group not found or access denied');
+    }
 
     if (actor.role === Role.Teacher) {
-      const group = await this.findDocumentById(id);
-      if (!group) {
-        throw new ForbiddenException('Group not found or access denied');
-      }
-
       this.assertTeacherCanManageGroup(group, actor);
 
       if (payload.teacher && payload.teacher !== actor.userId) {
@@ -284,7 +409,20 @@ export class GroupsService {
       payload.teacher = actor.userId;
     }
 
+    await this.assertBranchAdminCanAccessGroup(group, actor);
+    await this.assertGroupPayloadWithinActorScope(this.normalizePayload(payload), actor);
+
     return this.update(id, payload);
+  }
+
+  async removeForActor(id: string, actor: AuthenticatedUser) {
+    const group = await this.findDocumentById(id);
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    await this.assertBranchAdminCanAccessGroup(group, actor);
+    return this.remove(id);
   }
 
   async remove(id: string) {

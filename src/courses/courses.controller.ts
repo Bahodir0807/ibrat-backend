@@ -69,7 +69,7 @@ export class CoursesController {
   @Roles(Role.Admin, Role.Owner, Role.Extra)
   async remove(@Param() params: IdParamDto, @Request() req) {
     const { id } = params;
-    await this.coursesService.remove(id);
+    await this.coursesService.removeForActor(id, req.user);
     this.auditLogService.log({
       action: 'course.delete',
       actor: { id: req.user.userId, role: req.user.role },

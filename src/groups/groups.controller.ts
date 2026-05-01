@@ -68,7 +68,7 @@ export class GroupsController {
   @Roles(Role.Admin, Role.Owner, Role.Extra)
   async remove(@Param() params: IdParamDto, @Request() req) {
     const { id } = params;
-    await this.groupsService.remove(id);
+    await this.groupsService.removeForActor(id, req.user);
     this.auditLogService.log({
       action: 'group.delete',
       actor: { id: req.user.userId, role: req.user.role },
