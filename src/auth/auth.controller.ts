@@ -33,6 +33,12 @@ export class AuthController {
     );
 
     if (!user) {
+      this.auditLogService.logFailure({
+        action: 'auth.login',
+        actor: { id: loginDto.username },
+        target: { type: 'user' },
+        metadata: { reason: 'invalid_credentials' },
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 

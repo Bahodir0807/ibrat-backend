@@ -31,7 +31,7 @@ export class HomeworkController {
   }
 
   @Get('user/:userId')
-  @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Student)
+  @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Student, Role.Extra)
   async getByUser(@Param() params: UserIdParamDto, @Request() req) {
     const { userId } = params;
     if (req.user.role === Role.Student && req.user.userId !== userId) {
@@ -42,13 +42,21 @@ export class HomeworkController {
   }
 
   @Post()
-  @Roles(Role.Admin, Role.Teacher, Role.Owner)
+  @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Extra)
   async create(@Body() dto: CreateHomeworkDto, @Request() req) {
-    return this.hwService.createForActor(dto, req.user as AuthenticatedUser);
+    const homework = await this.hwService.createForActor(dto, req.user as AuthenticatedUser);
+    this.auditLogService.log({
+      action: 'homework.create',
+      actor: { id: req.user.userId, role: req.user.role },
+      target: { type: 'homework', id: homework.id },
+      status: 'success',
+      metadata: { userId: dto.userId },
+    });
+    return homework;
   }
 
   @Patch(':id/complete')
-  @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Student)
+  @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Student, Role.Extra)
   async complete(@Param() params: IdParamDto, @Request() req) {
     const { id } = params;
     const homework = await this.hwService.markCompleteForActor(id, req.user as AuthenticatedUser);

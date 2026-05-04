@@ -55,6 +55,10 @@ function toPlain(value: unknown): unknown {
     return value.map(item => toPlain(item));
   }
 
+  if (value && typeof value === 'object' && typeof (value as { toHexString?: () => string }).toHexString === 'function') {
+    return (value as { toHexString: () => string }).toHexString();
+  }
+
   if (!isPlainObject(value) || value instanceof Date) {
     return value;
   }
@@ -198,7 +202,10 @@ export function mapPublicResource<T = PlainObject>(value: unknown): T {
       if (Array.isArray(nestedValue)) {
         result[key] = nestedValue.map(item => looksLikeUser(item) ? mapPublicUser(item) : mapPublicResource(item));
       } else {
-        result[key] = looksLikeUser(nestedValue) ? mapPublicUser(nestedValue) : mapPublicResource(nestedValue);
+        const mappedReference = looksLikeUser(nestedValue) ? mapPublicUser(nestedValue) : mapPublicResource(nestedValue);
+        result[key] = isPlainObject(mappedReference) && Object.keys(mappedReference).length === 0
+          ? String(nestedValue)
+          : mappedReference;
       }
       continue;
     }

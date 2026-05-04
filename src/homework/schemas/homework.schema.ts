@@ -19,6 +19,9 @@ export class Homework {
 }
 
 export const HomeworkSchema = SchemaFactory.createForClass(Homework);
+HomeworkSchema.index({ user: 1, date: -1 });
+HomeworkSchema.index({ user: 1, completed: 1 });
+HomeworkSchema.index({ createdAt: -1 });
 HomeworkSchema.set('timestamps', true);
 HomeworkSchema.set('toJSON', {
   virtuals: true,

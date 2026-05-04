@@ -124,15 +124,30 @@ export class PaymentsService {
       actorId?: string;
       metadata?: Record<string, unknown>;
     },
+    session?: ClientSession,
   ) {
-    return this.financialTransactionsRepository.create({
+    const ledgerPayload = {
       studentId: new Types.ObjectId(String(payload.studentId)),
       paymentId: payload.paymentId ? new Types.ObjectId(String(payload.paymentId)) : undefined,
       amount: payload.amount,
       type: payload.type,
       actorId: this.actorObjectId(payload.actorId),
       metadata: payload.metadata ?? {},
-    });
+    };
+
+    return session
+      ? this.financialTransactionsRepository.create(ledgerPayload, { session })
+      : this.financialTransactionsRepository.create(ledgerPayload);
+  }
+
+  private isTransactionUnsupportedError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return [
+      'Transaction numbers are only allowed',
+      'replica set member or mongos',
+      'Current topology does not support sessions',
+      'Transaction API error',
+    ].some(fragment => message.includes(fragment));
   }
 
   private async runFinancialMutation<T>(operation: (session?: ClientSession) => Promise<T>): Promise<T> {
@@ -147,9 +162,12 @@ export class PaymentsService {
         result = await operation(session);
       });
       return result;
-    } catch {
+    } catch (error) {
       // Standalone MongoDB deployments do not support multi-document transactions.
       // Keep the state checks and unique ledger index as the safety fallback.
+      if (!this.isTransactionUnsupportedError(error)) {
+        throw error;
+      }
       return operation();
     } finally {
       await session.endSession();
@@ -197,8 +215,8 @@ export class PaymentsService {
       throw new BadRequestException('Calculated payment amount must be greater than zero');
     }
 
-    const payment = await this.runFinancialMutation(async () => {
-      const created = await this.paymentsRepository.create({
+    const payment = await this.runFinancialMutation(async session => {
+      const paymentPayload = {
         student: dto.student,
         course: dto.courseId,
         amount: finalPrice,
@@ -206,7 +224,10 @@ export class PaymentsService {
         status: PaymentStatus.Pending,
         method: dto.method,
         paidAt: dto.paidAt ? new Date(dto.paidAt) : undefined,
-      });
+      };
+      const created = session
+        ? await this.paymentsRepository.create(paymentPayload, { session })
+        : await this.paymentsRepository.create(paymentPayload);
 
       await this.createLedgerEntry({
         studentId: dto.student,
@@ -215,7 +236,7 @@ export class PaymentsService {
         type: FinancialTransactionType.PaymentCreated,
         actorId,
         metadata: { courseId: dto.courseId, method: dto.method },
-      });
+      }, session);
 
       return created;
     });
@@ -348,23 +369,29 @@ export class PaymentsService {
       throw new ConflictException('Payment confirmation was already recorded');
     }
 
-    await this.runFinancialMutation(async () => {
+    await this.runFinancialMutation(async session => {
       const confirmedAt = new Date();
       const payment = await this.paymentsRepository
-        .findByIdAndUpdate(
-          paymentId,
+        .findOneAndUpdate(
+          {
+            _id: paymentId,
+            $or: [
+              { status: PaymentStatus.Pending },
+              { status: { $exists: false }, isConfirmed: { $ne: true } },
+            ],
+          },
           {
             isConfirmed: true,
             status: PaymentStatus.Confirmed,
             paidAt: existing.paidAt ?? confirmedAt,
             confirmedAt,
           },
-          { new: true },
+          { new: true, session },
         )
         .exec();
 
       if (!payment) {
-        throw new NotFoundException('Payment not found');
+        throw new ConflictException('Payment is no longer pending');
       }
 
       await this.createLedgerEntry({
@@ -373,7 +400,7 @@ export class PaymentsService {
         amount: payment.amount,
         type: FinancialTransactionType.PaymentConfirmed,
         actorId,
-      });
+      }, session);
     });
 
     return this.findOne(paymentId);
@@ -421,18 +448,24 @@ export class PaymentsService {
       throw new ConflictException('Payment is already cancelled');
     }
 
-    await this.runFinancialMutation(async () => {
+    await this.runFinancialMutation(async session => {
       const cancelledAt = new Date();
       const payment = await this.paymentsRepository
-        .findByIdAndUpdate(
-          paymentId,
+        .findOneAndUpdate(
+          {
+            _id: paymentId,
+            $or: [
+              { status: PaymentStatus.Pending },
+              { status: { $exists: false }, isConfirmed: { $ne: true } },
+            ],
+          },
           { status: PaymentStatus.Cancelled, isConfirmed: false, cancelledAt },
-          { new: true },
+          { new: true, session },
         )
         .exec();
 
       if (!payment) {
-        throw new NotFoundException('Payment not found');
+        throw new ConflictException('Payment is no longer pending');
       }
 
       await this.createLedgerEntry({
@@ -441,7 +474,7 @@ export class PaymentsService {
         amount: payment.amount,
         type: FinancialTransactionType.PaymentCancelled,
         actorId,
-      });
+      }, session);
     });
 
     return this.findOne(paymentId);
@@ -480,7 +513,7 @@ export class PaymentsService {
       throw new BadRequestException('Confirmed payments cannot be deleted silently; cancel/reversal flow is required');
     }
 
-    const payment = await this.runFinancialMutation(async () => {
+    const payment = await this.runFinancialMutation(async session => {
       await this.createLedgerEntry({
         studentId: existingPayment.student,
         paymentId: id,
@@ -488,9 +521,9 @@ export class PaymentsService {
         type: FinancialTransactionType.PaymentDeleted,
         actorId,
         metadata: { previousStatus: status },
-      });
+      }, session);
 
-      return this.paymentsRepository.findByIdAndDelete(id).exec();
+      return this.paymentsRepository.findByIdAndDelete(id, session ? { session } : undefined).exec();
     });
     if (!payment) {
       throw new NotFoundException('Payment not found');

@@ -10,6 +10,39 @@ const booleanEnvSchema = Joi.boolean()
   .falsy('no')
   .falsy('off');
 
+export function validateProductionConfig(value: Record<string, unknown>, helpers: Joi.CustomHelpers) {
+  const env = value.NODE_ENV;
+  if (env !== 'production' && env !== 'staging') {
+    return value;
+  }
+
+  const jwtSecret = String(value.JWT_SECRET ?? '');
+  const refreshSecret = String(value.JWT_REFRESH_SECRET ?? '');
+  const corsOrigins = String(value.CORS_ORIGINS ?? '');
+
+  if (jwtSecret.length < 32) {
+    return helpers.error('any.invalid', { message: 'JWT_SECRET must be at least 32 characters in production/staging' });
+  }
+
+  if (refreshSecret.length < 32) {
+    return helpers.error('any.invalid', { message: 'JWT_REFRESH_SECRET must be at least 32 characters in production/staging' });
+  }
+
+  if (jwtSecret === refreshSecret) {
+    return helpers.error('any.invalid', { message: 'JWT_REFRESH_SECRET must differ from JWT_SECRET in production/staging' });
+  }
+
+  if (value.CORS_ALLOW_ALL_ORIGINS === true || corsOrigins.split(',').map(origin => origin.trim()).includes('*')) {
+    return helpers.error('any.invalid', { message: 'Wildcard CORS is not allowed in production/staging' });
+  }
+
+  if (value.CORS_ALLOW_NO_ORIGIN === true) {
+    return helpers.error('any.invalid', { message: 'CORS_ALLOW_NO_ORIGIN must be false in production/staging' });
+  }
+
+  return value;
+}
+
 export const configValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production', 'staging')
@@ -46,5 +79,7 @@ export const configValidationSchema = Joi.object({
   TELEGRAM_WEBHOOK_PATH: Joi.string().trim().pattern(/^\/[^\s]*$/).default('/bot'),
   CORS_ORIGINS: Joi.string().allow('').default(''),
   CORS_ALLOW_ALL_ORIGINS: booleanEnvSchema.optional(),
-  CORS_ALLOW_NO_ORIGIN: booleanEnvSchema.default(true),
-});
+  CORS_ALLOW_NO_ORIGIN: booleanEnvSchema.default(false),
+  RATE_LIMIT_WINDOW_MS: Joi.number().integer().min(1000).default(60000),
+  RATE_LIMIT_PUBLIC_AUTH_MAX: Joi.number().integer().min(1).default(10),
+}).custom(validateProductionConfig);

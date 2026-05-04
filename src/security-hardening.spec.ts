@@ -1,5 +1,5 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { jest } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { Types } from 'mongoose';
 import { CoursesService } from './courses/courses.service';
 import { GroupsService } from './groups/groups.service';
@@ -31,7 +31,11 @@ describe('security hardening', () => {
       const courseId = objectId();
       const teacherId = objectId();
       const studentId = objectId();
-      const actor = { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] };
+      const actor = {
+        userId: objectId(),
+        role: Role.Admin,
+        branchIds: ['branch-a'],
+      };
       const course = { _id: courseId, teacherId, students: [studentId] };
       const outsideUsers = [
         { _id: teacherId, branchIds: ['branch-a'] },
@@ -52,9 +56,15 @@ describe('security hardening', () => {
         {} as any,
       );
 
-      await expect(service.findOneForActor(courseId, actor)).rejects.toBeInstanceOf(NotFoundException);
-      await expect(service.updateForActor(courseId, { name: 'Updated' }, actor)).rejects.toBeInstanceOf(NotFoundException);
-      await expect(service.removeForActor(courseId, actor)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.findOneForActor(courseId, actor),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.updateForActor(courseId, { name: 'Updated' }, actor),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.removeForActor(courseId, actor),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('uses all-related-users branch filters for branch admin course lists', async () => {
@@ -64,7 +74,7 @@ describe('security hardening', () => {
         find: jest.fn(() => chain([{ _id: scopedUserId }])),
       };
       const courseModel = {
-        find: jest.fn(filter => {
+        find: jest.fn((filter) => {
           courseFindFilter = filter;
           return chain([]);
         }),
@@ -78,12 +88,19 @@ describe('security hardening', () => {
         {} as any,
       );
 
-      await service.findAllForActor({}, { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] });
+      await service.findAllForActor(
+        {},
+        { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] },
+      );
 
       expect(courseFindFilter).toMatchObject({
         $and: [
           { $or: expect.any(Array) },
-          { students: { $not: { $elemMatch: { $nin: [expect.any(Types.ObjectId)] } } } },
+          {
+            students: {
+              $not: { $elemMatch: { $nin: [expect.any(Types.ObjectId)] } },
+            },
+          },
         ],
       });
     });
@@ -116,7 +133,11 @@ describe('security hardening', () => {
       const groupId = objectId();
       const teacherId = objectId();
       const studentId = objectId();
-      const actor = { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] };
+      const actor = {
+        userId: objectId(),
+        role: Role.Admin,
+        branchIds: ['branch-a'],
+      };
       const group = { _id: groupId, teacher: teacherId, students: [studentId] };
       const outsideUsers = [
         { _id: teacherId, branchIds: ['branch-a'] },
@@ -135,9 +156,15 @@ describe('security hardening', () => {
         {} as any,
       );
 
-      await expect(service.findOneForActor(groupId, actor)).rejects.toBeInstanceOf(NotFoundException);
-      await expect(service.updateForActor(groupId, { name: 'Updated' }, actor)).rejects.toBeInstanceOf(NotFoundException);
-      await expect(service.removeForActor(groupId, actor)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.findOneForActor(groupId, actor),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.updateForActor(groupId, { name: 'Updated' }, actor),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.removeForActor(groupId, actor),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('uses all-related-users branch filters for branch admin group lists', async () => {
@@ -147,7 +174,7 @@ describe('security hardening', () => {
         find: jest.fn(() => chain([{ _id: scopedUserId }])),
       };
       const groupModel = {
-        find: jest.fn(filter => {
+        find: jest.fn((filter) => {
           groupFindFilter = filter;
           return chain([]);
         }),
@@ -160,12 +187,19 @@ describe('security hardening', () => {
         {} as any,
       );
 
-      await service.findAllForActor({}, { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] });
+      await service.findAllForActor(
+        {},
+        { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] },
+      );
 
       expect(groupFindFilter).toMatchObject({
         $and: [
           { teacher: { $in: [expect.any(Types.ObjectId)] } },
-          { students: { $not: { $elemMatch: { $nin: [expect.any(Types.ObjectId)] } } } },
+          {
+            students: {
+              $not: { $elemMatch: { $nin: [expect.any(Types.ObjectId)] } },
+            },
+          },
         ],
       });
     });
@@ -185,7 +219,12 @@ describe('security hardening', () => {
 
       await expect(
         service.createForActor(
-          { name: 'Group', course: objectId(), teacher: teacherId, students: [outsideStudentId] },
+          {
+            name: 'Group',
+            course: objectId(),
+            teacher: teacherId,
+            students: [outsideStudentId],
+          },
           { userId: teacherId, role: Role.Teacher, branchIds: ['branch-a'] },
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
@@ -202,11 +241,18 @@ describe('security hardening', () => {
       const telegramService = {
         sendMessage: jest.fn(),
       };
-      const service = new NotificationsService(usersService as any, telegramService as any);
+      const service = new NotificationsService(
+        usersService as any,
+        telegramService as any,
+      );
 
       await expect(
         service.sendManualNotification(
-          { userId: objectId(), message: 'hello', type: NotificationType.GENERAL },
+          {
+            userId: objectId(),
+            message: 'hello',
+            type: NotificationType.GENERAL,
+          },
           { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] },
         ),
       ).rejects.toBeInstanceOf(NotFoundException);
@@ -217,19 +263,42 @@ describe('security hardening', () => {
     it('uses actor-scoped recipient lists for role notifications', async () => {
       const usersService = {
         findByRoleForActor: jest.fn(async () => [
-          { id: objectId(), username: 'student', role: Role.Student, telegramId: '123' },
+          {
+            id: objectId(),
+            username: 'student',
+            role: Role.Student,
+            telegramId: '123',
+          },
         ]),
       };
       const telegramService = {
         sendMessage: jest.fn(),
       };
-      const service = new NotificationsService(usersService as any, telegramService as any);
-      const actor = { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] };
+      const service = new NotificationsService(
+        usersService as any,
+        telegramService as any,
+      );
+      const actor = {
+        userId: objectId(),
+        role: Role.Admin,
+        branchIds: ['branch-a'],
+      };
 
-      await service.sendRoleNotification(NotificationType.GENERAL, Role.Student, 'hello', actor);
+      await service.sendRoleNotification(
+        NotificationType.GENERAL,
+        Role.Student,
+        'hello',
+        actor,
+      );
 
-      expect(usersService.findByRoleForActor).toHaveBeenCalledWith(Role.Student, actor);
-      expect(telegramService.sendMessage).toHaveBeenCalledWith('123', '[Notice] hello');
+      expect(usersService.findByRoleForActor).toHaveBeenCalledWith(
+        Role.Student,
+        actor,
+      );
+      expect(telegramService.sendMessage).toHaveBeenCalledWith(
+        '123',
+        '[Notice] hello',
+      );
     });
   });
 
@@ -237,19 +306,21 @@ describe('security hardening', () => {
     it('excludes email and phoneNumber from public user responses', async () => {
       const userId = objectId();
       const userModel = {
-        findById: jest.fn(() => chain({
-          _id: userId,
-          toObject: () => ({
+        findById: jest.fn(() =>
+          chain({
             _id: userId,
-            username: 'student',
-            email: 'student@example.com',
-            phoneNumber: '+100000000',
-            role: Role.Student,
-            status: UserStatus.Active,
-            isActive: true,
-            branchIds: ['branch-a'],
+            toObject: () => ({
+              _id: userId,
+              username: 'student',
+              email: 'student@example.com',
+              phoneNumber: '+100000000',
+              role: Role.Student,
+              status: UserStatus.Active,
+              isActive: true,
+              branchIds: ['branch-a'],
+            }),
           }),
-        })),
+        ),
       };
       const service = new UsersService(
         userModel as any,

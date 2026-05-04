@@ -19,3 +19,5 @@ export class Grade {
 }
 
 export const GradeSchema = SchemaFactory.createForClass(Grade);
+GradeSchema.index({ user: 1, date: -1 });
+GradeSchema.index({ user: 1, subject: 1 });

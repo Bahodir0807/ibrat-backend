@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model } from 'mongoose';
+import { FilterQuery, Model, SaveOptions } from 'mongoose';
 import {
   FinancialTransaction,
   FinancialTransactionDocument,
@@ -13,7 +13,12 @@ export class FinancialTransactionsRepository {
     private readonly transactionModel: Model<FinancialTransactionDocument>,
   ) {}
 
-  create(payload: Record<string, unknown>) {
+  async create(payload: Record<string, unknown>, options?: SaveOptions) {
+    if (options?.session) {
+      const [created] = await this.transactionModel.create([payload], options);
+      return created;
+    }
+
     return this.transactionModel.create(payload);
   }
 

@@ -28,7 +28,6 @@ interface SessionData {
   notificationType?: NotificationType;
   username?: string;
   isAuthenticated?: boolean;
-  // temporary fields for notifications
   pendingMessage?: string;
   pendingRole?: Role;
 }

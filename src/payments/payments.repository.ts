@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model, ProjectionType, UpdateQuery } from 'mongoose';
+import { FilterQuery, Model, ProjectionType, QueryOptions, SaveOptions, UpdateQuery } from 'mongoose';
 import { Payment, PaymentDocument } from './schemas/payment.schema';
 
 @Injectable()
@@ -23,7 +23,12 @@ export class PaymentsRepository {
     return this.paymentModel.countDocuments(filter);
   }
 
-  create(payload: Record<string, unknown>) {
+  async create(payload: Record<string, unknown>, options?: SaveOptions) {
+    if (options?.session) {
+      const [created] = await this.paymentModel.create([payload], options);
+      return created;
+    }
+
     return this.paymentModel.create(payload);
   }
 
@@ -35,11 +40,19 @@ export class PaymentsRepository {
     return this.paymentModel.findByIdAndUpdate(id, payload, options);
   }
 
+  findOneAndUpdate(
+    filter: FilterQuery<PaymentDocument>,
+    payload: UpdateQuery<PaymentDocument>,
+    options?: QueryOptions<PaymentDocument>,
+  ) {
+    return this.paymentModel.findOneAndUpdate(filter, payload, options);
+  }
+
   deleteById(id: string) {
     return this.paymentModel.findByIdAndDelete(id);
   }
 
-  findByIdAndDelete(id: string) {
-    return this.paymentModel.findByIdAndDelete(id);
+  findByIdAndDelete(id: string, options?: QueryOptions<PaymentDocument>) {
+    return this.paymentModel.findByIdAndDelete(id, options);
   }
 }

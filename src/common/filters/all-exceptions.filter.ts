@@ -4,6 +4,8 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logge
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
+  constructor(private readonly isProductionLike = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') {}
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse();
@@ -60,7 +62,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message,
         actor,
       }),
-      exception instanceof Error ? exception.stack : undefined,
+      !this.isProductionLike && exception instanceof Error ? exception.stack : undefined,
     );
 
     response.status(status).json({

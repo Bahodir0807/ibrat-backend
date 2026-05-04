@@ -55,6 +55,10 @@ export class AppConfigService {
     return this.configService.getOrThrow<RuntimeConfiguration['operational']>('operational');
   }
 
+  get rateLimit(): RuntimeConfiguration['rateLimit'] {
+    return this.configService.getOrThrow<RuntimeConfiguration['rateLimit']>('rateLimit');
+  }
+
   get appName(): string {
     return this.app.name;
   }

@@ -43,3 +43,6 @@ FinancialTransactionSchema.index(
     },
   },
 );
+FinancialTransactionSchema.index({ studentId: 1, createdAt: -1 });
+FinancialTransactionSchema.index({ paymentId: 1, createdAt: -1 });
+FinancialTransactionSchema.index({ type: 1, createdAt: -1 });

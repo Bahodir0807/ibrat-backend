@@ -29,6 +29,7 @@ function createService(overrides: {
 } = {}) {
   const paymentsRepository = {
     findById: jest.fn(),
+    findOneAndUpdate: jest.fn(),
     findOne: jest.fn(),
     find: jest.fn(),
     countDocuments: jest.fn(),
@@ -84,7 +85,7 @@ describe('PaymentsService financial integrity', () => {
     });
 
     await expect(service.confirmPayment(paymentId, objectId())).rejects.toBeInstanceOf(ConflictException);
-    expect(paymentsRepository.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(paymentsRepository.findOneAndUpdate).not.toHaveBeenCalled();
     expect(financialTransactionsRepository.create).not.toHaveBeenCalled();
   });
 
@@ -123,7 +124,7 @@ describe('PaymentsService financial integrity', () => {
     });
 
     await expect(service.confirmPayment(paymentId, objectId())).rejects.toBeInstanceOf(ConflictException);
-    expect(paymentsRepository.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(paymentsRepository.findOneAndUpdate).not.toHaveBeenCalled();
     expect(financialTransactionsRepository.create).not.toHaveBeenCalled();
   });
 
@@ -149,7 +150,7 @@ describe('PaymentsService financial integrity', () => {
         findById: jest.fn()
           .mockReturnValueOnce(chain(pending))
           .mockReturnValueOnce(chain(confirmed)),
-        findByIdAndUpdate: jest.fn(() => chain(confirmed)),
+        findOneAndUpdate: jest.fn(() => chain(confirmed)),
       },
       financialTransactionsRepository: {
         exists: jest.fn(() => chain(null)),
@@ -188,7 +189,7 @@ describe('PaymentsService financial integrity', () => {
         findById: jest.fn()
           .mockReturnValueOnce(chain(pending))
           .mockReturnValueOnce(chain(cancelled)),
-        findByIdAndUpdate: jest.fn(() => chain(cancelled)),
+        findOneAndUpdate: jest.fn(() => chain(cancelled)),
       },
       financialTransactionsRepository: {
         create: jest.fn(async value => value),
@@ -285,6 +286,6 @@ describe('PaymentsService financial integrity', () => {
         branchIds: ['branch-a'],
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
-    expect(paymentsRepository.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(paymentsRepository.findOneAndUpdate).not.toHaveBeenCalled();
   });
 });

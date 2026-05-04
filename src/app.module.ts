@@ -19,6 +19,7 @@ import { TelegramModule } from './telegram/telegram.module';
 import { GradesModule } from './grades/grades.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './roles/roles.guard';
+import { PublicRateLimitGuard } from './common/guards/public-rate-limit.guard';
 import configuration from './config/configuration';
 import { getEnvFilePaths } from './config/configuration';
 import { configValidationSchema } from './config/validation';
@@ -72,6 +73,10 @@ import { HealthModule } from './health/health.module';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PublicRateLimitGuard,
     },
   ],
 })

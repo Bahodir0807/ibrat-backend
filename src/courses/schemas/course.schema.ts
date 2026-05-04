@@ -22,3 +22,6 @@ export class Course {
 }
 
 export const CourseSchema = SchemaFactory.createForClass(Course);
+CourseSchema.index({ teacherId: 1 });
+CourseSchema.index({ students: 1 });
+CourseSchema.index({ createdAt: -1 });

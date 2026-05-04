@@ -3,13 +3,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Homework, HomeworkDocument } from './schemas/homework.schema';
 import { CreateHomeworkDto } from './dto/create-homework.dto';
-import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Role } from '../roles/roles.enum';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
 import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
+import { mapHomeworkResponse, mapHomeworkResponses } from './dto/homework-response.dto';
 
 @Injectable()
 export class HomeworkService {
@@ -111,7 +111,7 @@ export class HomeworkService {
 
   async getByUser(userId: string) {
     const homework = await this.hwModel.find({ user: userId }).sort({ date: -1 }).exec();
-    return serializeResources(homework);
+    return mapHomeworkResponses(homework);
   }
 
   async getByUserForActor(userId: string, actor: AuthenticatedUser) {
@@ -125,7 +125,7 @@ export class HomeworkService {
       date: new Date(dto.date),
       tasks: dto.tasks,
     });
-    return serializeResource(await entry.save());
+    return mapHomeworkResponse(await entry.save());
   }
 
   async createForActor(dto: CreateHomeworkDto, actor: AuthenticatedUser) {
@@ -145,7 +145,7 @@ export class HomeworkService {
 
     homework.completed = true;
     await homework.save();
-    return serializeResource(homework);
+    return mapHomeworkResponse(homework);
   }
 
   async markCompleteForActor(id: string, actor: AuthenticatedUser) {
@@ -158,6 +158,6 @@ export class HomeworkService {
 
     homework.completed = true;
     await homework.save();
-    return serializeResource(homework);
+    return mapHomeworkResponse(homework);
   }
 }

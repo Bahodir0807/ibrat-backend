@@ -22,3 +22,6 @@ export class Attendance {
 
 export const AttendanceSchema = SchemaFactory.createForClass(Attendance);
 AttendanceSchema.index({ user: 1, schedule: 1 }, { unique: true });
+AttendanceSchema.index({ user: 1, date: -1 });
+AttendanceSchema.index({ schedule: 1 });
+AttendanceSchema.index({ status: 1 });

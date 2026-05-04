@@ -21,3 +21,7 @@ export class Group {
 }
 
 export const GroupSchema = SchemaFactory.createForClass(Group);
+GroupSchema.index({ course: 1 });
+GroupSchema.index({ teacher: 1 });
+GroupSchema.index({ students: 1 });
+GroupSchema.index({ createdAt: -1 });

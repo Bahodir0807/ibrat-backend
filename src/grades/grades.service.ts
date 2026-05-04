@@ -2,13 +2,13 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Grade, GradeDocument } from './schemas/grade.schema';
-import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Role } from '../roles/roles.enum';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
 import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
+import { mapGradeResponse, mapGradeResponses } from './dto/grade-response.dto';
 
 @Injectable()
 export class GradesService {
@@ -110,7 +110,7 @@ export class GradesService {
 
   async getByUser(userId: string) {
     const grades = await this.gradeModel.find({ user: userId }).sort({ date: -1 }).exec();
-    return serializeResources(grades);
+    return mapGradeResponses(grades);
   }
 
   async getByUserForActor(userId: string, actor: AuthenticatedUser) {
@@ -125,7 +125,7 @@ export class GradesService {
       score,
       date: new Date(),
     });
-    return serializeResource(await entry.save());
+    return mapGradeResponse(await entry.save());
   }
 
   async addForActor(userId: string, subject: string, score: number, actor: AuthenticatedUser) {
@@ -143,7 +143,7 @@ export class GradesService {
       throw new NotFoundException('Grade not found');
     }
 
-    return serializeResource(grade);
+    return mapGradeResponse(grade);
   }
 
   async updateForActor(id: string, score: number, actor: AuthenticatedUser) {
@@ -171,7 +171,7 @@ export class GradesService {
       throw new NotFoundException('Grade not found');
     }
 
-    return serializeResource(grade);
+    return mapGradeResponse(grade);
   }
 
   async removeForActor(id: string, actor: AuthenticatedUser) {

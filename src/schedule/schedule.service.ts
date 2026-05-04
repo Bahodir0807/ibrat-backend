@@ -75,8 +75,8 @@ export class ScheduleService {
       : null;
 
     const teacherBranches = this.normalizeBranchIds(teacher?.branchIds);
-    if (teacherBranches.some(branchId => actorBranches.includes(branchId))) {
-      return;
+    if (!teacher || !teacherBranches.some(branchId => actorBranches.includes(branchId))) {
+      throw new NotFoundException('Schedule not found');
     }
 
     const scheduleStudentIds = Array.isArray(schedule.students)
@@ -84,7 +84,7 @@ export class ScheduleService {
       : [];
 
     if (scheduleStudentIds.length === 0) {
-      throw new NotFoundException('Schedule not found');
+      return;
     }
 
     const students = await this.userModel
@@ -92,11 +92,32 @@ export class ScheduleService {
       .lean()
       .exec();
 
-    const hasScopedStudent = students.some(student => this.normalizeBranchIds(student.branchIds)
-      .some(branchId => actorBranches.includes(branchId)));
-
-    if (!hasScopedStudent) {
+    const allStudentsScoped = students.length === scheduleStudentIds.length
+      && students.every(student => this.normalizeBranchIds(student.branchIds)
+        .some(branchId => actorBranches.includes(branchId)));
+    if (!allStudentsScoped) {
       throw new NotFoundException('Schedule not found');
+    }
+  }
+
+  private async assertAdminCanUseGroup(groupId: string | undefined, actorBranches: string[]): Promise<void> {
+    if (!groupId) {
+      return;
+    }
+
+    const group = await this.groupModel.findById(groupId).lean().exec();
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    const relatedUserIds = [String(group.teacher), ...(group.students ?? []).map(student => String(student))];
+    const users = await this.userModel.find({ _id: { $in: relatedUserIds } }, { branchIds: 1 }).lean().exec();
+    const allUsersScoped = users.length === relatedUserIds.length
+      && users.every(user => this.normalizeBranchIds(user.branchIds)
+        .some(branchId => actorBranches.includes(branchId)));
+
+    if (!allUsersScoped) {
+      throw new ForbiddenException('Cannot use group outside branch scope');
     }
   }
 
@@ -528,9 +549,9 @@ export class ScheduleService {
       }
 
       const baseFilter = this.buildFilter(query);
-      baseFilter.$or = [
-        ...(teacherIds.length > 0 ? [{ teacher: { $in: teacherIds } }] : []),
-        ...(studentIds.length > 0 ? [{ students: { $in: studentIds } }] : []),
+      baseFilter.$and = [
+        { teacher: { $in: teacherIds } },
+        { students: { $not: { $elemMatch: { $nin: studentIds } } } },
       ];
 
       const [schedule, total] = await Promise.all([
@@ -627,6 +648,8 @@ export class ScheduleService {
           throw new ForbiddenException('Cannot create schedule outside branch scope');
         }
       }
+
+      await this.assertAdminCanUseGroup(payload.group, actorBranches);
     }
 
     return this.create(payload);
@@ -732,6 +755,8 @@ export class ScheduleService {
           throw new ForbiddenException('Cannot update schedule outside branch scope');
         }
       }
+
+      await this.assertAdminCanUseGroup(payload.group, actorBranches);
     }
 
     return this.update(id, payload);

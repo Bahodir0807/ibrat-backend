@@ -41,3 +41,5 @@ export class AuthSession {
 export type AuthSessionDocument = HydratedDocument<AuthSession>;
 export const AuthSessionSchema = SchemaFactory.createForClass(AuthSession);
 AuthSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+AuthSessionSchema.index({ user: 1, revokedAt: 1 });
+AuthSessionSchema.index({ tokenId: 1, user: 1 });

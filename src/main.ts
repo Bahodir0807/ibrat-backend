@@ -29,7 +29,7 @@ async function bootstrap() {
   app.use(json({ limit: appConfig.bodyLimit }));
   app.use(urlencoded({ extended: true, limit: appConfig.bodyLimit }));
 
-  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalFilters(new AllExceptionsFilter(appConfig.isProductionLike));
   app.useGlobalInterceptors(new LoggingInterceptor(), new ResponseInterceptor());
   app.useGlobalPipes(new CustomValidationPipe());
 

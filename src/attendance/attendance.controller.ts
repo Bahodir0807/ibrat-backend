@@ -32,7 +32,7 @@ export class AttendanceController {
   }
 
   @Get('user/:userId')
-  @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Student)
+  @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Student, Role.Extra)
   async getByUser(@Param() params: UserIdParamDto, @Request() req) {
     const { userId } = params;
     if (req.user.role === Role.Student && req.user.userId !== userId) {
@@ -43,7 +43,7 @@ export class AttendanceController {
   }
 
   @Post()
-  @Roles(Role.Teacher, Role.Admin, Role.Owner)
+  @Roles(Role.Teacher, Role.Admin, Role.Owner, Role.Extra)
   async markAttendance(@Body() body: MarkAttendanceDto, @Request() req) {
     const attendance = await this.attendanceService.markAttendance(body, {
       userId: req.user.userId,

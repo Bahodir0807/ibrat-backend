@@ -21,6 +21,8 @@ const DEFAULT_ALLOWED_HEADERS = [
   'Origin',
   'X-Requested-With',
 ];
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
+const DEFAULT_PUBLIC_AUTH_RATE_LIMIT = 10;
 
 function normalizeString(value?: string): string | undefined {
   const normalized = value?.trim();
@@ -163,7 +165,7 @@ const configuration = () => {
     cors: {
       origins: parsedOrigins.origins,
       allowAllOrigins,
-      allowNoOrigin: normalizeBoolean(process.env.CORS_ALLOW_NO_ORIGIN, true),
+      allowNoOrigin: normalizeBoolean(process.env.CORS_ALLOW_NO_ORIGIN, !isProductionLike),
       credentials: true,
       methods: DEFAULT_ALLOWED_METHODS,
       allowedHeaders: DEFAULT_ALLOWED_HEADERS,
@@ -183,6 +185,10 @@ const configuration = () => {
         normalizeString(process.env.TENANT_KEY_HEADER) ?? DEFAULT_TENANT_KEY_HEADER,
       branchKeyHeader:
         normalizeString(process.env.BRANCH_KEY_HEADER) ?? DEFAULT_BRANCH_KEY_HEADER,
+    },
+    rateLimit: {
+      windowMs: normalizeNumber(process.env.RATE_LIMIT_WINDOW_MS, DEFAULT_RATE_LIMIT_WINDOW_MS),
+      publicAuthMax: normalizeNumber(process.env.RATE_LIMIT_PUBLIC_AUTH_MAX, DEFAULT_PUBLIC_AUTH_RATE_LIMIT),
     },
   };
 };

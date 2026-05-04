@@ -3,12 +3,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Attendance, AttendanceDocument } from './schemas/attendance.schema';
 import { MarkAttendanceDto } from './dto/mark-attendance.dto';
-import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
 import { Role } from '../roles/roles.enum';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
+import { mapAttendanceResponse, mapAttendanceResponses } from './dto/attendance-response.dto';
 
 @Injectable()
 export class AttendanceService {
@@ -189,7 +189,7 @@ export class AttendanceService {
       .populate({ path: 'schedule', select: 'date timeStart timeEnd course room teacher group' })
       .sort({ date: -1 })
       .exec();
-    return serializeResources(attendance);
+    return mapAttendanceResponses(attendance);
   }
 
   async getByUserForActor(userId: string, actor: AuthenticatedUser) {
@@ -229,6 +229,6 @@ export class AttendanceService {
       .populate({ path: 'schedule', select: 'date timeStart timeEnd course room teacher group' })
       .exec();
 
-    return serializeResource(attendance);
+    return mapAttendanceResponse(attendance);
   }
 }
