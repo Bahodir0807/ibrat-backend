@@ -28,13 +28,13 @@ export class RoomController {
   }
 
   @Get()
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Student, Role.Extra)
   findAll(@Query() query: RoomsListQueryDto, @Request() req) {
     return this.roomService.findAllForActor(query, req.user);
   }
 
   @Get(':id')
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Student, Role.Extra)
   findOne(@Param() params: IdParamDto, @Request() req) {
     return this.roomService.findByIdForActor(params.id, req.user);
   }

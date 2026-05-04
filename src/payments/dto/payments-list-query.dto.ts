@@ -11,6 +11,6 @@ export class PaymentsListQueryDto extends ListQueryDto {
   courseId?: string;
 
   @IsOptional()
-  @IsIn(['confirmed', 'pending'])
-  status?: 'confirmed' | 'pending';
+  @IsIn(['confirmed', 'pending', 'cancelled'])
+  status?: 'confirmed' | 'pending' | 'cancelled';
 }

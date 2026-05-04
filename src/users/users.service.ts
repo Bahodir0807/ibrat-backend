@@ -10,12 +10,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
 import { randomUUID } from 'crypto';
 import { User, UserDocument } from './schemas/user.schema';
+import { UsersRepository } from './users.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from '../roles/roles.enum';
 import { hashPassword, verifyPassword as comparePassword } from '../common/password';
 import { PublicUser } from './types/public-user.type';
-import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
 import { UsersListQueryDto } from './dto/users-list-query.dto';
 import { createPaginatedResult } from '../common/responses/paginated-result';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
@@ -30,11 +30,12 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UserStatus } from './user-status.enum';
 import { canAuthenticateWithStatus, resolveUserStatus, statusToIsActive } from './user-status';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
+import { mapUserResponse } from './dto/user-response.dto';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly usersRepository: UsersRepository,
     @InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>,
     @InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>,
     @InjectModel(Schedule.name) private readonly scheduleModel: Model<ScheduleDocument>,
@@ -58,15 +59,12 @@ export class UsersService {
 
     return {
       id: String(user._id),
-      _id: String(user._id),
       username: obj.username,
       telegramId: obj.telegramId,
-      email: obj.email,
       firstName: obj.firstName,
       lastName: obj.lastName,
       role: obj.role,
       status,
-      phoneNumber: obj.phoneNumber,
       isActive: statusToIsActive(status),
       avatarUrl: obj.avatarUrl,
       branchIds: this.normalizeBranchIds(obj.branchIds),
@@ -280,7 +278,7 @@ export class UsersService {
         continue;
       }
 
-      const existing = await this.userModel
+      const existing = await this.usersRepository
         .findOne({
           [field]: value,
           ...(excludeId ? { _id: { $ne: excludeId } } : {}),
@@ -295,7 +293,7 @@ export class UsersService {
   }
 
   private async ensureLastOwnerRoleIsProtected(targetUserId: string, nextRole?: Role): Promise<void> {
-    const existingUser = await this.userModel.findById(targetUserId).lean().exec();
+    const existingUser = await this.usersRepository.findById(targetUserId).lean().exec();
 
     if (!existingUser || existingUser.role !== Role.Owner) {
       return;
@@ -305,20 +303,20 @@ export class UsersService {
       return;
     }
 
-    const ownersCount = await this.userModel.countDocuments({ role: Role.Owner }).exec();
+    const ownersCount = await this.usersRepository.countDocuments({ role: Role.Owner }).exec();
     if (ownersCount <= 1) {
       throw new ConflictException('At least one owner must remain active in the system');
     }
   }
 
   private async ensureLastOwnerStatusIsProtected(targetUserId: string, nextStatus: UserStatus): Promise<void> {
-    const existingUser = await this.userModel.findById(targetUserId).lean().exec();
+    const existingUser = await this.usersRepository.findById(targetUserId).lean().exec();
 
     if (!existingUser || existingUser.role !== Role.Owner || nextStatus === UserStatus.Active) {
       return;
     }
 
-    const activeOwnersCount = await this.userModel
+    const activeOwnersCount = await this.usersRepository
       .countDocuments({
         role: Role.Owner,
         $or: [
@@ -411,15 +409,15 @@ export class UsersService {
   }
 
   async findByIdDoc(id: string): Promise<UserDocument | null> {
-    return this.userModel.findById(id).exec();
+    return this.usersRepository.findById(id).exec();
   }
 
   async findByTelegramIdDoc(telegramId: number): Promise<UserDocument | null> {
-    return this.userModel.findOne({ telegramId: String(telegramId) }).exec();
+    return this.usersRepository.findOne({ telegramId: String(telegramId) }).exec();
   }
 
   async findByUsernameForAuth(username: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ username }).exec();
+    return this.usersRepository.findOne({ username }).exec();
   }
 
   async verifyPassword(hashedPassword: string, plainPassword: string): Promise<boolean> {
@@ -427,7 +425,7 @@ export class UsersService {
   }
 
   async assertPassword(userId: string, password: string): Promise<UserDocument> {
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.usersRepository.findById(userId).exec();
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -481,17 +479,17 @@ export class UsersService {
     const sortOrder = query.sortOrder === 'desc' ? -1 : 1;
 
     const [users, total] = await Promise.all([
-      this.userModel
+      this.usersRepository
         .find(filter)
         .sort({ [sortBy]: sortOrder as SortOrder })
         .skip((page - 1) * limit)
         .limit(limit)
         .exec(),
-      this.userModel.countDocuments(filter).exec(),
+      this.usersRepository.countDocuments(filter).exec(),
     ]);
 
     return createPaginatedResult(
-      serializeResources(users.map(user => this.sanitizeUser(user))),
+      users.map(user => mapUserResponse(this.sanitizeUser(user))),
       total,
       page,
       limit,
@@ -536,17 +534,17 @@ export class UsersService {
     const sortOrder = query.sortOrder === 'desc' ? -1 : 1;
 
     const [users, total] = await Promise.all([
-      this.userModel
+      this.usersRepository
         .find(filter)
         .sort({ [sortBy]: sortOrder as SortOrder })
         .skip((page - 1) * limit)
         .limit(limit)
         .exec(),
-      this.userModel.countDocuments(filter).exec(),
+      this.usersRepository.countDocuments(filter).exec(),
     ]);
 
     return createPaginatedResult(
-      serializeResources(users.map(user => this.sanitizeUser(user))),
+      users.map(user => mapUserResponse(this.sanitizeUser(user))),
       total,
       page,
       limit,
@@ -554,43 +552,97 @@ export class UsersService {
   }
 
   async findById(id: string): Promise<PublicUser> {
-    const user = await this.userModel.findById(id).exec();
+    const user = await this.usersRepository.findById(id).exec();
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    return serializeResource(this.sanitizeUser(user));
+    return mapUserResponse(this.sanitizeUser(user));
   }
 
   async findByIdForActor(id: string, actor: AuthenticatedUser): Promise<PublicUser> {
-    const user = await this.userModel.findById(id).exec();
+    const user = await this.usersRepository.findById(id).exec();
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     this.assertActorCanReadUser(actor, user);
 
-    return serializeResource(this.sanitizeUser(user));
+    return mapUserResponse(this.sanitizeUser(user));
   }
 
   async findByUsername(username: string): Promise<PublicUser | null> {
-    const user = await this.userModel.findOne({ username }).exec();
-    return user ? serializeResource(this.sanitizeUser(user)) : null;
+    const user = await this.usersRepository.findOne({ username }).exec();
+    return user ? mapUserResponse(this.sanitizeUser(user)) : null;
   }
 
   async findByPhone(phoneNumber: string): Promise<PublicUser | null> {
-    const user = await this.userModel.findOne({ phoneNumber }).exec();
-    return user ? serializeResource(this.sanitizeUser(user)) : null;
+    const user = await this.usersRepository.findOne({ phoneNumber }).exec();
+    return user ? mapUserResponse(this.sanitizeUser(user)) : null;
   }
 
   async findByTelegramId(telegramId: number): Promise<PublicUser | null> {
-    const user = await this.userModel.findOne({ telegramId: String(telegramId) }).exec();
-    return user ? serializeResource(this.sanitizeUser(user)) : null;
+    const user = await this.usersRepository.findOne({ telegramId: String(telegramId) }).exec();
+    return user ? mapUserResponse(this.sanitizeUser(user)) : null;
   }
 
   async findByRole(role: Role): Promise<PublicUser[]> {
-    const users = await this.userModel.find({ role }).sort({ createdAt: -1 }).exec();
-    return serializeResources(users.map(user => this.sanitizeUser(user)));
+    const users = await this.usersRepository.find({ role }).sort({ createdAt: -1 }).exec();
+    return users.map(user => mapUserResponse(this.sanitizeUser(user)));
+  }
+
+  async findByRoleForActor(role: Role, actor: AuthenticatedUser): Promise<PublicUser[]> {
+    if (this.isSystemWideRole(actor.role)) {
+      return this.findByRole(role);
+    }
+
+    if (this.isBranchAdminRole(actor.role)) {
+      const actorBranches = this.ensureScopedActorHasBranches(actor);
+      const users = await this.usersRepository
+        .find({ role, branchIds: { $in: actorBranches } })
+        .sort({ createdAt: -1 })
+        .exec();
+      return users.map(user => mapUserResponse(this.sanitizeUser(user)));
+    }
+
+    if (actor.role === Role.Teacher && role === Role.Student) {
+      const visibleStudentIds = await this.getTeacherVisibleStudentIds(actor.userId);
+      if (visibleStudentIds.length === 0) {
+        return [];
+      }
+
+      const users = await this.usersRepository
+        .find({ _id: { $in: visibleStudentIds }, role: Role.Student })
+        .sort({ createdAt: -1 })
+        .exec();
+      return users.map(user => mapUserResponse(this.sanitizeUser(user)));
+    }
+
+    if (actor.role === Role.Student && role === Role.Student) {
+      const user = await this.usersRepository.findById(actor.userId).exec();
+      return user ? [mapUserResponse(this.sanitizeUser(user))] : [];
+    }
+
+    throw new ForbiddenException('You are not allowed to access users with this role');
+  }
+
+  async findNotificationRecipientForActor(id: string, actor: AuthenticatedUser): Promise<PublicUser> {
+    const user = await this.usersRepository.findById(id).exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (actor.role === Role.Teacher && user.role === Role.Student) {
+      const visibleStudentIds = await this.getTeacherVisibleStudentIds(actor.userId);
+      if (!visibleStudentIds.includes(String(user._id))) {
+        throw new NotFoundException('User not found');
+      }
+
+      return mapUserResponse(this.sanitizeUser(user));
+    }
+
+    this.assertActorCanReadUser(actor, user);
+    return mapUserResponse(this.sanitizeUser(user));
   }
 
   async create(dto: CreateUserDto, actorRole?: Role): Promise<PublicUser> {
@@ -603,7 +655,7 @@ export class UsersService {
     this.assertRoleCanBeAssigned(actorRole, desiredRole);
     this.assertRoleSpecificBranchRequirements(desiredRole, branchIds);
 
-    const createdUser = new this.userModel(
+    const createdUser = this.usersRepository.create(
       this.applyStatusFields({
         ...dto,
         password: await hashPassword(dto.password),
@@ -614,7 +666,7 @@ export class UsersService {
     );
 
     const savedUser = await createdUser.save();
-    return serializeResource(this.sanitizeUser(savedUser));
+    return mapUserResponse(this.sanitizeUser(savedUser));
   }
 
   async createForActor(dto: CreateUserDto, actor: AuthenticatedUser): Promise<PublicUser> {
@@ -628,7 +680,7 @@ export class UsersService {
     const branchIds = this.resolveCreateBranchIds(dto, actor);
     this.assertRoleSpecificBranchRequirements(desiredRole, branchIds);
 
-    const createdUser = new this.userModel(
+    const createdUser = this.usersRepository.create(
       this.applyStatusFields({
         ...dto,
         password: await hashPassword(dto.password),
@@ -639,7 +691,7 @@ export class UsersService {
     );
 
     const savedUser = await createdUser.save();
-    return serializeResource(this.sanitizeUser(savedUser));
+    return mapUserResponse(this.sanitizeUser(savedUser));
   }
 
   async createWithPhone(dto: {
@@ -648,7 +700,7 @@ export class UsersService {
     telegramId: number;
     role: Role;
   }): Promise<PublicUser> {
-    const createdUser = new this.userModel({
+    const createdUser = this.usersRepository.create({
       firstName: dto.name,
       phoneNumber: dto.phone,
       telegramId: String(dto.telegramId),
@@ -666,18 +718,18 @@ export class UsersService {
     });
 
     const savedUser = await createdUser.save();
-    return serializeResource(this.sanitizeUser(savedUser));
+    return mapUserResponse(this.sanitizeUser(savedUser));
   }
 
   async updateOwnProfile(id: string, dto: UpdateProfileDto): Promise<PublicUser> {
     await this.ensureUniqueFields(dto, id);
 
-    const updatedUser = await this.userModel.findByIdAndUpdate(id, dto, { new: true }).exec();
+    const updatedUser = await this.usersRepository.findByIdAndUpdate(id, dto, { new: true }).exec();
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
 
-    return serializeResource(this.sanitizeUser(updatedUser));
+    return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
   async searchForActor(
@@ -687,11 +739,11 @@ export class UsersService {
     let user: UserDocument | null = null;
 
     if (query.username) {
-      user = await this.userModel.findOne({ username: query.username }).exec();
+      user = await this.usersRepository.findOne({ username: query.username }).exec();
     } else if (query.phone) {
-      user = await this.userModel.findOne({ phoneNumber: query.phone }).exec();
+      user = await this.usersRepository.findOne({ phoneNumber: query.phone }).exec();
     } else if (query.telegramId) {
-      user = await this.userModel.findOne({ telegramId: String(query.telegramId) }).exec();
+      user = await this.usersRepository.findOne({ telegramId: String(query.telegramId) }).exec();
     }
 
     if (!user) {
@@ -700,7 +752,7 @@ export class UsersService {
 
     this.assertActorCanReadUser(actor, user);
 
-    return serializeResource(this.sanitizeUser(user));
+    return mapUserResponse(this.sanitizeUser(user));
   }
 
   async findStudentsForActor(query: UsersListQueryDto = {}, actor: AuthenticatedUser) {
@@ -751,17 +803,17 @@ export class UsersService {
           : 'createdAt';
       const sortOrder = query.sortOrder === 'desc' ? -1 : 1;
       const [users, total] = await Promise.all([
-        this.userModel
+        this.usersRepository
           .find(filter)
           .sort({ [sortBy]: sortOrder as SortOrder })
           .skip((page - 1) * limit)
           .limit(limit)
           .exec(),
-        this.userModel.countDocuments(filter).exec(),
+        this.usersRepository.countDocuments(filter).exec(),
       ]);
 
       return createPaginatedResult(
-        serializeResources(users.map(user => this.sanitizeUser(user))),
+        users.map(user => mapUserResponse(this.sanitizeUser(user))),
         total,
         page,
         limit,
@@ -772,7 +824,7 @@ export class UsersService {
   }
 
   async updateManagedUser(id: string, dto: UpdateUserDto, actorRole: Role): Promise<PublicUser> {
-    const targetUser = await this.userModel.findById(id).exec();
+    const targetUser = await this.usersRepository.findById(id).exec();
     if (!targetUser) {
       throw new NotFoundException('User not found');
     }
@@ -790,7 +842,7 @@ export class UsersService {
     const nextBranchIds = this.normalizeBranchIds(branchIds ?? targetUser.branchIds);
     this.assertRoleSpecificBranchRequirements(targetUser.role, nextBranchIds);
 
-    const updatedUser = await this.userModel
+    const updatedUser = await this.usersRepository
       .findByIdAndUpdate(id, { ...updatePayload, branchIds: nextBranchIds }, { new: true })
       .exec();
 
@@ -798,7 +850,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return serializeResource(this.sanitizeUser(updatedUser));
+    return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
   async updateForActor(id: string, dto: UpdateUserDto, actor: AuthenticatedUser): Promise<PublicUser> {
@@ -812,7 +864,7 @@ export class UsersService {
       return this.updateOwnProfile(id, selfPayload);
     }
 
-    const targetUser = await this.userModel.findById(id).exec();
+    const targetUser = await this.usersRepository.findById(id).exec();
     if (!targetUser) {
       throw new NotFoundException('User not found');
     }
@@ -835,7 +887,7 @@ export class UsersService {
         : this.normalizeBranchIds(branchIds));
     this.assertRoleSpecificBranchRequirements(targetUser.role, nextBranchIds);
 
-    const updatedUser = await this.userModel
+    const updatedUser = await this.usersRepository
       .findByIdAndUpdate(id, { ...updatePayload, branchIds: nextBranchIds }, { new: true })
       .exec();
 
@@ -843,7 +895,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return serializeResource(this.sanitizeUser(updatedUser));
+    return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
   async updateRole(id: string, role: Role, actorRole: Role): Promise<PublicUser> {
@@ -851,7 +903,7 @@ export class UsersService {
       throw new ConflictException('Invalid role');
     }
 
-    const targetUser = await this.userModel.findById(id).exec();
+    const targetUser = await this.usersRepository.findById(id).exec();
     if (!targetUser) {
       throw new NotFoundException('User not found');
     }
@@ -875,12 +927,12 @@ export class UsersService {
       }
     }
 
-    const updatedUser = await this.userModel.findByIdAndUpdate(id, { role }, { new: true }).exec();
+    const updatedUser = await this.usersRepository.findByIdAndUpdate(id, { role }, { new: true }).exec();
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
 
-    return serializeResource(this.sanitizeUser(updatedUser));
+    return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
   async updateRoleForActor(id: string, role: Role, actor: AuthenticatedUser): Promise<PublicUser> {
@@ -888,7 +940,7 @@ export class UsersService {
       throw new ConflictException('Invalid role');
     }
 
-    const targetUser = await this.userModel.findById(id).exec();
+    const targetUser = await this.usersRepository.findById(id).exec();
     if (!targetUser) {
       throw new NotFoundException('User not found');
     }
@@ -912,16 +964,16 @@ export class UsersService {
       }
     }
 
-    const updatedUser = await this.userModel.findByIdAndUpdate(id, { role }, { new: true }).exec();
+    const updatedUser = await this.usersRepository.findByIdAndUpdate(id, { role }, { new: true }).exec();
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
 
-    return serializeResource(this.sanitizeUser(updatedUser));
+    return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
   async updateStatus(id: string, dto: UpdateUserStatusDto, actorRole: Role): Promise<PublicUser> {
-    const targetUser = await this.userModel.findById(id).exec();
+    const targetUser = await this.usersRepository.findById(id).exec();
     if (!targetUser) {
       throw new NotFoundException('User not found');
     }
@@ -929,7 +981,7 @@ export class UsersService {
     this.assertCanManageTarget(actorRole, targetUser.role);
     await this.ensureLastOwnerStatusIsProtected(id, dto.status);
 
-    const updatedUser = await this.userModel
+    const updatedUser = await this.usersRepository
       .findByIdAndUpdate(
         id,
         this.applyStatusFields({ status: dto.status }),
@@ -941,7 +993,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return serializeResource(this.sanitizeUser(updatedUser));
+    return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
   async updateStatusForActor(
@@ -949,7 +1001,7 @@ export class UsersService {
     dto: UpdateUserStatusDto,
     actor: AuthenticatedUser,
   ): Promise<PublicUser> {
-    const targetUser = await this.userModel.findById(id).exec();
+    const targetUser = await this.usersRepository.findById(id).exec();
     if (!targetUser) {
       throw new NotFoundException('User not found');
     }
@@ -957,7 +1009,7 @@ export class UsersService {
     this.assertActorCanManageTarget(actor, targetUser);
     await this.ensureLastOwnerStatusIsProtected(id, dto.status);
 
-    const updatedUser = await this.userModel
+    const updatedUser = await this.usersRepository
       .findByIdAndUpdate(
         id,
         this.applyStatusFields({ status: dto.status }),
@@ -969,7 +1021,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return serializeResource(this.sanitizeUser(updatedUser));
+    return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
   async changePassword(id: string, currentPassword: string, newPassword: string): Promise<void> {
@@ -989,16 +1041,16 @@ export class UsersService {
   ): Promise<PublicUser> {
     await this.ensureUniqueFields(dto as Partial<CreateUserDto>, id);
 
-    const updatedUser = await this.userModel.findByIdAndUpdate(id, dto, { new: true }).exec();
+    const updatedUser = await this.usersRepository.findByIdAndUpdate(id, dto, { new: true }).exec();
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
 
-    return serializeResource(this.sanitizeUser(updatedUser));
+    return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
   async remove(id: string, actorRole: Role): Promise<boolean> {
-    const targetUser = await this.userModel.findById(id).exec();
+    const targetUser = await this.usersRepository.findById(id).exec();
     if (!targetUser) {
       throw new NotFoundException('User not found');
     }
@@ -1007,7 +1059,7 @@ export class UsersService {
     await this.ensureLastOwnerRoleIsProtected(id, Role.Guest);
     await this.ensureUserHasNoReferences(id);
 
-    const result = await this.userModel.findByIdAndDelete(id).exec();
+    const result = await this.usersRepository.findByIdAndDelete(id).exec();
     if (!result) {
       throw new NotFoundException('User not found');
     }
@@ -1016,7 +1068,7 @@ export class UsersService {
   }
 
   async removeForActor(id: string, actor: AuthenticatedUser): Promise<boolean> {
-    const targetUser = await this.userModel.findById(id).exec();
+    const targetUser = await this.usersRepository.findById(id).exec();
     if (!targetUser) {
       throw new NotFoundException('User not found');
     }
@@ -1025,7 +1077,7 @@ export class UsersService {
     await this.ensureLastOwnerRoleIsProtected(id, Role.Guest);
     await this.ensureUserHasNoReferences(id);
 
-    const result = await this.userModel.findByIdAndDelete(id).exec();
+    const result = await this.usersRepository.findByIdAndDelete(id).exec();
     if (!result) {
       throw new NotFoundException('User not found');
     }

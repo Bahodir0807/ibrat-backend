@@ -2,9 +2,9 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { Schedule, ScheduleDocument } from './schemas/schedule.schema';
+import { ScheduleRepository } from './schedule.repository';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
-import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
 import { ScheduleListQueryDto } from './dto/schedule-list-query.dto';
 import { Role } from '../roles/roles.enum';
 import { createPaginatedResult } from '../common/responses/paginated-result';
@@ -14,11 +14,12 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
 import { Attendance, AttendanceDocument } from '../attendance/schemas/attendance.schema';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
+import { mapScheduleResponse, mapScheduleResponses } from './dto/schedule-response.dto';
 
 @Injectable()
 export class ScheduleService {
   constructor(
-    @InjectModel(Schedule.name) private readonly schModel: Model<ScheduleDocument>,
+    private readonly scheduleRepository: ScheduleRepository,
     @InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>,
     @InjectModel(Room.name) private readonly roomModel: Model<RoomDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
@@ -28,8 +29,8 @@ export class ScheduleService {
 
   private readonly schedulePopulate = [
     { path: 'course', select: 'name description price teacherId students' },
-    { path: 'teacher', select: 'username firstName lastName role email phoneNumber' },
-    { path: 'students', select: 'username firstName lastName role email phoneNumber' },
+    { path: 'teacher', select: 'username firstName lastName role' },
+    { path: 'students', select: 'username firstName lastName role' },
     { path: 'room', select: 'name capacity type isAvailable description' },
     { path: 'group', select: 'name course teacher students' },
   ];
@@ -134,7 +135,7 @@ export class ScheduleService {
       return null;
     }
 
-    return this.schModel.findById(id).exec();
+    return this.scheduleRepository.findById(id).exec();
   }
 
   private toObjectId(id?: string): Types.ObjectId | undefined {
@@ -336,7 +337,7 @@ export class ScheduleService {
       ],
     };
 
-    const conflictingSchedule = await this.schModel.findOne(overlapFilter).lean().exec();
+    const conflictingSchedule = await this.scheduleRepository.findOne(overlapFilter).lean().exec();
     if (conflictingSchedule) {
       throw new BadRequestException('Schedule conflicts with an existing room, teacher, group, or student allocation');
     }
@@ -446,16 +447,16 @@ export class ScheduleService {
     };
 
     const [schedule, total] = await Promise.all([
-      this.schModel
+      this.scheduleRepository
       .find(filter)
       .populate(this.schedulePopulate)
       .sort({ date: 1, timeStart: 1 })
       .limit(100)
       .exec(),
-      this.schModel.countDocuments(filter).exec(),
+      this.scheduleRepository.countDocuments(filter).exec(),
     ]);
 
-    return createPaginatedResult(serializeResources(schedule), total, 1, 100);
+    return createPaginatedResult(mapScheduleResponses(schedule), total, 1, 100);
   }
 
   async findAll(query: ScheduleListQueryDto = {}) {
@@ -464,17 +465,17 @@ export class ScheduleService {
     const filter = this.buildFilter(query);
 
     const [schedule, total] = await Promise.all([
-      this.schModel
+      this.scheduleRepository
         .find(filter)
         .populate(this.schedulePopulate)
         .sort(this.getSort(query))
         .skip((page - 1) * limit)
         .limit(limit)
         .exec(),
-      this.schModel.countDocuments(filter).exec(),
+      this.scheduleRepository.countDocuments(filter).exec(),
     ]);
 
-    return createPaginatedResult(serializeResources(schedule), total, page, limit);
+    return createPaginatedResult(mapScheduleResponses(schedule), total, page, limit);
   }
 
   async findAllForActor(query: ScheduleListQueryDto, actor: AuthenticatedUser) {
@@ -533,17 +534,17 @@ export class ScheduleService {
       ];
 
       const [schedule, total] = await Promise.all([
-        this.schModel
+        this.scheduleRepository
           .find(baseFilter)
           .populate(this.schedulePopulate)
           .sort(this.getSort(query))
           .skip((page - 1) * limit)
           .limit(limit)
           .exec(),
-        this.schModel.countDocuments(baseFilter).exec(),
+        this.scheduleRepository.countDocuments(baseFilter).exec(),
       ]);
 
-      return createPaginatedResult(serializeResources(schedule), total, page, limit);
+      return createPaginatedResult(mapScheduleResponses(schedule), total, page, limit);
     }
 
     return this.findAll(query);
@@ -554,12 +555,12 @@ export class ScheduleService {
       throw new BadRequestException('Invalid schedule ID');
     }
 
-    const schedule = await this.schModel.findById(id).populate(this.schedulePopulate).exec();
+    const schedule = await this.scheduleRepository.findById(id).populate(this.schedulePopulate).exec();
     if (!schedule) {
       throw new NotFoundException('Schedule not found');
     }
 
-    return serializeResource(schedule);
+    return mapScheduleResponse(schedule);
   }
 
   async findOneForActor(id: string, actor: AuthenticatedUser) {
@@ -572,7 +573,7 @@ export class ScheduleService {
     const scheduleState = this.toScheduleState(createScheduleDto);
     await this.validateRelationsAndConflicts(scheduleState);
 
-    const schedule = await this.schModel.create(scheduleState);
+    const schedule = await this.scheduleRepository.create(scheduleState);
     return this.findOne(String(schedule._id));
   }
 
@@ -636,7 +637,7 @@ export class ScheduleService {
       throw new BadRequestException('Invalid schedule ID');
     }
 
-    const existing = await this.schModel.findById(id).lean().exec();
+    const existing = await this.scheduleRepository.findById(id).lean().exec();
     if (!existing) {
       throw new NotFoundException('Schedule not found');
     }
@@ -655,7 +656,7 @@ export class ScheduleService {
 
     await this.validateRelationsAndConflicts(mergedState, id);
 
-    const updated = await this.schModel
+    const updated = await this.scheduleRepository
       .findByIdAndUpdate(id, mergedState, { new: true })
       .exec();
 
@@ -762,7 +763,7 @@ export class ScheduleService {
       throw new BadRequestException('Schedule cannot be deleted while attendance records reference it');
     }
 
-    const deleted = await this.schModel.findByIdAndDelete(id).exec();
+    const deleted = await this.scheduleRepository.findByIdAndDelete(id).exec();
     if (!deleted) {
       throw new NotFoundException('Schedule not found');
     }

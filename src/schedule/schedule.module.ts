@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Schedule, ScheduleSchema } from './schemas/schedule.schema';
 import { ScheduleService } from './schedule.service';
 import { ScheduleController } from './schedule.controller';
+import { ScheduleRepository } from './schedule.repository';
 import { Course, CourseSchema } from '../courses/schemas/course.schema';
 import { Room, RoomSchema } from '../rooms/schemas/room.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
@@ -21,7 +22,7 @@ import { Attendance, AttendanceSchema } from '../attendance/schemas/attendance.s
     ]),
   ],
   controllers: [ScheduleController],
-  providers: [ScheduleService],
-  exports: [ScheduleService],
+  providers: [ScheduleService, ScheduleRepository],
+  exports: [ScheduleService, ScheduleRepository],
 })
 export class SchedulesModule {}

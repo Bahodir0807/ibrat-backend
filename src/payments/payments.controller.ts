@@ -87,6 +87,23 @@ export class PaymentsController {
     return payment;
   }
 
+  @Patch(':id/cancel')
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
+  async cancel(@Param() params: IdParamDto, @Request() req) {
+    const { id } = params;
+    const payment = await this.paymentsService.cancelPaymentForActor(
+      id,
+      req.user as AuthenticatedUser,
+    );
+    this.auditLogService.log({
+      action: 'payment.cancel',
+      actor: { id: req.user.userId, role: req.user.role },
+      target: { type: 'payment', id },
+      status: 'success',
+    });
+    return payment;
+  }
+
   @Delete(':id')
   @Roles(Role.Admin, Role.Owner, Role.Extra)
   async delete(@Param() params: IdParamDto, @Request() req) {

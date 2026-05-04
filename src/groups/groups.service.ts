@@ -4,8 +4,9 @@ import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { Group, GroupDocument } from './schemas/group.schema';
-import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
+import { GroupsRepository } from './groups.repository';
 import { GroupsListQueryDto } from './dto/groups-list-query.dto';
+import { mapGroupResponse, mapGroupResponses } from './dto/group-response.dto';
 import { createPaginatedResult } from '../common/responses/paginated-result';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
@@ -22,7 +23,7 @@ import {
 @Injectable()
 export class GroupsService {
   constructor(
-    @InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>,
+    private readonly groupsRepository: GroupsRepository,
     @InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Schedule.name) private readonly scheduleModel: Model<ScheduleDocument>,
@@ -88,8 +89,40 @@ export class GroupsService {
       .lean()
       .exec();
 
-    if (!relatedUsers.some(user => hasBranchOverlap(actorBranches, user.branchIds))) {
+    if (
+      relatedUsers.length !== relatedUserIds.length
+      || relatedUsers.some(user => !hasBranchOverlap(actorBranches, user.branchIds))
+    ) {
       throw new NotFoundException('Group not found');
+    }
+  }
+
+  private async assertTeacherGroupStudentsWithinScope(
+    studentIds: string[] | undefined,
+    actor: AuthenticatedUser,
+  ): Promise<void> {
+    if (actor.role !== Role.Teacher || studentIds === undefined) {
+      return;
+    }
+
+    const normalizedIds = [...new Set(studentIds.filter(studentId => Types.ObjectId.isValid(studentId)))];
+    if (normalizedIds.length === 0) {
+      return;
+    }
+
+    const existingGroups = await this.groupsRepository
+      .find({ teacher: actor.userId, students: { $in: toObjectIds(normalizedIds) } }, { students: 1 })
+      .lean()
+      .exec();
+    const visibleStudentIds = new Set<string>();
+    for (const group of existingGroups) {
+      for (const studentId of group.students ?? []) {
+        visibleStudentIds.add(String(studentId));
+      }
+    }
+
+    if (!normalizedIds.every(studentId => visibleStudentIds.has(studentId))) {
+      throw new ForbiddenException('Teachers can assign only existing students from their own groups');
     }
   }
 
@@ -156,7 +189,7 @@ export class GroupsService {
       return null;
     }
 
-    return this.groupModel.findById(id).exec();
+    return this.groupsRepository.findById(id).exec();
   }
 
   private toObjectId(id?: string): Types.ObjectId | undefined {
@@ -222,6 +255,18 @@ export class GroupsService {
     return filter;
   }
 
+  private appendAndFilter(
+    filter: FilterQuery<GroupDocument>,
+    conditions: FilterQuery<GroupDocument>[],
+  ): FilterQuery<GroupDocument> {
+    if (conditions.length === 0) {
+      return filter;
+    }
+
+    const existingAnd = Array.isArray(filter.$and) ? filter.$and : [];
+    return { ...filter, $and: [...existingAnd, ...conditions] };
+  }
+
   private async validateRelations(payload: Record<string, unknown>) {
     const courseId = payload.course ? String(payload.course) : undefined;
     const teacherId = payload.teacher ? String(payload.teacher) : undefined;
@@ -264,7 +309,7 @@ export class GroupsService {
   async create(dto: CreateGroupDto) {
     const payload = this.normalizePayload(dto);
     await this.validateRelations(payload);
-    const created = await this.groupModel.create(payload);
+    const created = await this.groupsRepository.create(payload);
     return this.findOne(String(created._id));
   }
 
@@ -277,6 +322,7 @@ export class GroupsService {
       }
 
       payload.teacher = actor.userId;
+      await this.assertTeacherGroupStudentsWithinScope(payload.students, actor);
     }
 
     await this.assertGroupPayloadWithinActorScope(this.normalizePayload(payload), actor, true);
@@ -291,17 +337,17 @@ export class GroupsService {
     const limit = query.limit ?? 20;
 
     const [groups, total] = await Promise.all([
-      this.groupModel
+      this.groupsRepository
         .find(filter)
         .populate(this.groupPopulate)
         .sort(this.getSort(query))
         .skip((page - 1) * limit)
         .limit(limit)
         .exec(),
-      this.groupModel.countDocuments(filter).exec(),
+      this.groupsRepository.countDocuments(filter).exec(),
     ]);
 
-    return createPaginatedResult(serializeResources(groups), total, page, limit);
+    return createPaginatedResult(mapGroupResponses(groups), total, page, limit);
   }
 
   async findAllForActor(query: GroupsListQueryDto, actor: AuthenticatedUser) {
@@ -329,25 +375,24 @@ export class GroupsService {
 
       const page = query.page ?? 1;
       const limit = query.limit ?? 20;
-      const filter = this.buildFilter(query);
       const scopedObjectIds = toObjectIds(scopedUserIds);
-      filter.$or = [
+      const filter = this.appendAndFilter(this.buildFilter(query), [
         { teacher: { $in: scopedObjectIds } },
-        { students: { $in: scopedObjectIds } },
-      ];
+        { students: { $not: { $elemMatch: { $nin: scopedObjectIds } } } },
+      ]);
 
       const [groups, total] = await Promise.all([
-        this.groupModel
+        this.groupsRepository
           .find(filter)
           .populate(this.groupPopulate)
           .sort(this.getSort(query))
           .skip((page - 1) * limit)
           .limit(limit)
           .exec(),
-        this.groupModel.countDocuments(filter).exec(),
+        this.groupsRepository.countDocuments(filter).exec(),
       ]);
 
-      return createPaginatedResult(serializeResources(groups), total, page, limit);
+      return createPaginatedResult(mapGroupResponses(groups), total, page, limit);
     }
 
     return this.findAll(query);
@@ -358,12 +403,12 @@ export class GroupsService {
       throw new BadRequestException('Invalid group ID');
     }
 
-    const group = await this.groupModel.findById(id).populate(this.groupPopulate).exec();
+    const group = await this.groupsRepository.findById(id).populate(this.groupPopulate).exec();
     if (!group) {
       throw new NotFoundException('Group not found');
     }
 
-    return serializeResource(group);
+    return mapGroupResponse(group);
   }
 
   async findOneForActor(id: string, actor: AuthenticatedUser) {
@@ -381,8 +426,8 @@ export class GroupsService {
     const payload = this.normalizePayload(dto);
     await this.validateRelations(payload);
 
-    const updated = await this.groupModel
-      .findByIdAndUpdate(id, payload, { new: true })
+    const updated = await this.groupsRepository
+      .updateById(id, payload)
       .exec();
 
     if (!updated) {
@@ -407,6 +452,7 @@ export class GroupsService {
       }
 
       payload.teacher = actor.userId;
+      await this.assertTeacherGroupStudentsWithinScope(payload.students, actor);
     }
 
     await this.assertBranchAdminCanAccessGroup(group, actor);
@@ -435,7 +481,7 @@ export class GroupsService {
       throw new BadRequestException('Group cannot be deleted while schedule entries reference it');
     }
 
-    const deleted = await this.groupModel.findByIdAndDelete(id).exec();
+    const deleted = await this.groupsRepository.deleteById(id).exec();
     if (!deleted) {
       throw new NotFoundException('Group not found');
     }

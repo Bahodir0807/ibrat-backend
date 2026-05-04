@@ -137,7 +137,6 @@ describe('AuthService', () => {
 
     const response = await service.login({
       id: '42',
-      _id: '42',
       username: 'demo',
       role: Role.Student,
       status: UserStatus.Active,

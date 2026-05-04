@@ -1,4 +1,4 @@
-import { IsDateString, IsMongoId, IsOptional } from 'class-validator';
+import { IsDateString, IsMongoId, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreatePaymentDto {
   @IsMongoId()
@@ -10,4 +10,9 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsDateString()
   paidAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  method?: string;
 }

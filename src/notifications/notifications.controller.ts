@@ -18,6 +18,7 @@ export class NotificationsController {
     const result = await this.notificationsService.sendManualNotification(dto, {
       userId: req.user.userId,
       role: req.user.role,
+      branchIds: req.user.branchIds,
     });
 
     this.auditLogService.log({

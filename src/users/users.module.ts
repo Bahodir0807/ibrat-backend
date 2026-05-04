@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { UsersRepository } from './users.repository';
 import { User, UserSchema } from './schemas/user.schema';
 import { Course, CourseSchema } from '../courses/schemas/course.schema';
 import { Group, GroupSchema } from '../groups/schemas/group.schema';
@@ -23,7 +24,7 @@ import { Grade, GradeSchema } from '../grades/schemas/grade.schema';
     { name: Grade.name, schema: GradeSchema },
   ])],
   controllers: [UsersController],
-  providers: [UsersService],
-  exports: [UsersService],
+  providers: [UsersService, UsersRepository],
+  exports: [UsersService, UsersRepository],
 })
 export class UsersModule {}

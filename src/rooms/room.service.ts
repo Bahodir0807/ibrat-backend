@@ -4,7 +4,6 @@ import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { Room, RoomDocument } from './schemas/room.schema';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
-import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
 import { RoomsListQueryDto } from './dto/rooms-list-query.dto';
 import { createPaginatedResult } from '../common/responses/paginated-result';
 import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
@@ -12,6 +11,7 @@ import { AuthenticatedUser } from '../common/types/authenticated-user.type';
 import { Role } from '../roles/roles.enum';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { ensureActorBranchScope, isBranchAdminRole, isSystemWideRole, toObjectIds } from '../common/access/actor-scope';
+import { mapRoomResponse, mapRoomResponses } from './dto/room-response.dto';
 
 @Injectable()
 export class RoomService {
@@ -31,6 +31,8 @@ export class RoomService {
   }
 
   private assertCanMutateGlobalRoom(actor: AuthenticatedUser): void {
+    // Rooms are intentionally global inventory in the current schema; scoped actors
+    // can only read rooms that appear in their schedules.
     if (!isSystemWideRole(actor.role)) {
       throw new ForbiddenException('Rooms are global resources and can be managed only by system-wide roles');
     }
@@ -71,6 +73,14 @@ export class RoomService {
       return [...new Set(schedules.map(schedule => String(schedule.room)))];
     }
 
+    if (actor.role === Role.Student) {
+      const schedules = await this.scheduleModel
+        .find({ students: actor.userId }, { room: 1 })
+        .lean()
+        .exec();
+      return [...new Set(schedules.map(schedule => String(schedule.room)))];
+    }
+
     if (isBranchAdminRole(actor.role)) {
       const actorBranches = ensureActorBranchScope(actor);
       const scopedUsers = await this.userModel
@@ -103,7 +113,7 @@ export class RoomService {
 
   async create(dto: CreateRoomDto) {
     const room = await this.roomModel.create(dto);
-    return serializeResource(room);
+    return mapRoomResponse(room);
   }
 
   async findAll(query: RoomsListQueryDto = {}) {
@@ -122,7 +132,7 @@ export class RoomService {
       this.roomModel.countDocuments(filter).exec(),
     ]);
 
-    return createPaginatedResult(serializeResources(rooms), total, page, limit);
+    return createPaginatedResult(mapRoomResponses(rooms), total, page, limit);
   }
 
   async createForActor(dto: CreateRoomDto, actor: AuthenticatedUser) {
@@ -155,7 +165,7 @@ export class RoomService {
       this.roomModel.countDocuments(filter).exec(),
     ]);
 
-    return createPaginatedResult(serializeResources(rooms), total, page, limit);
+    return createPaginatedResult(mapRoomResponses(rooms), total, page, limit);
   }
 
   async findById(id: string) {
@@ -168,7 +178,7 @@ export class RoomService {
       throw new NotFoundException('Room not found');
     }
 
-    return serializeResource(room);
+    return mapRoomResponse(room);
   }
 
   async findByIdForActor(id: string, actor: AuthenticatedUser) {
@@ -195,7 +205,7 @@ export class RoomService {
       throw new NotFoundException('Room not found');
     }
 
-    return serializeResource(updated);
+    return mapRoomResponse(updated);
   }
 
   async updateForActor(id: string, dto: UpdateRoomDto, actor: AuthenticatedUser) {

@@ -5,6 +5,8 @@ import { UsersService } from '../users/users.service';
 import { CreateNotificationDto } from './dto/create-notify.dto';
 import { Role } from '../roles/roles.enum';
 import { NotificationType } from './notification-type.enum';
+import { AuthenticatedUser } from '../common/types/authenticated-user.type';
+import { mapNotificationResponse } from './dto/notification-response.dto';
 
 @Injectable()
 export class NotificationsService {
@@ -19,9 +21,11 @@ export class NotificationsService {
 
   async sendManualNotification(
     dto: CreateNotificationDto,
-    sender?: { userId: string; role: Role },
+    sender?: AuthenticatedUser,
   ) {
-    const user = await this.usersService.findById(dto.userId);
+    const user = sender
+      ? await this.usersService.findNotificationRecipientForActor(dto.userId, sender)
+      : await this.usersService.findById(dto.userId);
     if (!user || !user.telegramId) {
       throw new NotFoundException('User not found or Telegram is not connected');
     }
@@ -42,24 +46,24 @@ export class NotificationsService {
       }),
     );
 
-    return { sentTo: user.username, type: dto.type };
+    return mapNotificationResponse({ sentTo: user.username, type: dto.type });
   }
 
   async sendRoleNotification(
     type: NotificationType,
     role: Role,
     message: string,
-    senderRole: Role,
+    sender: AuthenticatedUser,
   ) {
-    if (senderRole === Role.Teacher && role !== Role.Student) {
+    if (sender.role === Role.Teacher && role !== Role.Student) {
       throw new BadRequestException('Teachers can send role-based notifications only to students');
     }
 
-    const users = await this.usersService.findByRole(role);
+    const users = await this.usersService.findByRoleForActor(role, sender);
     const telegramIds = users.filter(user => user.telegramId).map(user => user.telegramId!);
 
     if (!telegramIds.length) {
-      return { success: false, reason: 'No users with Telegram were found for this role' };
+      return mapNotificationResponse({ success: false, reason: 'No users with Telegram were found for this role' });
     }
 
     const prefix = this.getNotificationPrefix(type);
@@ -68,14 +72,15 @@ export class NotificationsService {
     this.logger.log(
       JSON.stringify({
         event: 'notification.role.sent',
-        senderRole,
+        senderRole: sender.role,
+        senderId: sender.userId,
         targetRole: role,
         type,
         recipients: telegramIds.length,
       }),
     );
 
-    return { sentTo: telegramIds.length };
+    return mapNotificationResponse({ sentTo: telegramIds.length });
   }
 
   private getNotificationPrefix(type: NotificationType) {

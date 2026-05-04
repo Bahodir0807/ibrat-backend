@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CoursesService } from './courses.service';
 import { CoursesController } from './courses.controller';
+import { CoursesRepository } from './courses.repository';
 import { Course, CourseSchema } from './schemas/course.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Group, GroupSchema } from '../groups/schemas/group.schema';
@@ -19,7 +20,7 @@ import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
     ]),
   ],
   controllers: [CoursesController],
-  providers: [CoursesService],
-  exports: [CoursesService],
+  providers: [CoursesService, CoursesRepository],
+  exports: [CoursesService, CoursesRepository],
 })
 export class CoursesModule {}
