@@ -288,4 +288,17 @@ describe('PaymentsService financial integrity', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(paymentsRepository.findOneAndUpdate).not.toHaveBeenCalled();
   });
+
+  it('rejects invalid cancel ids before payment lookup', async () => {
+    const { service, paymentsRepository } = createService();
+
+    await expect(
+      service.cancelPaymentForActor('invalid-id', {
+        userId: objectId(),
+        role: Role.Admin,
+        branchIds: ['branch-a'],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(paymentsRepository.findById).not.toHaveBeenCalled();
+  });
 });

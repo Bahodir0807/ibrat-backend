@@ -18,6 +18,11 @@ export class PublicRateLimitGuard implements CanActivate {
     private readonly appConfig: AppConfigService,
   ) {}
 
+  private isLimitedPath(path: string): boolean {
+    const normalized = path.split('?')[0].replace(/\/+$/, '') || '/';
+    return [...this.limitedPaths].some(limitedPath => normalized === limitedPath || normalized.endsWith(limitedPath));
+  }
+
   canActivate(context: ExecutionContext): boolean {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
@@ -28,8 +33,8 @@ export class PublicRateLimitGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const path = String(request.route?.path ?? request.path ?? request.url).replace(/\/+$/, '') || '/';
-    if (!this.limitedPaths.has(path)) {
+    const path = String(request.route?.path ?? request.path ?? request.url);
+    if (!this.isLimitedPath(path)) {
       return true;
     }
 

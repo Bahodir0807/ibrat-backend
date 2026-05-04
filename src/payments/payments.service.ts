@@ -481,6 +481,10 @@ export class PaymentsService {
   }
 
   async cancelPaymentForActor(paymentId: string, actor: AuthenticatedUser) {
+    if (!Types.ObjectId.isValid(paymentId)) {
+      throw new BadRequestException('Invalid payment ID');
+    }
+
     const payment = await this.paymentsRepository
       .findById(paymentId)
       .populate({ path: 'student', select: 'username firstName lastName role branchIds' })
