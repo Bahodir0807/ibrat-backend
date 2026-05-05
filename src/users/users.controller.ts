@@ -36,7 +36,7 @@ export class UsersController {
 
   @Get('me')
   async getMe(@Request() req) {
-    return this.usersService.findById(req.user.userId);
+    return this.usersService.findByIdForActor(req.user.userId, req.user as AuthenticatedUser);
   }
 
   @Patch('me/profile')

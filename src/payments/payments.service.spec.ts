@@ -262,7 +262,7 @@ describe('PaymentsService financial integrity', () => {
     }));
   });
 
-  it('actor cannot mutate payments outside branch scope', async () => {
+  it('admin can mutate payments without branch restrictions', async () => {
     const paymentId = objectId();
     const { service, paymentsRepository } = createService({
       paymentsRepository: {
@@ -276,17 +276,26 @@ describe('PaymentsService financial integrity', () => {
           amount: 100,
           status: PaymentStatus.Pending,
         })),
+        findOneAndUpdate: jest.fn(() => chain({
+          _id: paymentId,
+          student: objectId(),
+          amount: 100,
+          status: PaymentStatus.Confirmed,
+        })),
+      },
+      financialTransactionsRepository: {
+        exists: jest.fn(() => chain(null)),
+        create: jest.fn(),
       },
     });
 
-    await expect(
-      service.confirmPaymentForActor(paymentId, {
-        userId: objectId(),
-        role: Role.Admin,
-        branchIds: ['branch-a'],
-      }),
-    ).rejects.toBeInstanceOf(NotFoundException);
-    expect(paymentsRepository.findOneAndUpdate).not.toHaveBeenCalled();
+    await service.confirmPaymentForActor(paymentId, {
+      userId: objectId(),
+      role: Role.Admin,
+      branchIds: ['branch-a'],
+    });
+
+    expect(paymentsRepository.findOneAndUpdate).toHaveBeenCalled();
   });
 
   it('rejects invalid cancel ids before payment lookup', async () => {

@@ -176,12 +176,13 @@ describe('AuthService', () => {
         tokenType: 'Bearer',
         user: expect.objectContaining({
           id: '42',
-          username: 'demo',
+          fullName: 'demo',
           role: Role.Student,
-          status: UserStatus.Active,
         }),
       }),
     );
+    expect(response.user).not.toHaveProperty('telegramId');
+    expect(response.user).not.toHaveProperty('branchIds');
     expect(authSessionModel.create).toHaveBeenCalled();
   });
 });

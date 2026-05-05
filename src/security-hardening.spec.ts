@@ -27,7 +27,7 @@ function objectId() {
 
 describe('security hardening', () => {
   describe('courses', () => {
-    it('rejects branch admin read/update/delete when any related course user is outside scope', async () => {
+    it('allows admin to read courses without branch restrictions', async () => {
       const courseId = objectId();
       const teacherId = objectId();
       const studentId = objectId();
@@ -56,18 +56,13 @@ describe('security hardening', () => {
         {} as any,
       );
 
-      await expect(
-        service.findOneForActor(courseId, actor),
-      ).rejects.toBeInstanceOf(NotFoundException);
-      await expect(
-        service.updateForActor(courseId, { name: 'Updated' }, actor),
-      ).rejects.toBeInstanceOf(NotFoundException);
-      await expect(
-        service.removeForActor(courseId, actor),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.findOneForActor(courseId, actor)).resolves.toMatchObject({
+        id: courseId,
+        students: [],
+      });
     });
 
-    it('uses all-related-users branch filters for branch admin course lists', async () => {
+    it('does not apply branch filters for admin course lists', async () => {
       const scopedUserId = objectId();
       let courseFindFilter: unknown;
       const userModel = {
@@ -93,16 +88,7 @@ describe('security hardening', () => {
         { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] },
       );
 
-      expect(courseFindFilter).toMatchObject({
-        $and: [
-          { $or: expect.any(Array) },
-          {
-            students: {
-              $not: { $elemMatch: { $nin: [expect.any(Types.ObjectId)] } },
-            },
-          },
-        ],
-      });
+      expect(courseFindFilter).toEqual({});
     });
 
     it('rejects teacher assignment of students outside their own groups', async () => {
@@ -129,7 +115,7 @@ describe('security hardening', () => {
   });
 
   describe('groups', () => {
-    it('rejects branch admin read/update/delete when any related group user is outside scope', async () => {
+    it('allows admin to read groups without branch restrictions', async () => {
       const groupId = objectId();
       const teacherId = objectId();
       const studentId = objectId();
@@ -156,18 +142,13 @@ describe('security hardening', () => {
         {} as any,
       );
 
-      await expect(
-        service.findOneForActor(groupId, actor),
-      ).rejects.toBeInstanceOf(NotFoundException);
-      await expect(
-        service.updateForActor(groupId, { name: 'Updated' }, actor),
-      ).rejects.toBeInstanceOf(NotFoundException);
-      await expect(
-        service.removeForActor(groupId, actor),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.findOneForActor(groupId, actor)).resolves.toMatchObject({
+        id: groupId,
+        students: [],
+      });
     });
 
-    it('uses all-related-users branch filters for branch admin group lists', async () => {
+    it('does not apply branch filters for admin group lists', async () => {
       const scopedUserId = objectId();
       let groupFindFilter: unknown;
       const userModel = {
@@ -192,16 +173,7 @@ describe('security hardening', () => {
         { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] },
       );
 
-      expect(groupFindFilter).toMatchObject({
-        $and: [
-          { teacher: { $in: [expect.any(Types.ObjectId)] } },
-          {
-            students: {
-              $not: { $elemMatch: { $nin: [expect.any(Types.ObjectId)] } },
-            },
-          },
-        ],
-      });
+      expect(groupFindFilter).toEqual({});
     });
 
     it('rejects teacher assignment of students outside their own groups on create', async () => {
@@ -342,6 +314,58 @@ describe('security hardening', () => {
         username: 'student',
         role: Role.Student,
       });
+    });
+
+    it('returns compact public user shape for scoped self reads', async () => {
+      const studentId = objectId();
+      const usersRepository = {
+        findById: jest.fn(() =>
+          chain({
+            _id: studentId,
+            role: Role.Student,
+            branchIds: ['branch-a'],
+            toObject: () => ({
+              _id: studentId,
+              username: 'student',
+              firstName: 'Student',
+              lastName: 'One',
+              role: Role.Student,
+              telegramId: '123',
+              email: 'student@example.com',
+              phoneNumber: '+100000000',
+              branchIds: ['branch-a'],
+              status: UserStatus.Active,
+              isActive: true,
+            }),
+          }),
+        ),
+      };
+      const service = new UsersService(
+        usersRepository as any,
+        {} as any,
+        { find: jest.fn(() => chain([{ students: [studentId] }])) } as any,
+        { find: jest.fn(() => chain([])) } as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+      );
+
+      const result = await service.findByIdForActor(studentId, {
+        userId: studentId,
+        role: Role.Student,
+        branchIds: ['branch-a'],
+      });
+
+      expect(result).toEqual({
+        id: studentId,
+        fullName: 'Student One',
+        role: Role.Student,
+      });
+      expect(result).not.toHaveProperty('telegramId');
+      expect(result).not.toHaveProperty('branchIds');
+      expect(result).not.toHaveProperty('email');
+      expect(result).not.toHaveProperty('phoneNumber');
     });
   });
 });

@@ -47,6 +47,16 @@ export class PhoneRequestService {
     return filter;
   }
 
+  private mapPublicStatus(request: any) {
+    const source = typeof request?.toObject === 'function' ? request.toObject() : request;
+    return {
+      id: String(source.id ?? source._id),
+      status: source.status,
+      createdAt: source.createdAt,
+      updatedAt: source.updatedAt,
+    };
+  }
+
   async create(dto: CreatePhoneRequestDto) {
     const existing = await this.phoneRequestModel.findOne({ telegramId: dto.telegramId }).exec();
 
@@ -65,6 +75,10 @@ export class PhoneRequestService {
     });
 
     return serializeResource(await created.save());
+  }
+
+  async createPublic(dto: CreatePhoneRequestDto) {
+    return this.mapPublicStatus(await this.create(dto));
   }
 
   async handle(dto: HandlePhoneRequestDto) {
@@ -89,6 +103,19 @@ export class PhoneRequestService {
     }
 
     return request;
+  }
+
+  async getPublicStatusByTelegramId(telegramId: string) {
+    if (!telegramId) {
+      throw new BadRequestException('telegramId is required');
+    }
+
+    const request = await this.phoneRequestModel.findOne({ telegramId }).exec();
+    if (!request) {
+      throw new NotFoundException('Request not found');
+    }
+
+    return this.mapPublicStatus(request);
   }
 
   async findByTelegramIdOptional(telegramId: string) {

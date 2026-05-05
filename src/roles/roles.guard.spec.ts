@@ -3,47 +3,54 @@ import { Reflector } from '@nestjs/core';
 import { Role } from './roles.enum';
 import { RolesGuard } from './roles.guard';
 
+function contextWithRole(role: Role): ExecutionContext {
+  return {
+    getHandler: jest.fn(),
+    getClass: jest.fn(),
+    switchToHttp: jest.fn(() => ({
+      getRequest: jest.fn(() => ({ user: { role } })),
+    })),
+  } as unknown as ExecutionContext;
+}
+
 describe('RolesGuard', () => {
-  const reflector = {
-    getAllAndOverride: jest.fn(),
-  } as unknown as Reflector;
-
-  let guard: RolesGuard;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    guard = new RolesGuard(reflector);
-  });
-
-  function createContext(role?: Role): ExecutionContext {
-    return {
-      switchToHttp: () => ({
-        getRequest: () => ({
-          user: role ? { role } : undefined,
-        }),
-      }),
-      getHandler: () => undefined,
-      getClass: () => undefined,
-    } as unknown as ExecutionContext;
-  }
-
   it('allows routes without role metadata', () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue(undefined);
+    const reflector = {
+      getAllAndOverride: jest.fn(() => undefined),
+    } as unknown as Reflector;
+    const guard = new RolesGuard(reflector);
 
-    expect(guard.canActivate(createContext())).toBe(true);
+    expect(guard.canActivate(contextWithRole(Role.Student))).toBe(true);
   });
 
-  it('grants owner full access', () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([Role.Admin]);
+  it.each([Role.Admin, Role.Owner, Role.Extra])(
+    'allows %s through role-restricted endpoints as a full-access role',
+    (role) => {
+      const reflector = {
+        getAllAndOverride: jest.fn(() => [Role.Owner]),
+      } as unknown as Reflector;
+      const guard = new RolesGuard(reflector);
 
-    expect(guard.canActivate(createContext(Role.Owner))).toBe(true);
-    expect(guard.canActivate(createContext(Role.Extra))).toBe(false);
+      expect(guard.canActivate(contextWithRole(role))).toBe(true);
+    },
+  );
+
+  it('does not allow scoped roles through unrelated role requirements', () => {
+    const reflector = {
+      getAllAndOverride: jest.fn(() => [Role.Admin]),
+    } as unknown as Reflector;
+    const guard = new RolesGuard(reflector);
+
+    expect(guard.canActivate(contextWithRole(Role.Student))).toBe(false);
   });
 
   it('matches regular roles exactly', () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([Role.Admin]);
+    const reflector = {
+      getAllAndOverride: jest.fn(() => [Role.Teacher]),
+    } as unknown as Reflector;
+    const guard = new RolesGuard(reflector);
 
-    expect(guard.canActivate(createContext(Role.Admin))).toBe(true);
-    expect(guard.canActivate(createContext(Role.Student))).toBe(false);
+    expect(guard.canActivate(contextWithRole(Role.Teacher))).toBe(true);
+    expect(guard.canActivate(contextWithRole(Role.Student))).toBe(false);
   });
 });

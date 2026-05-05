@@ -30,7 +30,7 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UserStatus } from './user-status.enum';
 import { canAuthenticateWithStatus, resolveUserStatus, statusToIsActive } from './user-status';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
-import { mapUserResponse } from './dto/user-response.dto';
+import { mapPublicUserResponse, mapUserResponse } from './dto/user-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -81,11 +81,22 @@ export class UsersService {
   }
 
   private isSystemWideRole(role?: Role): boolean {
-    return role === Role.Owner || role === Role.Extra;
+    return role === Role.Owner || role === Role.Admin || role === Role.Extra;
+  }
+
+  private mapUserResponseForActor(user: UserDocument, actor: AuthenticatedUser) {
+    const sanitized = this.sanitizeUser(user);
+    return (this.isSystemWideRole(actor.role)
+      ? mapUserResponse(sanitized)
+      : mapPublicUserResponse(sanitized)) as PublicUser;
+  }
+
+  private mapUserResponsesForActor(users: UserDocument[], actor: AuthenticatedUser) {
+    return users.map(user => this.mapUserResponseForActor(user, actor)) as PublicUser[];
   }
 
   private isBranchAdminRole(role?: Role): boolean {
-    return role === Role.Admin;
+    return false;
   }
 
   private getActorBranchScope(actor?: AuthenticatedUser): string[] {
@@ -208,9 +219,7 @@ export class UsersService {
   }
 
   private assertRoleSpecificBranchRequirements(role: Role, branchIds: string[]): void {
-    if (role === Role.Admin && branchIds.length === 0) {
-      throw new BadRequestException('Branch admins must have at least one assigned branch');
-    }
+    return;
   }
 
   private async getTeacherVisibleStudentIds(teacherId: string): Promise<string[]> {
@@ -234,12 +243,8 @@ export class UsersService {
   }
 
   private getAssignableRoles(actorRole?: Role): Role[] {
-    if (actorRole === Role.Owner) {
+    if ([Role.Owner, Role.Admin, Role.Extra].includes(actorRole as Role)) {
       return [Role.Owner, Role.Admin, Role.Extra, Role.Teacher, Role.Student, Role.Guest];
-    }
-
-    if (actorRole === Role.Admin || actorRole === Role.Extra) {
-      return [Role.Teacher, Role.Student, Role.Guest];
     }
 
     return [Role.Student, Role.Guest];
@@ -252,17 +257,10 @@ export class UsersService {
   }
 
   private assertCanManageTarget(actorRole: Role, targetRole: Role) {
-    if (actorRole === Role.Owner) {
+    if ([Role.Owner, Role.Admin, Role.Extra].includes(actorRole)) {
       return;
     }
-
-    if (![Role.Admin, Role.Extra].includes(actorRole)) {
-      throw new ForbiddenException('You are not allowed to manage users');
-    }
-
-    if (![Role.Teacher, Role.Student, Role.Guest].includes(targetRole)) {
-      throw new ForbiddenException('You are not allowed to manage this user');
-    }
+    throw new ForbiddenException('You are not allowed to manage users');
   }
 
   private async ensureUniqueFields(dto: Partial<CreateUserDto>, excludeId?: string): Promise<void> {
@@ -544,7 +542,7 @@ export class UsersService {
     ]);
 
     return createPaginatedResult(
-      users.map(user => mapUserResponse(this.sanitizeUser(user))),
+      this.mapUserResponsesForActor(users, actor),
       total,
       page,
       limit,
@@ -568,7 +566,7 @@ export class UsersService {
 
     this.assertActorCanReadUser(actor, user);
 
-    return mapUserResponse(this.sanitizeUser(user));
+    return this.mapUserResponseForActor(user, actor);
   }
 
   async findByUsername(username: string): Promise<PublicUser | null> {
@@ -602,7 +600,7 @@ export class UsersService {
         .find({ role, branchIds: { $in: actorBranches } })
         .sort({ createdAt: -1 })
         .exec();
-      return users.map(user => mapUserResponse(this.sanitizeUser(user)));
+      return this.mapUserResponsesForActor(users, actor);
     }
 
     if (actor.role === Role.Teacher && role === Role.Student) {
@@ -615,12 +613,12 @@ export class UsersService {
         .find({ _id: { $in: visibleStudentIds }, role: Role.Student })
         .sort({ createdAt: -1 })
         .exec();
-      return users.map(user => mapUserResponse(this.sanitizeUser(user)));
+      return this.mapUserResponsesForActor(users, actor);
     }
 
     if (actor.role === Role.Student && role === Role.Student) {
       const user = await this.usersRepository.findById(actor.userId).exec();
-      return user ? [mapUserResponse(this.sanitizeUser(user))] : [];
+      return user ? [this.mapUserResponseForActor(user, actor)] : [];
     }
 
     throw new ForbiddenException('You are not allowed to access users with this role');
@@ -813,7 +811,7 @@ export class UsersService {
       ]);
 
       return createPaginatedResult(
-        users.map(user => mapUserResponse(this.sanitizeUser(user))),
+        this.mapUserResponsesForActor(users, actor),
         total,
         page,
         limit,
@@ -831,19 +829,19 @@ export class UsersService {
 
     this.assertCanManageTarget(actorRole, targetUser.role);
 
-    if (dto.role || dto.status || dto.password) {
-      throw new BadRequestException(
-        'Use dedicated endpoints to change role, status, or password',
-      );
-    }
-
-    const { roleKey, isActive, branchIds, ...updatePayload } = dto as UpdateUserDto & { isActive?: boolean };
+    const { roleKey, isActive, branchIds, password, ...updatePayload } = dto as UpdateUserDto & { isActive?: boolean };
     await this.ensureUniqueFields(updatePayload, id);
     const nextBranchIds = this.normalizeBranchIds(branchIds ?? targetUser.branchIds);
-    this.assertRoleSpecificBranchRequirements(targetUser.role, nextBranchIds);
+    const nextRole = updatePayload.role ?? targetUser.role;
+    this.assertRoleSpecificBranchRequirements(nextRole, nextBranchIds);
+    const nextPayload = {
+      ...updatePayload,
+      ...(password ? { password: await hashPassword(password), passwordChangedAt: new Date() } : {}),
+      branchIds: nextBranchIds,
+    };
 
     const updatedUser = await this.usersRepository
-      .findByIdAndUpdate(id, { ...updatePayload, branchIds: nextBranchIds }, { new: true })
+      .findByIdAndUpdate(id, nextPayload, { new: true })
       .exec();
 
     if (!updatedUser) {
@@ -854,7 +852,8 @@ export class UsersService {
   }
 
   async updateForActor(id: string, dto: UpdateUserDto, actor: AuthenticatedUser): Promise<PublicUser> {
-    if (actor.userId === id) {
+    const actorHasFullUserAccess = this.isSystemWideRole(actor.role);
+    if (actor.userId === id && !actorHasFullUserAccess) {
       const { role, telegramId, roleKey, status, password, branchIds, ...selfPayload } = dto;
 
       if (role || telegramId || roleKey || status || password || branchIds) {
@@ -871,13 +870,13 @@ export class UsersService {
 
     this.assertActorCanManageTarget(actor, targetUser);
 
-    if (dto.role || dto.status || dto.password) {
+    if (!actorHasFullUserAccess && (dto.role || dto.status || dto.password)) {
       throw new BadRequestException(
         'Use dedicated endpoints to change role, status, or password',
       );
     }
 
-    const { roleKey, isActive, branchIds, ...updatePayload } = dto as UpdateUserDto & { isActive?: boolean };
+    const { roleKey, isActive, branchIds, password, ...updatePayload } = dto as UpdateUserDto & { isActive?: boolean };
     await this.ensureUniqueFields(updatePayload, id);
 
     const nextBranchIds = branchIds === undefined
@@ -885,10 +884,16 @@ export class UsersService {
       : (this.isBranchAdminRole(actor.role)
         ? this.assertActorCanAssignBranches(actor, branchIds)
         : this.normalizeBranchIds(branchIds));
-    this.assertRoleSpecificBranchRequirements(targetUser.role, nextBranchIds);
+    const nextRole = updatePayload.role ?? targetUser.role;
+    this.assertRoleSpecificBranchRequirements(nextRole, nextBranchIds);
+    const nextPayload = {
+      ...updatePayload,
+      ...(password ? { password: await hashPassword(password), passwordChangedAt: new Date() } : {}),
+      branchIds: nextBranchIds,
+    };
 
     const updatedUser = await this.usersRepository
-      .findByIdAndUpdate(id, { ...updatePayload, branchIds: nextBranchIds }, { new: true })
+      .findByIdAndUpdate(id, nextPayload, { new: true })
       .exec();
 
     if (!updatedUser) {

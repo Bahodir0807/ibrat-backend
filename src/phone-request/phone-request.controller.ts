@@ -22,7 +22,7 @@ export class PhoneRequestController {
   @Public()
   @Post()
   create(@Body() dto: CreatePhoneRequestDto) {
-    return this.service.create(dto);
+    return this.service.createPublic(dto);
   }
 
   @Patch()
@@ -34,7 +34,7 @@ export class PhoneRequestController {
   @Public()
   @Get()
   getById(@Query() query: TelegramIdQueryDto) {
-    return this.service.getByTelegramId(query.telegramId);
+    return this.service.getPublicStatusByTelegramId(query.telegramId);
   }
 
   @Get('pending')
@@ -46,12 +46,12 @@ export class PhoneRequestController {
   @Public()
   @Post('tg-request')
   createFromTelegram(@Body() body: CreatePhoneRequestDto) {
-    return this.service.create(body);
+    return this.service.createPublic(body);
   }
 
   @Public()
   @Get('tg-check')
   checkFromTelegram(@Query() query: TelegramIdQueryDto) {
-    return this.service.getByTelegramId(query.telegramId);
+    return this.service.getPublicStatusByTelegramId(query.telegramId);
   }
 }

@@ -27,7 +27,7 @@ export class PaymentsService {
 
   private readonly paymentPopulate = [
     { path: 'student', select: 'username firstName lastName role' },
-    { path: 'course', select: 'name description price teacherId' },
+    { path: 'course', select: 'name description price' },
   ];
 
   private normalizeBranchIds(branchIds?: string[]): string[] {
@@ -38,11 +38,11 @@ export class PaymentsService {
   }
 
   private isSystemWideRole(role?: Role): boolean {
-    return role === Role.Owner || role === Role.Extra;
+    return role === Role.Owner || role === Role.Admin || role === Role.Extra;
   }
 
   private isBranchAdminRole(role?: Role): boolean {
-    return role === Role.Admin;
+    return false;
   }
 
   private ensureScopedActorHasBranches(actor: AuthenticatedUser): string[] {

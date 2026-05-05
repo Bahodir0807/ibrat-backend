@@ -15,11 +15,11 @@ export function normalizeBranchIds(branchIds?: string[]): string[] {
 }
 
 export function isSystemWideRole(role?: Role): boolean {
-  return role === Role.Owner || role === Role.Extra;
+  return role === Role.Owner || role === Role.Admin || role === Role.Extra;
 }
 
 export function isBranchAdminRole(role?: Role): boolean {
-  return role === Role.Admin;
+  return false;
 }
 
 export function ensureActorBranchScope(actor: AuthenticatedUser): string[] {

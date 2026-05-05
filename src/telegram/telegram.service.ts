@@ -276,13 +276,14 @@ export class TelegramService implements OnModuleInit {
       }
 
       const req = await this.phoneReq.create({ phone, name: firstName, telegramId: String(tgId) });
+      const reqId = req.id ?? req._id;
 
       await ctx.telegram.sendMessage(
         this.adminChatId,
-        `🔔 Новая заявка!\n📱 Телефон: ${phone}\n👤 Имя: ${firstName}\n🆔 ${req._id}`,
+        `🔔 Новая заявка!\n📱 Телефон: ${phone}\n👤 Имя: ${firstName}\n🆔 ${reqId}`,
         Markup.inlineKeyboard([
-          Markup.button.callback('✅ Принять', `approve:${req._id}`),
-          Markup.button.callback('❌ Отклонить', `reject:${req._id}`),
+          Markup.button.callback('✅ Принять', `approve:${reqId}`),
+          Markup.button.callback('❌ Отклонить', `reject:${reqId}`),
         ])
       );
 
@@ -303,11 +304,11 @@ export class TelegramService implements OnModuleInit {
           telegramId: Number(req.telegramId),
           role: Role.Student,
         });
-        await this.phoneReq.handle({ requestId: req._id, status: 'approved' });
+        await this.phoneReq.handle({ requestId: req.id ?? req._id, status: 'approved' });
         await ctx.editMessageText(`✅ Заявка ${reqId} принята`);
         await this.bot!.telegram.sendMessage(Number(req.telegramId), '🎉 Ваша заявка принята!');
       } else {
-        await this.phoneReq.handle({ requestId: req._id, status: 'rejected' });
+        await this.phoneReq.handle({ requestId: req.id ?? req._id, status: 'rejected' });
         await ctx.editMessageText(`❌ Заявка ${reqId} отклонена`);
         await this.bot!.telegram.sendMessage(Number(req.telegramId), '❌ Ваша заявка отклонена');
       }
@@ -402,16 +403,17 @@ export class TelegramService implements OnModuleInit {
       }
 
       const req = await this.phoneReq.create({ phone, name: text, telegramId: String(tgId) });
+      const reqId = req.id ?? req._id;
 
       await this.bot!.telegram.sendMessage(
         this.adminChatId,
-        `🔔 Новая заявка!\n📱 Телефон: ${phone}\n👤 Имя: ${text}\n🆔 ${req._id}`,
+        `🔔 Новая заявка!\n📱 Телефон: ${phone}\n👤 Имя: ${text}\n🆔 ${reqId}`,
         {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '✅ Принять', callback_data: `approve:${req._id}` },
-                { text: '❌ Отклонить', callback_data: `reject:${req._id}` }
+                { text: '✅ Принять', callback_data: `approve:${reqId}` },
+                { text: '❌ Отклонить', callback_data: `reject:${reqId}` }
               ]
             ]
           }
@@ -471,9 +473,9 @@ export class TelegramService implements OnModuleInit {
     const req = await this.phoneReq.findByTelegramIdOptional(telegramId);
     if (!req) throw new NotFoundException('Заявка не найдена');
 
-    await this.phoneReq.updateName(req._id, name);
+    await this.phoneReq.updateName(req.id ?? req._id, name);
     await this.users.createWithPhone({ name, phone, telegramId: Number(telegramId), role: Role.Student });
-    await this.phoneReq.handle({ requestId: req._id, status: 'approved' });
+    await this.phoneReq.handle({ requestId: req.id ?? req._id, status: 'approved' });
   }
 
   private async handleHomework(ctx: BotContext) {

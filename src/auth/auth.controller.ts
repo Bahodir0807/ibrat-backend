@@ -101,11 +101,11 @@ export class AuthController {
 
   @Get('me')
   async getProfileGet(@Request() req) {
-    return this.usersService.findById(req.user.userId);
+    return this.usersService.findByIdForActor(req.user.userId, req.user);
   }
 
   @Post('me')
   async getProfilePost(@Request() req) {
-    return this.usersService.findById(req.user.userId);
+    return this.usersService.findByIdForActor(req.user.userId, req.user);
   }
 }

@@ -28,11 +28,11 @@ export class ScheduleService {
   ) {}
 
   private readonly schedulePopulate = [
-    { path: 'course', select: 'name description price teacherId students' },
+    { path: 'course', select: 'name description price' },
     { path: 'teacher', select: 'username firstName lastName role' },
     { path: 'students', select: 'username firstName lastName role' },
     { path: 'room', select: 'name capacity type isAvailable description' },
-    { path: 'group', select: 'name course teacher students' },
+    { path: 'group', select: 'name course' },
   ];
 
   private extractReferenceId(value: unknown): string {
@@ -93,7 +93,7 @@ export class ScheduleService {
       .exec();
 
     const allStudentsScoped = students.length === scheduleStudentIds.length
-      && students.every(student => this.normalizeBranchIds(student.branchIds)
+      && students.every(student => this.normalizeBranchIds(student!.branchIds)
         .some(branchId => actorBranches.includes(branchId)));
     if (!allStudentsScoped) {
       throw new NotFoundException('Schedule not found');
@@ -125,11 +125,11 @@ export class ScheduleService {
     schedule: { teacher?: unknown; students?: unknown[] },
     actor: AuthenticatedUser,
   ): Promise<void> {
-    if ([Role.Owner, Role.Extra].includes(actor.role)) {
+    if ([Role.Owner, Role.Admin, Role.Extra].includes(actor.role)) {
       return;
     }
 
-    if (actor.role === Role.Admin) {
+    if (false && actor.role === Role.Admin) {
       await this.assertBranchAdminCanAccessSchedule(schedule, actor);
       return;
     }
@@ -333,7 +333,7 @@ export class ScheduleService {
         throw new NotFoundException('One or more students were not found');
       }
 
-      const invalidStudent = students.find(student => student.role !== Role.Student);
+      const invalidStudent = students.find(student => student!.role !== Role.Student);
       if (invalidStudent) {
         throw new BadRequestException('Only users with student role can be assigned to schedule');
       }
@@ -432,7 +432,7 @@ export class ScheduleService {
       throw new ForbiddenException('Teachers can access only their own schedule');
     }
 
-    if ([Role.Owner, Role.Extra].includes(actor.role)) {
+    if ([Role.Owner, Role.Admin, Role.Extra].includes(actor.role)) {
       return this.getScheduleByUserId(userId);
     }
 
@@ -500,11 +500,15 @@ export class ScheduleService {
   }
 
   async findAllForActor(query: ScheduleListQueryDto, actor: AuthenticatedUser) {
+    if ([Role.Owner, Role.Admin, Role.Extra].includes(actor.role)) {
+      return this.findAll(query);
+    }
+
     if (actor.role === Role.Teacher) {
       return this.findAll({ ...query, teacherId: actor.userId });
     }
 
-    if (actor.role === Role.Admin) {
+    if (false && actor.role === Role.Admin) {
       const actorBranches = this.normalizeBranchIds(actor.branchIds);
       if (actorBranches.length === 0) {
         throw new ForbiddenException('User has no assigned branch scope');
@@ -519,7 +523,7 @@ export class ScheduleService {
           throw new NotFoundException('Teacher not found');
         }
 
-        const teacherBranches = this.normalizeBranchIds(teacher.branchIds);
+        const teacherBranches = this.normalizeBranchIds(teacher!.branchIds);
         if (!teacherBranches.some(branchId => actorBranches.includes(branchId))) {
           throw new NotFoundException('Teacher not found');
         }
@@ -527,11 +531,11 @@ export class ScheduleService {
 
       if (query.studentId) {
         const student = await this.userModel.findById(query.studentId, { branchIds: 1, role: 1 }).lean().exec();
-        if (!student || student.role !== Role.Student) {
+        if (!student || student!.role !== Role.Student) {
           throw new NotFoundException('Student not found');
         }
 
-        const studentBranches = this.normalizeBranchIds(student.branchIds);
+        const studentBranches = this.normalizeBranchIds(student!.branchIds);
         if (!studentBranches.some(branchId => actorBranches.includes(branchId))) {
           throw new NotFoundException('Student not found');
         }
@@ -609,7 +613,7 @@ export class ScheduleService {
       payload.teacher = actor.userId;
     }
 
-    if (actor.role === Role.Admin) {
+    if (false && actor.role === Role.Admin) {
       const actorBranches = this.normalizeBranchIds(actor.branchIds);
       if (actorBranches.length === 0) {
         throw new ForbiddenException('User has no assigned branch scope');
@@ -620,7 +624,7 @@ export class ScheduleService {
         throw new NotFoundException('Teacher not found');
       }
 
-      const teacherBranches = this.normalizeBranchIds(teacher.branchIds);
+      const teacherBranches = this.normalizeBranchIds(teacher!.branchIds);
       if (!teacherBranches.some(branchId => actorBranches.includes(branchId))) {
         throw new ForbiddenException('Cannot create schedule outside branch scope');
       }
@@ -631,16 +635,16 @@ export class ScheduleService {
           .lean()
           .exec();
 
-        if (students.length !== payload.students.length) {
+        if (students.length !== payload.students!.length) {
           throw new NotFoundException('One or more students were not found');
         }
 
         const outOfScopeStudent = students.find(student => {
-          if (student.role !== Role.Student) {
+          if (student!.role !== Role.Student) {
             return true;
           }
 
-          const studentBranches = this.normalizeBranchIds(student.branchIds);
+          const studentBranches = this.normalizeBranchIds(student!.branchIds);
           return !studentBranches.some(branchId => actorBranches.includes(branchId));
         });
 
@@ -708,7 +712,7 @@ export class ScheduleService {
       payload.teacher = actor.userId;
     }
 
-    if (actor.role === Role.Admin) {
+    if (false && actor.role === Role.Admin) {
       const actorBranches = this.normalizeBranchIds(actor.branchIds);
       if (actorBranches.length === 0) {
         throw new ForbiddenException('User has no assigned branch scope');
@@ -726,7 +730,7 @@ export class ScheduleService {
           throw new NotFoundException('Teacher not found');
         }
 
-        const teacherBranches = this.normalizeBranchIds(teacher.branchIds);
+        const teacherBranches = this.normalizeBranchIds(teacher!.branchIds);
         if (!teacherBranches.some(branchId => actorBranches.includes(branchId))) {
           throw new ForbiddenException('Cannot update schedule outside branch scope');
         }
@@ -738,16 +742,16 @@ export class ScheduleService {
           .lean()
           .exec();
 
-        if (students.length !== payload.students.length) {
+        if (students.length !== payload.students!.length) {
           throw new NotFoundException('One or more students were not found');
         }
 
         const outOfScopeStudent = students.find(student => {
-          if (student.role !== Role.Student) {
+          if (student!.role !== Role.Student) {
             return true;
           }
 
-          const studentBranches = this.normalizeBranchIds(student.branchIds);
+          const studentBranches = this.normalizeBranchIds(student!.branchIds);
           return !studentBranches.some(branchId => actorBranches.includes(branchId));
         });
 

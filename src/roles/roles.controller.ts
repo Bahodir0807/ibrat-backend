@@ -12,31 +12,31 @@ export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Post()
-  @Roles(Role.Owner)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   create(@Body() dto: CreateRoleDto) {
     return this.rolesService.create(dto);
   }
 
   @Get()
-  @Roles(Role.Owner, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   findAll(@Query() query: RolesListQueryDto) {
     return this.rolesService.findAll(query);
   }
 
   @Get(':name')
-  @Roles(Role.Owner, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   findOne(@Param() params: NameParamDto) {
     return this.rolesService.findOne(params.name);
   }
 
   @Patch(':name')
-  @Roles(Role.Owner)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   update(@Param() params: NameParamDto, @Body() dto: UpdateRoleDto) {
     return this.rolesService.update(params.name, dto);
   }
 
   @Delete(':name')
-  @Roles(Role.Owner)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   async remove(@Param() params: NameParamDto) {
     await this.rolesService.remove(params.name);
     return { message: 'Role deleted successfully' };

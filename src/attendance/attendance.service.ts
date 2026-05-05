@@ -31,11 +31,11 @@ export class AttendanceService {
   }
 
   private isSystemWideRole(role?: Role): boolean {
-    return role === Role.Owner || role === Role.Extra;
+    return role === Role.Owner || role === Role.Admin || role === Role.Extra;
   }
 
   private isBranchAdminRole(role?: Role): boolean {
-    return role === Role.Admin;
+    return false;
   }
 
   private ensureScopedActorHasBranches(actor: AuthenticatedUser): string[] {

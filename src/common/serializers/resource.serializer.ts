@@ -23,7 +23,6 @@ function toPlain(value: unknown): unknown {
   if (source._id != null) {
     const id = String(source._id);
     result.id = id;
-    result._id = id;
   }
 
   for (const [key, nestedValue] of Object.entries(source)) {

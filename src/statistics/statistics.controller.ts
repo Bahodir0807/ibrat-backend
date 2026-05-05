@@ -13,19 +13,19 @@ export class StatisticsController {
   constructor(private readonly statisticsService: StatisticsService) {}
 
   @Post()
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Student, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   create(@Body() createStatisticDto: CreateStatisticDto, @Request() req) {
     return this.statisticsService.createForActor(createStatisticDto, req.user);
   }
 
   @Get()
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Student, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   findAll(@Query() query: StatisticsListQueryDto, @Request() req) {
     return this.statisticsService.findAllForActor(query, req.user);
   }
 
   @Get(':type')
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Student, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   findByType(@Param() params: TypeParamDto, @Query() query: StatisticsListQueryDto, @Request() req) {
     return this.statisticsService.findByTypeForActor(params.type, query, req.user);
   }

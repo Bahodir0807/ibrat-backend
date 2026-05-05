@@ -8,13 +8,25 @@ const SENSITIVE_KEYS = new Set([
   '__v',
   '_id',
   'password',
+  'hashedPassword',
   'passwordChangedAt',
   'email',
   'phoneNumber',
+  'telegramId',
   'accessToken',
   'refreshToken',
+  'tokens',
   'tokenHash',
   'token',
+  'deletedAt',
+  'privateNotes',
+  'privateNote',
+  'internalMetadata',
+  'metadata',
+  'sessionId',
+  'sessionIds',
+  'resetToken',
+  'resetPasswordToken',
 ]);
 
 const USER_REFERENCE_KEYS = new Set([
@@ -200,12 +212,15 @@ export function mapPublicResource<T = PlainObject>(value: unknown): T {
 
     if (USER_REFERENCE_KEYS.has(key)) {
       if (Array.isArray(nestedValue)) {
-        result[key] = nestedValue.map(item => looksLikeUser(item) ? mapPublicUser(item) : mapPublicResource(item));
+        result[key] = nestedValue
+          .filter(item => looksLikeUser(item))
+          .map(item => mapPublicUser(item));
       } else {
-        const mappedReference = looksLikeUser(nestedValue) ? mapPublicUser(nestedValue) : mapPublicResource(nestedValue);
-        result[key] = isPlainObject(mappedReference) && Object.keys(mappedReference).length === 0
-          ? String(nestedValue)
-          : mappedReference;
+        if (!looksLikeUser(nestedValue)) {
+          continue;
+        }
+
+        result[key] = mapPublicUser(nestedValue);
       }
       continue;
     }

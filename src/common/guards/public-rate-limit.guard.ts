@@ -11,7 +11,14 @@ type Bucket = {
 @Injectable()
 export class PublicRateLimitGuard implements CanActivate {
   private readonly buckets = new Map<string, Bucket>();
-  private readonly limitedPaths = new Set(['/auth/login', '/auth/register', '/auth/refresh']);
+  private readonly limitedPaths = new Set([
+    '/auth/login',
+    '/auth/register',
+    '/auth/refresh',
+    '/phone-request',
+    '/phone-request/tg-request',
+    '/phone-request/tg-check',
+  ]);
 
   constructor(
     private readonly reflector: Reflector,

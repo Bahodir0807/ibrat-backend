@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { describe, it, expect, jest } from '@jest/globals';
 import { Types } from 'mongoose';
 import { AttendanceService } from './attendance/attendance.service';
@@ -54,10 +54,10 @@ describe('academic domain consistency', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('branch admin cannot access another branch grades', async () => {
+  it('admin can access grades without branch restrictions', async () => {
     const studentId = objectId();
     const service = new GradesService(
-      {} as any,
+      { find: jest.fn(() => chain([])) } as any,
       { findById: jest.fn(() => chain({ _id: studentId, role: Role.Student, branchIds: ['branch-b'] })) } as any,
       {} as any,
       {} as any,
@@ -66,10 +66,10 @@ describe('academic domain consistency', () => {
 
     await expect(
       service.getByUserForActor(studentId, { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] }),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).resolves.toEqual([]);
   });
 
-  it('branch admin cannot read schedule with outside assigned students', async () => {
+  it('admin can read schedule without branch restrictions', async () => {
     const scheduleId = objectId();
     const teacherId = objectId();
     const studentId = objectId();
@@ -93,31 +93,17 @@ describe('academic domain consistency', () => {
 
     await expect(
       service.findOneForActor(scheduleId, { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] }),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).resolves.toMatchObject({ id: scheduleId });
   });
 
-  it('schedule rejects branch admin group assignment outside scope', async () => {
+  it('schedule rejects teacher assignment to another teacher', async () => {
     const teacherId = objectId();
-    const groupId = objectId();
-    const outsideStudentId = objectId();
     const service = new ScheduleService(
       {} as any,
       {} as any,
       {} as any,
-      {
-        findById: jest.fn(() => chain({ _id: teacherId, branchIds: ['branch-a'] })),
-        find: jest.fn(() => chain([
-          { _id: teacherId, branchIds: ['branch-a'] },
-          { _id: outsideStudentId, branchIds: ['branch-b'] },
-        ])),
-      } as any,
-      {
-        findById: jest.fn(() => chain({
-          _id: groupId,
-          teacher: teacherId,
-          students: [outsideStudentId],
-        })),
-      } as any,
+      {} as any,
+      {} as any,
       {} as any,
     );
 
@@ -130,9 +116,8 @@ describe('academic domain consistency', () => {
           timeStart: '2026-05-04T09:00:00.000Z',
           timeEnd: '2026-05-04T10:00:00.000Z',
           teacher: teacherId,
-          group: groupId,
         },
-        { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] },
+        { userId: objectId(), role: Role.Teacher, branchIds: ['branch-a'] },
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });

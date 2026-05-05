@@ -8,6 +8,11 @@ describe('public response mapper', () => {
       _id: 'course-1',
       name: 'English',
       password: 'secret',
+      hashedPassword: 'hash',
+      tokens: ['secret-token'],
+      deletedAt: new Date('2026-01-01T00:00:00.000Z'),
+      metadata: { internal: true },
+      resetToken: 'reset-secret',
       teacherId: {
         _id: 'teacher-1',
         username: 'teacher',
@@ -16,6 +21,7 @@ describe('public response mapper', () => {
         role: Role.Teacher,
         email: 'teacher@example.com',
         phoneNumber: '+1000000',
+        telegramId: '999',
         password: 'hash',
         __v: 0,
       },
@@ -27,6 +33,7 @@ describe('public response mapper', () => {
           role: Role.Student,
           email: 'student@example.com',
           phoneNumber: '+2000000',
+          telegramId: '123',
           refreshToken: 'token',
         },
       ],
@@ -51,8 +58,14 @@ describe('public response mapper', () => {
     expect(JSON.stringify(response)).not.toContain('_id');
     expect(JSON.stringify(response)).not.toContain('email');
     expect(JSON.stringify(response)).not.toContain('phoneNumber');
+    expect(JSON.stringify(response)).not.toContain('telegramId');
     expect(JSON.stringify(response)).not.toContain('password');
+    expect(JSON.stringify(response)).not.toContain('hashedPassword');
     expect(JSON.stringify(response)).not.toContain('refreshToken');
+    expect(JSON.stringify(response)).not.toContain('tokens');
+    expect(JSON.stringify(response)).not.toContain('deletedAt');
+    expect(JSON.stringify(response)).not.toContain('metadata');
+    expect(JSON.stringify(response)).not.toContain('resetToken');
   });
 
   it('maps top-level users without internal or contact fields', () => {
@@ -100,5 +113,43 @@ describe('public response mapper', () => {
       role: Role.Student,
       avatarUrl: 'https://cdn/avatar.png',
     });
+  });
+
+  it('drops raw user reference ids when relationships are not populated', () => {
+    const response = mapPublicResource({
+      _id: 'schedule-1',
+      course: {
+        _id: 'course-1',
+        name: 'Math',
+        teacherId: 'teacher-1',
+        students: ['student-1', 'student-2'],
+      },
+      group: {
+        _id: 'group-1',
+        name: 'A1',
+        teacher: 'teacher-1',
+        students: ['student-1', 'student-2'],
+      },
+      teacher: 'teacher-1',
+      students: ['student-1'],
+    });
+
+    expect(response).toEqual({
+      id: 'schedule-1',
+      course: {
+        id: 'course-1',
+        name: 'Math',
+        students: [],
+      },
+      group: {
+        id: 'group-1',
+        name: 'A1',
+        students: [],
+      },
+      students: [],
+    });
+    expect(JSON.stringify(response)).not.toContain('teacher-1');
+    expect(JSON.stringify(response)).not.toContain('student-1');
+    expect(JSON.stringify(response)).not.toContain('student-2');
   });
 });

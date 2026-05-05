@@ -7,6 +7,10 @@ export function mapUserResponse(value: unknown): UserResponseDto {
   return mapAdminUser(value);
 }
 
+export function mapPublicUserResponse(value: unknown): PublicUserDto | string | unknown {
+  return mapPublicUser(value);
+}
+
 export function mapNestedUserResponse(value: unknown): PublicUserDto | string | unknown {
   return mapPublicUser(value);
 }

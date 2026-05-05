@@ -16,6 +16,7 @@ import { AppConfigService } from '../config/app-config.service';
 import { AuthSession, AuthSessionDocument } from './schemas/auth-session.schema';
 import { UserStatus } from '../users/user-status.enum';
 import { canAuthenticateWithStatus, resolveUserStatus } from '../users/user-status';
+import { mapAdminUser, mapPublicUser } from '../common/responses/public-response.mapper';
 
 type RequestContext = {
   ipAddress?: string;
@@ -134,6 +135,10 @@ export class AuthService {
       lastUsedUserAgent: context?.userAgent,
     });
 
+    const responseUser = [Role.Admin, Role.Owner, Role.Extra].includes(user.role)
+      ? mapAdminUser(user)
+      : mapPublicUser(user);
+
     return {
       accessToken,
       refreshToken,
@@ -141,7 +146,7 @@ export class AuthService {
       tokenType: 'Bearer',
       expiresIn: this.parseTtlToSeconds(this.appConfigService.jwtExpiresIn),
       refreshExpiresIn: this.parseTtlToSeconds(this.appConfigService.jwtRefreshExpiresIn),
-      user,
+      user: responseUser,
     };
   }
 

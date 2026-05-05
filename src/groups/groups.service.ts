@@ -30,7 +30,7 @@ export class GroupsService {
   ) {}
 
   private readonly groupPopulate = [
-    { path: 'course', select: 'name description price teacherId students' },
+    { path: 'course', select: 'name description price' },
     { path: 'teacher', select: 'username firstName lastName role' },
     { path: 'students', select: 'username firstName lastName role' },
   ];
