@@ -158,6 +158,7 @@ const configuration = () => {
     database: {
       uri: process.env.MONGO_URI as string,
       dbName: normalizeString(process.env.MONGO_DB_NAME),
+      dnsServers: parseCsv(process.env.DNS_SERVERS),
       minPoolSize: normalizeNumber(process.env.MONGO_MIN_POOL_SIZE, 1),
       maxPoolSize: normalizeNumber(process.env.MONGO_MAX_POOL_SIZE, 10),
       autoIndex: normalizeBoolean(process.env.MONGO_AUTO_INDEX, !isProductionLike),

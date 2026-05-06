@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MongooseModuleOptions } from '@nestjs/mongoose';
 import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
+import { setServers } from 'node:dns';
 import configuration, { AppEnvironment, RuntimeConfiguration, TenantMode } from './configuration';
 
 type PublicRuntimeMetadata = {
@@ -103,6 +104,10 @@ export class AppConfigService {
     return this.database.dbName;
   }
 
+  get databaseDnsServers(): string[] {
+    return this.database.dnsServers;
+  }
+
   get databaseMinPoolSize(): number {
     return this.database.minPoolSize;
   }
@@ -181,6 +186,10 @@ export class AppConfigService {
   }
 
   createMongooseOptions(): MongooseModuleOptions {
+    if (this.databaseDnsServers.length > 0) {
+      setServers(this.databaseDnsServers);
+    }
+
     return {
       uri: this.databaseUri,
       ...(this.databaseName ? { dbName: this.databaseName } : {}),

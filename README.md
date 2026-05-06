@@ -68,6 +68,8 @@ CORS_ORIGINS=https://app.example.com,https://www.app.example.com
 Notes:
 
 - `MONGO_URI` should point to your external production MongoDB instance.
+- For local development, use a plain Mongo connection string like `mongodb://127.0.0.1:27017/ibrat` and make sure MongoDB is running.
+- If `mongodb+srv` fails with `querySrv ECONNREFUSED`, set `DNS_SERVERS=1.1.1.1,8.8.8.8` so Node can resolve Atlas SRV records.
 - `TELEGRAM_BOT_TOKEN`, `ADMIN_CHAT_ID`, and `DOMAIN` are optional only if Telegram integration is intentionally disabled.
 - `CORS_ORIGINS` should contain your real frontend domain list, not localhost values.
 

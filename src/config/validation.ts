@@ -63,6 +63,7 @@ export const configValidationSchema = Joi.object({
   REFRESH_TOKEN_EXPIRES_IN: Joi.string().trim().default('7d'),
   MONGO_URI: Joi.string().uri().required(),
   MONGO_DB_NAME: Joi.string().trim().optional(),
+  DNS_SERVERS: Joi.string().trim().optional(),
   MONGO_MIN_POOL_SIZE: Joi.number().integer().min(0).default(1),
   MONGO_MAX_POOL_SIZE: Joi.number().integer().min(1).default(10),
   MONGO_AUTO_INDEX: booleanEnvSchema.optional(),
