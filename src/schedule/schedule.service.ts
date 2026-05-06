@@ -60,6 +60,14 @@ export class ScheduleService {
     }
   }
 
+  private assertActorCanMutateSchedule(actor: AuthenticatedUser): void {
+    if ([Role.Owner, Role.Admin, Role.Extra].includes(actor.role)) {
+      return;
+    }
+
+    throw new ForbiddenException('Only admin roles can mutate schedule');
+  }
+
   private async assertBranchAdminCanAccessSchedule(
     schedule: { teacher?: unknown; students?: unknown[] },
     actor: AuthenticatedUser,
@@ -603,6 +611,7 @@ export class ScheduleService {
   }
 
   async createForActor(createScheduleDto: CreateScheduleDto, actor: AuthenticatedUser) {
+    this.assertActorCanMutateSchedule(actor);
     const payload = { ...createScheduleDto };
 
     if (actor.role === Role.Teacher) {
@@ -695,6 +704,7 @@ export class ScheduleService {
   }
 
   async updateForActor(id: string, updateScheduleDto: UpdateScheduleDto, actor: AuthenticatedUser) {
+    this.assertActorCanMutateSchedule(actor);
     const payload = { ...updateScheduleDto };
 
     if (actor.role === Role.Teacher) {

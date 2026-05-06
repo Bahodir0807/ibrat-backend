@@ -19,6 +19,15 @@ type HealthPayload = {
   };
 };
 
+type VersionPayload = {
+  name: string;
+  version: string;
+  environment: string;
+  buildHash?: string;
+  buildTime?: string;
+  timestamp: string;
+};
+
 @Injectable()
 export class HealthService {
   constructor(
@@ -73,5 +82,14 @@ export class HealthService {
 
   getHealth(): HealthPayload {
     return this.buildPayload();
+  }
+
+  getVersion(): VersionPayload {
+    return {
+      ...this.appConfig.getPublicMetadata(),
+      buildHash: process.env.BUILD_HASH,
+      buildTime: process.env.BUILD_TIME,
+      timestamp: new Date().toISOString(),
+    };
   }
 }

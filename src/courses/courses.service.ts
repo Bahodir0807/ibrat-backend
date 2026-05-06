@@ -18,6 +18,7 @@ import {
   ensureActorBranchScope,
   hasBranchOverlap,
   isBranchAdminRole,
+  isSystemWideRole,
   toObjectIds,
 } from '../common/access/actor-scope';
 
@@ -52,6 +53,14 @@ export class CoursesService {
     if (String(course.teacherId ?? '') !== actor.userId) {
       throw new ForbiddenException('Teachers can manage only their own courses');
     }
+  }
+
+  private assertActorCanMutateCourses(actor: AuthenticatedUser): void {
+    if (isSystemWideRole(actor.role)) {
+      return;
+    }
+
+    throw new ForbiddenException('Only admin roles can mutate courses');
   }
 
   private async getBranchScopedUserIds(actor: AuthenticatedUser, roles?: Role[]): Promise<string[]> {
@@ -334,6 +343,7 @@ export class CoursesService {
     studentIds: string[],
     actor: AuthenticatedUser,
   ) {
+    this.assertActorCanMutateCourses(actor);
     const course = await this.findDocumentById(courseId);
     if (!course) {
       throw new ForbiddenException('Course not found or access denied');
@@ -358,6 +368,7 @@ export class CoursesService {
   }
 
   async createForActor(createCourseDto: CreateCourseDto, actor: AuthenticatedUser) {
+    this.assertActorCanMutateCourses(actor);
     const payload = { ...createCourseDto };
 
     if (actor.role === Role.Teacher) {
@@ -488,6 +499,7 @@ export class CoursesService {
   }
 
   async updateForActor(id: string, updateCourseDto: UpdateCourseDto, actor: AuthenticatedUser) {
+    this.assertActorCanMutateCourses(actor);
     const payload = { ...updateCourseDto };
     const course = await this.findDocumentById(id);
     if (!course) {

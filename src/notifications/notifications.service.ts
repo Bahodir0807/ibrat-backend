@@ -1,4 +1,4 @@
-import { BadRequestException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter } from 'events';
 import { TelegramService } from '../telegram/telegram.service';
 import { UsersService } from '../users/users.service';
@@ -23,6 +23,10 @@ export class NotificationsService {
     dto: CreateNotificationDto,
     sender?: AuthenticatedUser,
   ) {
+    if (sender && ![Role.Admin, Role.Owner, Role.Extra].includes(sender.role)) {
+      throw new ForbiddenException('Only admin roles can send notifications');
+    }
+
     const user = sender
       ? await this.usersService.findNotificationRecipientForActor(dto.userId, sender)
       : await this.usersService.findById(dto.userId);
@@ -55,6 +59,10 @@ export class NotificationsService {
     message: string,
     sender: AuthenticatedUser,
   ) {
+    if (![Role.Admin, Role.Owner, Role.Extra].includes(sender.role)) {
+      throw new ForbiddenException('Only admin roles can send notifications');
+    }
+
     if (sender.role === Role.Teacher && role !== Role.Student) {
       throw new BadRequestException('Teachers can send role-based notifications only to students');
     }

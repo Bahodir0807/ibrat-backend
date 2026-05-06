@@ -44,4 +44,11 @@ export class HealthController {
 
     return health;
   }
+
+  @Public()
+  @Version(VERSION_NEUTRAL)
+  @Get('version')
+  getVersion() {
+    return this.healthService.getVersion();
+  }
 }

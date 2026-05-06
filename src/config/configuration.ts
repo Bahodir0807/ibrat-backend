@@ -20,6 +20,7 @@ const DEFAULT_ALLOWED_HEADERS = [
   'Accept',
   'Origin',
   'X-Requested-With',
+  'X-Request-Id',
 ];
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_PUBLIC_AUTH_RATE_LIMIT = 10;

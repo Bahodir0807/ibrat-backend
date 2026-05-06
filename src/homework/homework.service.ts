@@ -149,6 +149,10 @@ export class HomeworkService {
   }
 
   async markCompleteForActor(id: string, actor: AuthenticatedUser) {
+    if (actor.role === Role.Student) {
+      throw new ForbiddenException('Students cannot mutate homework records');
+    }
+
     const homework = await this.hwModel.findById(id).exec();
     if (!homework) {
       throw new NotFoundException('Homework not found');

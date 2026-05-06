@@ -13,7 +13,7 @@ export class NotificationsController {
   ) {}
 
   @Post()
-  @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   async sendNotification(@Body() dto: CreateNotificationDto, @Request() req) {
     const result = await this.notificationsService.sendManualNotification(dto, {
       userId: req.user.userId,

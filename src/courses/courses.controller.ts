@@ -27,7 +27,7 @@ export class CoursesController {
   ) {}
 
   @Post()
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   async create(@Body() createCourseDto: CreateCourseDto, @Request() req) {
     const course = await this.coursesService.createForActor(createCourseDto, req.user);
     this.auditLogService.log({
@@ -52,7 +52,7 @@ export class CoursesController {
   }
 
   @Patch(':id')
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   async update(@Param() params: IdParamDto, @Body() updateCourseDto: UpdateCourseDto, @Request() req) {
     const { id } = params;
     const course = await this.coursesService.updateForActor(id, updateCourseDto, req.user);
@@ -80,7 +80,7 @@ export class CoursesController {
   }
 
   @Patch(':id/add-students')
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   async addStudents(
     @Param() params: IdParamDto,
     @Body() dto: AddCourseStudentsDto,

@@ -8,9 +8,10 @@ import { HealthService } from '../src/health/health.service';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
+  let moduleFixture: TestingModule;
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+  beforeAll(async () => {
+    moduleFixture = await Test.createTestingModule({
       controllers: [AppController, HealthController],
       providers: [
         {
@@ -82,6 +83,14 @@ describe('AppController (e2e)', () => {
                 },
               },
             }),
+            getVersion: () => ({
+              name: 'panda',
+              version: '0.0.1',
+              environment: 'test',
+              buildHash: 'test',
+              buildTime: '2026-04-18T00:00:00.000Z',
+              timestamp: '2026-04-18T00:00:00.000Z',
+            }),
           },
         },
       ],
@@ -91,8 +100,9 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await app.close();
+    await moduleFixture.close();
   });
 
   it('/ping (GET)', async () => {
@@ -156,6 +166,20 @@ describe('AppController (e2e)', () => {
             readyState: 1,
           },
         },
+      });
+  });
+
+  it('/version (GET)', async () => {
+    await request(app.getHttpServer())
+      .get('/version')
+      .expect(200)
+      .expect({
+        name: 'panda',
+        version: '0.0.1',
+        environment: 'test',
+        buildHash: 'test',
+        buildTime: '2026-04-18T00:00:00.000Z',
+        timestamp: '2026-04-18T00:00:00.000Z',
       });
   });
 });

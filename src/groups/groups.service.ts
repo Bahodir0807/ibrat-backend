@@ -17,6 +17,7 @@ import {
   ensureActorBranchScope,
   hasBranchOverlap,
   isBranchAdminRole,
+  isSystemWideRole,
   toObjectIds,
 } from '../common/access/actor-scope';
 
@@ -51,6 +52,14 @@ export class GroupsService {
     if (String(group.teacher ?? '') !== actor.userId) {
       throw new ForbiddenException('Teachers can manage only their own groups');
     }
+  }
+
+  private assertActorCanMutateGroups(actor: AuthenticatedUser): void {
+    if (isSystemWideRole(actor.role)) {
+      return;
+    }
+
+    throw new ForbiddenException('Only admin roles can mutate groups');
   }
 
   private async getBranchScopedUserIds(actor: AuthenticatedUser, roles?: Role[]): Promise<string[]> {
@@ -314,6 +323,7 @@ export class GroupsService {
   }
 
   async createForActor(dto: CreateGroupDto, actor: AuthenticatedUser) {
+    this.assertActorCanMutateGroups(actor);
     const payload = { ...dto };
 
     if (actor.role === Role.Teacher) {
@@ -438,6 +448,7 @@ export class GroupsService {
   }
 
   async updateForActor(id: string, dto: UpdateGroupDto, actor: AuthenticatedUser) {
+    this.assertActorCanMutateGroups(actor);
     const payload = { ...dto };
     const group = await this.findDocumentById(id);
     if (!group) {

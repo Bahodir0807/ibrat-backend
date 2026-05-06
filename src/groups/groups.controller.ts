@@ -26,7 +26,7 @@ export class GroupsController {
   ) {}
 
   @Post()
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   async create(@Body() dto: CreateGroupDto, @Request() req) {
     const group = await this.groupsService.createForActor(dto, req.user);
     this.auditLogService.log({
@@ -51,7 +51,7 @@ export class GroupsController {
   }
 
   @Patch(':id')
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   async update(@Param() params: IdParamDto, @Body() dto: UpdateGroupDto, @Request() req) {
     const { id } = params;
     const group = await this.groupsService.updateForActor(id, dto, req.user);

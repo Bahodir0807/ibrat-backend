@@ -26,7 +26,7 @@ export class ScheduleController {
   ) {}
 
   @Post()
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   async create(@Body() dto: CreateScheduleDto, @Request() req) {
     const schedule = await this.svc.createForActor(dto, req.user);
     this.auditLogService.log({
@@ -39,7 +39,7 @@ export class ScheduleController {
   }
 
   @Get()
-  @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   findAll(@Query() query: ScheduleListQueryDto, @Request() req) {
     return this.svc.findAllForActor(query, req.user);
   }

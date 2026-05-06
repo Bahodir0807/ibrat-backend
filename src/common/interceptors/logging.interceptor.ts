@@ -8,6 +8,16 @@ import {
 import { randomUUID } from 'crypto';
 import { Observable, tap } from 'rxjs';
 
+function normalizeRequestId(value: unknown): string | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (typeof raw !== 'string') {
+    return undefined;
+  }
+
+  const normalized = raw.trim();
+  return /^[a-zA-Z0-9._:-]{8,128}$/.test(normalized) ? normalized : undefined;
+}
+
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger('HTTP');
@@ -16,7 +26,7 @@ export class LoggingInterceptor implements NestInterceptor {
     const req = context.switchToHttp().getRequest();
     const res = context.switchToHttp().getResponse();
     const { method, url } = req;
-    const requestId = req.requestId ?? randomUUID();
+    const requestId = req.requestId ?? normalizeRequestId(req.headers['x-request-id']) ?? randomUUID();
     req.requestId = requestId;
     res.setHeader('X-Request-Id', requestId);
     const now = Date.now();

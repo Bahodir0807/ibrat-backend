@@ -56,7 +56,7 @@ export class HomeworkController {
   }
 
   @Patch(':id/complete')
-  @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Student, Role.Extra)
+  @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Extra)
   async complete(@Param() params: IdParamDto, @Request() req) {
     const { id } = params;
     const homework = await this.hwService.markCompleteForActor(id, req.user as AuthenticatedUser);
