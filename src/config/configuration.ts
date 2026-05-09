@@ -191,6 +191,7 @@ const configuration = () => {
     rateLimit: {
       windowMs: normalizeNumber(process.env.RATE_LIMIT_WINDOW_MS, DEFAULT_RATE_LIMIT_WINDOW_MS),
       publicAuthMax: normalizeNumber(process.env.RATE_LIMIT_PUBLIC_AUTH_MAX, DEFAULT_PUBLIC_AUTH_RATE_LIMIT),
+      provider: normalizeString(process.env.RATE_LIMIT_PROVIDER) ?? 'memory',
     },
   };
 };

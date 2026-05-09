@@ -39,6 +39,13 @@ export class PublicRateLimitGuard implements CanActivate {
       return true;
     }
 
+    if (this.appConfig.isProductionLike && this.appConfig.rateLimit.provider === 'memory') {
+      throw new HttpException(
+        'In-memory rate limiting is not safe in production. Configure RATE_LIMIT_PROVIDER=redis and use a shared rate limiting store before enabling this deployment.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
     const request = context.switchToHttp().getRequest();
     const path = String(request.route?.path ?? request.path ?? request.url);
     if (!this.isLimitedPath(path)) {
