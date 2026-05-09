@@ -28,6 +28,7 @@ import { AuditModule } from './common/audit/audit.module';
 import { AppConfigModule } from './config/config.module';
 import { AppConfigService } from './config/app-config.service';
 import { HealthModule } from './health/health.module';
+import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { HealthModule } from './health/health.module';
       validationSchema: configValidationSchema,
     }),
     AppConfigModule,
+    RateLimitModule,
     MongooseModule.forRootAsync({
       imports: [AppConfigModule],
       inject: [AppConfigService],

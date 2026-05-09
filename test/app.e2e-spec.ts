@@ -17,7 +17,7 @@ describe('AppController (e2e)', () => {
         {
           provide: AppService,
           useValue: {
-            getHello: () => 'Tudum tudum...',
+            getHello: () => ({ status: 'ok' }),
           },
         },
         {
@@ -116,7 +116,7 @@ describe('AppController (e2e)', () => {
     await request(app.getHttpServer())
       .get('/')
       .expect(200)
-      .expect('Tudum tudum...');
+      .expect({ status: 'ok' });
   });
 
   it('/health/live (GET)', async () => {

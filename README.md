@@ -63,15 +63,29 @@ TELEGRAM_BOT_TOKEN=
 ADMIN_CHAT_ID=
 DOMAIN=https://api.example.com
 CORS_ORIGINS=https://app.example.com,https://www.app.example.com
+RATE_LIMIT_PROVIDER=redis
+REDIS_URL=redis://user:password@redis-host:6379
+PUBLIC_RATE_LIMIT_TTL=60000
+PUBLIC_RATE_LIMIT_LIMIT=10
 ```
 
 Notes:
 
 - `MONGO_URI` should point to your external production MongoDB instance.
 - For local development, use a plain Mongo connection string like `mongodb://127.0.0.1:27017/ibrat` and make sure MongoDB is running.
+- For the Vite frontend on port 5173, copy `.env.local.example` to `.env.local`; it allows `http://localhost:5173` and `http://127.0.0.1:5173`.
 - If `mongodb+srv` fails with `querySrv ECONNREFUSED`, set `DNS_SERVERS=1.1.1.1,8.8.8.8` so Node can resolve Atlas SRV records.
 - `TELEGRAM_BOT_TOKEN`, `ADMIN_CHAT_ID`, and `DOMAIN` are optional only if Telegram integration is intentionally disabled.
-- `CORS_ORIGINS` should contain your real frontend domain list, not localhost values.
+- In production, `CORS_ORIGINS` should contain your real frontend domain list, not localhost values.
+- In production and staging, `RATE_LIMIT_PROVIDER` must be `redis` and `REDIS_URL` must point to a shared Redis instance. Local development can use `RATE_LIMIT_PROVIDER=memory`.
+
+## Render deploy notes
+
+1. Add a Redis service or attach a managed Redis provider.
+2. Set `RATE_LIMIT_PROVIDER=redis`.
+3. Set `REDIS_URL` from the Redis provider connection string.
+4. Keep `PUBLIC_RATE_LIMIT_TTL` and `PUBLIC_RATE_LIMIT_LIMIT` at or below the documented defaults unless intentionally tightening limits.
+5. Do not set `CORS_ALLOW_ALL_ORIGINS=true` or `CORS_ALLOW_NO_ORIGIN=true` in production/staging.
 
 ## Auth
 
@@ -247,6 +261,14 @@ Allowed status values:
 pnpm test
 pnpm run test:e2e
 ```
+
+Manual local CORS check:
+
+```bash
+curl -i -X OPTIONS http://localhost:3000/auth/login -H "Origin: http://localhost:5173" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type"
+```
+
+The response should include `Access-Control-Allow-Origin: http://localhost:5173`.
 
 ## Notes for frontend
 

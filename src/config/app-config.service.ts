@@ -205,12 +205,7 @@ export class AppConfigService {
     return {
       origin: (origin, callback) => {
         if (!origin) {
-          if (cors.allowNoOrigin) {
-            callback(null, true);
-            return;
-          }
-
-          callback(new Error('Requests without Origin header are not allowed by CORS'), false);
+          callback(null, cors.allowNoOrigin);
           return;
         }
 
@@ -219,7 +214,7 @@ export class AppConfigService {
           return;
         }
 
-        callback(new Error(`Origin ${origin} is not allowed by CORS`), false);
+        callback(null, false);
       },
       credentials: cors.credentials,
       methods: cors.methods,

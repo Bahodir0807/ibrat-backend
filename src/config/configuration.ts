@@ -24,6 +24,9 @@ const DEFAULT_ALLOWED_HEADERS = [
 ];
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_PUBLIC_AUTH_RATE_LIMIT = 10;
+const RATE_LIMIT_PROVIDERS = ['memory', 'redis'] as const;
+
+export type RateLimitProvider = (typeof RATE_LIMIT_PROVIDERS)[number];
 
 function normalizeString(value?: string): string | undefined {
   const normalized = value?.trim();
@@ -68,6 +71,16 @@ function normalizeNumber(
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : defaultValue;
+}
+
+function normalizeRateLimitProvider(value?: string): RateLimitProvider {
+  const normalized = value?.trim().toLowerCase();
+
+  if (normalized && RATE_LIMIT_PROVIDERS.includes(normalized as RateLimitProvider)) {
+    return normalized as RateLimitProvider;
+  }
+
+  return 'memory';
 }
 
 function normalizePrefix(value?: string): string {
@@ -189,9 +202,16 @@ const configuration = () => {
         normalizeString(process.env.BRANCH_KEY_HEADER) ?? DEFAULT_BRANCH_KEY_HEADER,
     },
     rateLimit: {
-      windowMs: normalizeNumber(process.env.RATE_LIMIT_WINDOW_MS, DEFAULT_RATE_LIMIT_WINDOW_MS),
-      publicAuthMax: normalizeNumber(process.env.RATE_LIMIT_PUBLIC_AUTH_MAX, DEFAULT_PUBLIC_AUTH_RATE_LIMIT),
-      provider: normalizeString(process.env.RATE_LIMIT_PROVIDER) ?? 'memory',
+      windowMs: normalizeNumber(
+        process.env.PUBLIC_RATE_LIMIT_TTL ?? process.env.RATE_LIMIT_WINDOW_MS,
+        DEFAULT_RATE_LIMIT_WINDOW_MS,
+      ),
+      publicAuthMax: normalizeNumber(
+        process.env.PUBLIC_RATE_LIMIT_LIMIT ?? process.env.RATE_LIMIT_PUBLIC_AUTH_MAX,
+        DEFAULT_PUBLIC_AUTH_RATE_LIMIT,
+      ),
+      provider: normalizeRateLimitProvider(process.env.RATE_LIMIT_PROVIDER),
+      redisUrl: normalizeString(process.env.REDIS_URL),
     },
   };
 };
