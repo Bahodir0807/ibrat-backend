@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model, SortOrder } from 'mongoose';
+import { FilterQuery, Model, SortOrder, UpdateQuery } from 'mongoose';
 import { randomUUID } from 'crypto';
 import { User, UserDocument } from './schemas/user.schema';
 import { UsersRepository } from './users.repository';
@@ -34,6 +34,13 @@ import { mapPublicUserResponse, mapUserResponse } from './dto/user-response.dto'
 
 @Injectable()
 export class UsersService {
+  private readonly clearableProfileFields = new Set<keyof User>([
+    'email',
+    'phoneNumber',
+    'telegramId',
+    'avatarUrl',
+  ]);
+
   constructor(
     private readonly usersRepository: UsersRepository,
     @InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>,
@@ -61,8 +68,8 @@ export class UsersService {
       id: String(user._id),
       username: obj.username,
       telegramId: obj.telegramId,
-      firstName: obj.firstName,
-      lastName: obj.lastName,
+      firstName: obj.firstName ?? '',
+      lastName: obj.lastName ?? '',
       role: obj.role,
       status,
       isActive: statusToIsActive(status),
@@ -82,6 +89,46 @@ export class UsersService {
 
   private isSystemWideRole(role?: Role): boolean {
     return role === Role.Owner || role === Role.Admin || role === Role.Extra;
+  }
+
+  private removeEmptyOptionalProfileFields<T extends Partial<User>>(payload: T): T {
+    const normalized = { ...payload };
+
+    for (const field of this.clearableProfileFields) {
+      if (normalized[field] === null || normalized[field] === undefined || normalized[field] === '') {
+        delete normalized[field];
+      }
+    }
+
+    return normalized;
+  }
+
+  private buildUserUpdate(payload: Partial<User>): UpdateQuery<UserDocument> {
+    const setPayload: Partial<User> = {};
+    const unsetPayload: Record<string, ''> = {};
+
+    for (const [key, value] of Object.entries(payload) as Array<[keyof User, unknown]>) {
+      if (this.clearableProfileFields.has(key) && (value === null || value === undefined || value === '')) {
+        unsetPayload[key] = '';
+        continue;
+      }
+
+      if (value === null || value === undefined) {
+        continue;
+      }
+
+      (setPayload as Record<string, unknown>)[key] = value;
+    }
+
+    const update: UpdateQuery<UserDocument> = {};
+    if (Object.keys(setPayload).length > 0) {
+      update.$set = setPayload;
+    }
+    if (Object.keys(unsetPayload).length > 0) {
+      update.$unset = unsetPayload;
+    }
+
+    return Object.keys(update).length > 0 ? update : { $set: {} };
   }
 
   private mapUserResponseForActor(user: UserDocument, actor: AuthenticatedUser) {
@@ -649,13 +696,14 @@ export class UsersService {
     const desiredRole = dto.role ?? Role.Guest;
     const desiredStatus = dto.status ?? UserStatus.Active;
     const branchIds = this.normalizeBranchIds(dto.branchIds);
+    const userPayload = this.removeEmptyOptionalProfileFields(dto);
 
     this.assertRoleCanBeAssigned(actorRole, desiredRole);
     this.assertRoleSpecificBranchRequirements(desiredRole, branchIds);
 
     const createdUser = this.usersRepository.create(
       this.applyStatusFields({
-        ...dto,
+        ...userPayload,
         password: await hashPassword(dto.password),
         role: desiredRole,
         status: desiredStatus,
@@ -672,6 +720,7 @@ export class UsersService {
 
     const desiredRole = dto.role ?? Role.Guest;
     const desiredStatus = dto.status ?? UserStatus.Active;
+    const userPayload = this.removeEmptyOptionalProfileFields(dto);
 
     this.assertRoleCanBeAssigned(actor.role, desiredRole);
 
@@ -680,7 +729,7 @@ export class UsersService {
 
     const createdUser = this.usersRepository.create(
       this.applyStatusFields({
-        ...dto,
+        ...userPayload,
         password: await hashPassword(dto.password),
         role: desiredRole,
         status: desiredStatus,
@@ -700,6 +749,7 @@ export class UsersService {
   }): Promise<PublicUser> {
     const createdUser = this.usersRepository.create({
       firstName: dto.name,
+      lastName: '',
       phoneNumber: dto.phone,
       telegramId: String(dto.telegramId),
       role: dto.role,
@@ -722,7 +772,11 @@ export class UsersService {
   async updateOwnProfile(id: string, dto: UpdateProfileDto): Promise<PublicUser> {
     await this.ensureUniqueFields(dto, id);
 
-    const updatedUser = await this.usersRepository.findByIdAndUpdate(id, dto, { new: true }).exec();
+    const updatedUser = await this.usersRepository.findByIdAndUpdate(
+      id,
+      this.buildUserUpdate(dto),
+      { new: true },
+    ).exec();
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
@@ -834,11 +888,11 @@ export class UsersService {
     const nextBranchIds = this.normalizeBranchIds(branchIds ?? targetUser.branchIds);
     const nextRole = updatePayload.role ?? targetUser.role;
     this.assertRoleSpecificBranchRequirements(nextRole, nextBranchIds);
-    const nextPayload = {
+    const nextPayload = this.buildUserUpdate({
       ...updatePayload,
       ...(password ? { password: await hashPassword(password), passwordChangedAt: new Date() } : {}),
       branchIds: nextBranchIds,
-    };
+    });
 
     const updatedUser = await this.usersRepository
       .findByIdAndUpdate(id, nextPayload, { new: true })
@@ -886,11 +940,11 @@ export class UsersService {
         : this.normalizeBranchIds(branchIds));
     const nextRole = updatePayload.role ?? targetUser.role;
     this.assertRoleSpecificBranchRequirements(nextRole, nextBranchIds);
-    const nextPayload = {
+    const nextPayload = this.buildUserUpdate({
       ...updatePayload,
       ...(password ? { password: await hashPassword(password), passwordChangedAt: new Date() } : {}),
       branchIds: nextBranchIds,
-    };
+    });
 
     const updatedUser = await this.usersRepository
       .findByIdAndUpdate(id, nextPayload, { new: true })
@@ -1046,7 +1100,11 @@ export class UsersService {
   ): Promise<PublicUser> {
     await this.ensureUniqueFields(dto as Partial<CreateUserDto>, id);
 
-    const updatedUser = await this.usersRepository.findByIdAndUpdate(id, dto, { new: true }).exec();
+    const updatedUser = await this.usersRepository.findByIdAndUpdate(
+      id,
+      this.buildUserUpdate(dto),
+      { new: true },
+    ).exec();
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }

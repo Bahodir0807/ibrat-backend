@@ -31,12 +31,12 @@ export class CreateUserDto {
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @MinLength(3, { message: 'Username must be at least 3 characters long' })
   @MaxLength(20, { message: 'Username must be at most 20 characters long' })
-  username: string;
+  username!: string;
 
   @IsString()
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
   @MaxLength(50, { message: 'Password must be at most 50 characters long' })
-  password: string;
+  password!: string;
 
   @IsOptional()
   @IsEnum(Role, { message: 'Role must be one of: admin, teacher, student, owner, panda, guest' })
@@ -57,12 +57,12 @@ export class CreateUserDto {
   @IsString()
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @MaxLength(100)
-  firstName: string;
+  firstName!: string;
 
   @IsString()
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @MaxLength(100)
-  lastName: string;
+  lastName!: string;
 
   @IsOptional()
   @IsString()

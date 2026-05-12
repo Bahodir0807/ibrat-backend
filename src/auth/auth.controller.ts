@@ -27,15 +27,16 @@ export class AuthController {
   @Public()
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Request() req) {
+    const login = loginDto.login ?? loginDto.username ?? '';
     const user = await this.authService.validateUser(
-      loginDto.username,
+      login,
       loginDto.password,
     );
 
     if (!user) {
       this.auditLogService.logFailure({
         action: 'auth.login',
-        actor: { id: loginDto.username },
+        actor: { id: login },
         target: { type: 'user' },
         metadata: { reason: 'invalid_credentials' },
       });

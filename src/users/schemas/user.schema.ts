@@ -8,7 +8,7 @@ export type UserDocument = User & Document & { _id: string; };
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true, unique: true })
-  username: string;
+  username!: string;
   
   @Prop({ unique: true, sparse: true })
   telegramId?: string;
@@ -17,25 +17,25 @@ export class User {
   email?: string;
   
   @Prop({ required: true }) 
-  password: string;
+  password!: string;
   
-  @Prop()
-  firstName?: string;
+  @Prop({ default: '' })
+  firstName!: string;
   
-  @Prop()
-  lastName?: string;
+  @Prop({ default: '' })
+  lastName!: string;
   
   @Prop({ enum: Role, default: Role.Student }) 
-  role: Role;
+  role!: Role;
   
   @Prop()
   phoneNumber?: string;
   
   @Prop({ default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @Prop({ enum: UserStatus, default: UserStatus.Active })
-  status: UserStatus;
+  status!: UserStatus;
 
   @Prop()
   passwordChangedAt?: Date;
@@ -44,7 +44,7 @@ export class User {
   avatarUrl?: string;
 
   @Prop({ type: [String], default: [] })
-  branchIds: string[];
+  branchIds!: string[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

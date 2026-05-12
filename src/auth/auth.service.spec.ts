@@ -50,6 +50,8 @@ describe('AuthService', () => {
       id: '1',
       _id: '1',
       username: 'demo',
+      firstName: 'Demo',
+      lastName: 'User',
       role: Role.Student,
       status: UserStatus.Active,
       branchIds: [],
@@ -58,12 +60,16 @@ describe('AuthService', () => {
     await service.register({
       username: 'demo',
       password: 'secret123',
+      firstName: 'Demo',
+      lastName: 'User',
       role: Role.Student,
     });
 
     expect(usersService.create).toHaveBeenCalledWith({
       username: 'demo',
       password: 'secret123',
+      firstName: 'Demo',
+      lastName: 'User',
       role: Role.Student,
       status: UserStatus.Active,
     });
@@ -74,6 +80,8 @@ describe('AuthService', () => {
       service.register({
         username: 'owner',
         password: 'secret123',
+        firstName: 'Owner',
+        lastName: 'User',
         role: Role.Owner,
       } as any),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -92,6 +100,8 @@ describe('AuthService', () => {
       id: '42',
       _id: '42',
       username: 'demo',
+      firstName: 'Demo',
+      lastName: 'User',
       role: Role.Student,
       status: UserStatus.Active,
       isActive: true,
@@ -106,6 +116,8 @@ describe('AuthService', () => {
       id: '42',
       _id: '42',
       username: 'demo',
+      firstName: 'Demo',
+      lastName: 'User',
       role: Role.Student,
       status: UserStatus.Active,
       isActive: true,
@@ -138,6 +150,8 @@ describe('AuthService', () => {
     const response = await service.login({
       id: '42',
       username: 'demo',
+      firstName: 'Demo',
+      lastName: 'User',
       role: Role.Student,
       status: UserStatus.Active,
       isActive: true,
@@ -176,7 +190,7 @@ describe('AuthService', () => {
         tokenType: 'Bearer',
         user: expect.objectContaining({
           id: '42',
-          fullName: 'demo',
+          fullName: 'Demo User',
           role: Role.Student,
         }),
       }),

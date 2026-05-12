@@ -188,7 +188,7 @@ async function createOrReuseUser(api, user) {
     role: user.role,
     status: 'active',
     firstName: user.firstName,
-    ...(user.lastName ? { lastName: user.lastName } : {}),
+    lastName: user.lastName ?? '',
   });
 
   return { record, status: 'created' };

@@ -5,8 +5,8 @@ export interface PublicUser {
   id: string;
   username: string;
   telegramId?: string;
-  firstName?: string;
-  lastName?: string;
+  firstName: string;
+  lastName: string;
   role: Role;
   status: UserStatus;
   isActive: boolean;

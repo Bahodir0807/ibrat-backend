@@ -48,8 +48,8 @@ export type PublicUserDto = {
 export type AdminUserDto = PublicUserDto & {
   username: string;
   telegramId?: string;
-  firstName?: string;
-  lastName?: string;
+  firstName: string;
+  lastName: string;
   role: Role;
   status: UserStatus;
   isActive: boolean;
@@ -153,6 +153,8 @@ export function mapAdminUser(value: unknown): AdminUserDto {
       id: '',
       fullName: '',
       username: '',
+      firstName: '',
+      lastName: '',
       role: undefined as unknown as Role,
       status: undefined as unknown as UserStatus,
       isActive: false,
@@ -164,6 +166,8 @@ export function mapAdminUser(value: unknown): AdminUserDto {
     id: getId(source) ?? '',
     fullName: getFullName(source),
     username: typeof source.username === 'string' ? source.username : '',
+    firstName: typeof source.firstName === 'string' ? source.firstName : '',
+    lastName: typeof source.lastName === 'string' ? source.lastName : '',
     role: source.role as Role,
     status: source.status as UserStatus,
     isActive: Boolean(source.isActive),
@@ -172,8 +176,6 @@ export function mapAdminUser(value: unknown): AdminUserDto {
 
   for (const key of [
     'telegramId',
-    'firstName',
-    'lastName',
     'role',
     'avatarUrl',
     'createdAt',
