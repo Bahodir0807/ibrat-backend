@@ -5,7 +5,6 @@ import {
   IsEmail,
   IsEnum,
   IsOptional,
-  IsPhoneNumber,
   IsString,
   IsUrl,
   MaxLength,
@@ -13,6 +12,19 @@ import {
 } from 'class-validator';
 import { Role } from '../../roles/roles.enum';
 import { UserStatus } from '../user-status.enum';
+
+const optionalTrimmedString = (value: unknown) => {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
 
 export class CreateUserDto {
   @IsString()
@@ -35,25 +47,31 @@ export class CreateUserDto {
   status?: UserStatus;
 
   @IsOptional()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim().toLowerCase() : value)
+  @Transform(({ value }) => {
+    const normalized = optionalTrimmedString(value);
+    return typeof normalized === 'string' ? normalized.toLowerCase() : normalized;
+  })
   @IsEmail({}, { message: 'Email must be valid' })
   email?: string;
 
-  @IsOptional()
   @IsString()
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
-  firstName?: string;
+  @MaxLength(100)
+  firstName: string;
+
+  @IsString()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @MaxLength(100)
+  lastName: string;
 
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
-  lastName?: string;
-
-  @IsOptional()
-  @IsPhoneNumber(undefined, { message: 'Phone number must be valid' })
+  @Transform(({ value }) => optionalTrimmedString(value))
+  @MaxLength(30)
   phoneNumber?: string;
 
   @IsOptional()
+  @Transform(({ value }) => optionalTrimmedString(value))
   @IsUrl({}, { message: 'Avatar URL must be valid' })
   avatarUrl?: string;
 
@@ -63,7 +81,7 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => optionalTrimmedString(value))
   telegramId?: string;
 
   @IsOptional()
