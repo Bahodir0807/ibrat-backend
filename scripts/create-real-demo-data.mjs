@@ -26,7 +26,7 @@ const students = [
   ['Shohruh Abduvaliyev', 'student13', 'Computer Basics'],
   ['Ibrohim Fayziyev', 'student14', 'Computer Basics'],
   ['Mirjalol Nurmatov', 'student15', 'Computer Basics'],
-].map(([fullName, username, courseName]) => {
+].map(([fullName, username, courseName], index) => {
   const [firstName, ...rest] = fullName.split(' ');
   return {
     fullName,
@@ -36,6 +36,15 @@ const students = [
     password: STUDENT_PASSWORD,
     role: 'student',
     courseName,
+    studentYear: index < 5 ? '9-sinf' : index < 10 ? '1-kurs' : '2026',
+    paymentMethod: index % 2 === 0 ? 'cash' : 'card',
+    contactOwner: index % 3 === 0 ? 'ota' : index % 3 === 1 ? 'ona' : "o'zi",
+    contactOwnerFullName:
+      index % 3 === 2
+        ? fullName
+        : `${rest.join(' ') || firstName} ${index % 3 === 0 ? 'Otasi' : 'Onasi'}`,
+    contactOwnerRelation:
+      index % 3 === 0 ? 'otasi' : index % 3 === 1 ? 'onasi' : "o'zi",
   };
 });
 
@@ -70,7 +79,12 @@ function normalizeBaseUrl(value) {
 }
 
 function unwrapResponse(payload) {
-  if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    'success' in payload &&
+    'data' in payload
+  ) {
     return payload.data;
   }
 
@@ -99,7 +113,10 @@ function ids(values) {
 
 function sameIdSet(currentValues, expectedIds) {
   const current = new Set(ids(currentValues));
-  return current.size === expectedIds.length && expectedIds.every(id => current.has(id));
+  return (
+    current.size === expectedIds.length &&
+    expectedIds.every((id) => current.has(id))
+  );
 }
 
 function queryString(params) {
@@ -125,7 +142,9 @@ class ApiClient {
       headers: {
         Accept: 'application/json',
         ...(body ? { 'Content-Type': 'application/json' } : {}),
-        ...(this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {}),
+        ...(this.accessToken
+          ? { Authorization: `Bearer ${this.accessToken}` }
+          : {}),
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
@@ -134,8 +153,11 @@ class ApiClient {
     const data = unwrapResponse(payload);
 
     if (!response.ok) {
-      const message = data?.message ?? payload?.error?.message ?? payload?.message ?? text;
-      const error = new Error(`${method} ${path} failed (${response.status}): ${message}`);
+      const message =
+        data?.message ?? payload?.error?.message ?? payload?.message ?? text;
+      const error = new Error(
+        `${method} ${path} failed (${response.status}): ${message}`,
+      );
       error.status = response.status;
       error.payload = payload;
       throw error;
@@ -189,6 +211,11 @@ async function createOrReuseUser(api, user) {
     status: 'active',
     firstName: user.firstName,
     lastName: user.lastName ?? '',
+    studentYear: user.studentYear,
+    paymentMethod: user.paymentMethod,
+    contactOwner: user.contactOwner,
+    contactOwnerFullName: user.contactOwnerFullName,
+    contactOwnerRelation: user.contactOwnerRelation,
   });
 
   return { record, status: 'created' };
@@ -201,7 +228,7 @@ async function findByName(api, path, name, params = {}) {
     ...params,
   });
 
-  return (records ?? []).find(record => record.name === name);
+  return (records ?? []).find((record) => record.name === name);
 }
 
 async function createOrReuseCourse(api, course, teacherId, studentIds) {
@@ -220,21 +247,32 @@ async function createOrReuseCourse(api, course, teacherId, studentIds) {
 
   const existingTeacherIds = Array.isArray(existing.teacherIds)
     ? existing.teacherIds.map(toId)
-    : (existing.teacherId ? [toId(existing.teacherId)] : []);
+    : existing.teacherId
+      ? [toId(existing.teacherId)]
+      : [];
   const needsUpdate =
-    existing.price !== course.price
-    || existingTeacherIds.length !== 1
-    || existingTeacherIds[0] !== teacherId
-    || !sameIdSet(existing.students, studentIds);
+    existing.price !== course.price ||
+    existingTeacherIds.length !== 1 ||
+    existingTeacherIds[0] !== teacherId ||
+    !sameIdSet(existing.students, studentIds);
 
   if (!needsUpdate) {
     return { record: existing, status: 'reused' };
   }
 
-  return { record: await api.patch(`/courses/${existing.id}`, payload), status: 'updated' };
+  return {
+    record: await api.patch(`/courses/${existing.id}`, payload),
+    status: 'updated',
+  };
 }
 
-async function createOrReuseGroup(api, course, courseRecord, teacherId, studentIds) {
+async function createOrReuseGroup(
+  api,
+  course,
+  courseRecord,
+  teacherId,
+  studentIds,
+) {
   const existing = await findByName(api, '/groups', course.groupName);
   const payload = {
     name: course.groupName,
@@ -248,15 +286,18 @@ async function createOrReuseGroup(api, course, courseRecord, teacherId, studentI
   }
 
   const needsUpdate =
-    toId(existing.course) !== courseRecord.id
-    || toId(existing.teacher) !== teacherId
-    || !sameIdSet(existing.students, studentIds);
+    toId(existing.course) !== courseRecord.id ||
+    toId(existing.teacher) !== teacherId ||
+    !sameIdSet(existing.students, studentIds);
 
   if (!needsUpdate) {
     return { record: existing, status: 'reused' };
   }
 
-  return { record: await api.patch(`/groups/${existing.id}`, payload), status: 'updated' };
+  return {
+    record: await api.patch(`/groups/${existing.id}`, payload),
+    status: 'updated',
+  };
 }
 
 function printCredentials(assignments) {
@@ -271,7 +312,9 @@ function printCredentials(assignments) {
   console.log('Students:');
 
   for (const assignment of assignments) {
-    console.log(`${assignment.student.username} / ${assignment.student.password} / ${assignment.student.fullName} / ${assignment.course.name}`);
+    console.log(
+      `${assignment.student.username} / ${assignment.student.password} / ${assignment.student.fullName} / ${assignment.course.name}`,
+    );
   }
   console.log('');
 }
@@ -302,13 +345,24 @@ async function main() {
 
   for (const student of students) {
     const result = await createOrReuseUser(api, student);
-    studentResults.push({ student, record: result.record, status: result.status });
+    studentResults.push({
+      student,
+      record: result.record,
+      status: result.status,
+    });
   }
 
   for (const course of courses) {
-    const courseStudents = studentResults.filter(item => item.student.courseName === course.name);
-    const studentIds = courseStudents.map(item => item.record.id);
-    const courseResult = await createOrReuseCourse(api, course, teacherResult.record.id, studentIds);
+    const courseStudents = studentResults.filter(
+      (item) => item.student.courseName === course.name,
+    );
+    const studentIds = courseStudents.map((item) => item.record.id);
+    const courseResult = await createOrReuseCourse(
+      api,
+      course,
+      teacherResult.record.id,
+      studentIds,
+    );
     const groupResult = await createOrReuseGroup(
       api,
       course,
@@ -329,14 +383,22 @@ async function main() {
     }
   }
 
-  printSummary('Teacher:', [{ name: teacher.username, status: teacherResult.status }]);
-  printSummary('Students:', studentResults.map(item => ({ name: item.student.username, status: item.status })));
+  printSummary('Teacher:', [
+    { name: teacher.username, status: teacherResult.status },
+  ]);
+  printSummary(
+    'Students:',
+    studentResults.map((item) => ({
+      name: item.student.username,
+      status: item.status,
+    })),
+  );
   printSummary('Courses:', courseResults);
   printSummary('Groups:', groupResults);
   printCredentials(assignments);
 }
 
-main().catch(error => {
+main().catch((error) => {
   console.error(`Real demo data creation failed: ${error.message}`);
   process.exitCode = 1;
 });

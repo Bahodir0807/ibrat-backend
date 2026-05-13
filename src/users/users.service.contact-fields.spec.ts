@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { UsersService } from './users.service';
 import { Role } from '../roles/roles.enum';
 import { UserStatus } from './user-status.enum';
+import { StudentPaymentMethod } from './student-payment-method.enum';
 
 jest.mock('../common/password', () => ({
   hashPassword: jest.fn(async () => 'hashed-password'),
@@ -25,6 +26,11 @@ function userDoc(overrides: Record<string, unknown> = {}) {
     status: UserStatus.Active,
     isActive: true,
     branchIds: [],
+    studentYear: undefined,
+    paymentMethod: undefined,
+    contactOwner: undefined,
+    contactOwnerFullName: undefined,
+    contactOwnerRelation: undefined,
     ...overrides,
   };
 
@@ -32,6 +38,11 @@ function userDoc(overrides: Record<string, unknown> = {}) {
     _id: data._id,
     email: data.email,
     phoneNumber: data.phoneNumber,
+    studentYear: data.studentYear,
+    paymentMethod: data.paymentMethod,
+    contactOwner: data.contactOwner,
+    contactOwnerFullName: data.contactOwnerFullName,
+    contactOwnerRelation: data.contactOwnerRelation,
     branchIds: data.branchIds,
     role: data.role,
     save: jest.fn().mockResolvedValue(undefined),
@@ -130,6 +141,76 @@ describe('UsersService contact fields', () => {
       { $set: { email: 'new@example.com', phoneNumber: '+400000000' } },
       { new: true },
     );
+  });
+
+  it('create user saves optional student payment and contact owner fields', async () => {
+    const { service, usersRepository } = createService();
+
+    await service.create({
+      username: 'student01',
+      password: 'password123',
+      firstName: 'Student',
+      lastName: 'One',
+      role: Role.Student,
+      studentYear: '9-sinf',
+      paymentMethod: 'naqd',
+      contactOwner: 'ota',
+      contactOwnerFullName: 'Aliyev Sardor',
+      contactOwnerRelation: 'otasi',
+    } as never);
+
+    expect(usersRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        studentYear: '9-sinf',
+        paymentMethod: StudentPaymentMethod.Cash,
+        contactOwner: 'ota',
+        contactOwnerFullName: 'Aliyev Sardor',
+        contactOwnerRelation: 'otasi',
+      }),
+    );
+  });
+
+  it('update user clears optional student profile fields with empty values', async () => {
+    const { service, usersRepository } = createService();
+
+    await service.updateOwnProfile('user-id', {
+      studentYear: '',
+      paymentMethod: null,
+      contactOwner: ' ',
+      contactOwnerFullName: null,
+      contactOwnerRelation: '',
+    } as never);
+
+    expect(usersRepository.findByIdAndUpdate).toHaveBeenCalledWith(
+      'user-id',
+      {
+        $unset: {
+          studentYear: '',
+          paymentMethod: '',
+          contactOwner: '',
+          contactOwnerFullName: '',
+          contactOwnerRelation: '',
+        },
+      },
+      { new: true },
+    );
+  });
+
+  it('rejects unsupported student payment methods before persistence', async () => {
+    const { service, usersRepository } = createService();
+
+    await expect(
+      service.create({
+        username: 'student01',
+        password: 'password123',
+        firstName: 'Student',
+        lastName: 'One',
+        role: Role.Student,
+        paymentMethod: 'transfer',
+      } as never),
+    ).rejects.toThrow('Payment method must be one of');
+
+    expect(usersRepository.create).not.toHaveBeenCalled();
   });
 
   it('update user does not delete contact fields when omitted', async () => {

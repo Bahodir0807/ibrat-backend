@@ -1,5 +1,6 @@
 import { Role } from '../../roles/roles.enum';
 import { UserStatus } from '../../users/user-status.enum';
+import { StudentPaymentMethod } from '../../users/student-payment-method.enum';
 import {
   mapAdminUser,
   mapPublicResource,
@@ -82,6 +83,11 @@ describe('public response mapper', () => {
       status: UserStatus.Active,
       isActive: true,
       branchIds: ['branch-1'],
+      studentYear: '1-kurs',
+      paymentMethod: StudentPaymentMethod.Card,
+      contactOwner: 'ona',
+      contactOwnerFullName: 'Aliyeva Dilnoza',
+      contactOwnerRelation: 'onasi',
       email: 'admin@example.com',
       phoneNumber: '+3000000',
       password: 'hash',
@@ -96,6 +102,11 @@ describe('public response mapper', () => {
       status: UserStatus.Active,
       isActive: true,
       branchIds: ['branch-1'],
+      studentYear: '1-kurs',
+      paymentMethod: StudentPaymentMethod.Card,
+      contactOwner: 'ona',
+      contactOwnerFullName: 'Aliyeva Dilnoza',
+      contactOwnerRelation: 'onasi',
     });
     expect(response).not.toHaveProperty('_id');
     expect(response).not.toHaveProperty('email');
@@ -110,14 +121,12 @@ describe('public response mapper', () => {
         _id: 'student-1',
         username: 'fallback-name',
         role: Role.Student,
-        avatarUrl: 'https://cdn/avatar.png',
         branchIds: ['branch-1'],
       }),
     ).toEqual({
       id: 'student-1',
       fullName: 'fallback-name',
       role: Role.Student,
-      avatarUrl: 'https://cdn/avatar.png',
     });
   });
 

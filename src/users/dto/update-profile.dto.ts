@@ -9,6 +9,10 @@ export class UpdateProfileDto extends PartialType(
     'phoneNumber',
     'phone',
     'telephone',
-    'avatarUrl',
+    'studentYear',
+    'paymentMethod',
+    'contactOwner',
+    'contactOwnerFullName',
+    'contactOwnerRelation',
   ] as const),
 ) {}

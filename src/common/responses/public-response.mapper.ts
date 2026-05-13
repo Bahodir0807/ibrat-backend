@@ -1,5 +1,6 @@
 import { Role } from '../../roles/roles.enum';
 import { UserStatus } from '../../users/user-status.enum';
+import { StudentPaymentMethod } from '../../users/student-payment-method.enum';
 
 type PlainObject = Record<string, unknown>;
 export type ApiResourceDto = { id?: string; [key: string]: any };
@@ -43,8 +44,6 @@ export type PublicUserDto = {
   id: string;
   fullName: string;
   role?: Role;
-  avatarUrl?: string;
-  photoUrl?: string;
 };
 
 export type AdminUserDto = PublicUserDto & {
@@ -55,6 +54,11 @@ export type AdminUserDto = PublicUserDto & {
   role: Role;
   status: UserStatus;
   isActive: boolean;
+  studentYear?: string;
+  paymentMethod?: StudentPaymentMethod;
+  contactOwner?: string;
+  contactOwnerFullName?: string;
+  contactOwnerRelation?: string;
   branchIds: string[];
   createdAt?: Date;
   updatedAt?: Date;
@@ -150,14 +154,6 @@ export function mapPublicUser(
     mapped.role = source.role as Role;
   }
 
-  if (typeof source.avatarUrl === 'string') {
-    mapped.avatarUrl = source.avatarUrl;
-  }
-
-  if (typeof source.photoUrl === 'string') {
-    mapped.photoUrl = source.photoUrl;
-  }
-
   return mapped;
 }
 
@@ -196,7 +192,11 @@ export function mapAdminUser(value: unknown): AdminUserDto {
   for (const key of [
     'telegramId',
     'role',
-    'avatarUrl',
+    'studentYear',
+    'paymentMethod',
+    'contactOwner',
+    'contactOwnerFullName',
+    'contactOwnerRelation',
     'createdAt',
     'updatedAt',
   ]) {

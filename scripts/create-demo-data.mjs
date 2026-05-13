@@ -45,6 +45,15 @@ const students = [
     username: `student${String(index + 1).padStart(2, '0')}`,
     password: STUDENT_PASSWORD,
     role: 'student',
+    studentYear: index < 5 ? '9-sinf' : index < 10 ? '1-kurs' : '2026',
+    paymentMethod: index % 2 === 0 ? 'cash' : 'card',
+    contactOwner: index % 3 === 0 ? 'ota' : index % 3 === 1 ? 'ona' : "o'zi",
+    contactOwnerFullName:
+      index % 3 === 2
+        ? fullName
+        : `${rest.join(' ') || firstName} ${index % 3 === 0 ? 'Otasi' : 'Onasi'}`,
+    contactOwnerRelation:
+      index % 3 === 0 ? 'otasi' : index % 3 === 1 ? 'onasi' : "o'zi",
   };
 });
 
@@ -86,7 +95,12 @@ function normalizeBaseUrl(value) {
 }
 
 function unwrapResponse(payload) {
-  if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    'success' in payload &&
+    'data' in payload
+  ) {
     return payload.data;
   }
   return payload;
@@ -111,7 +125,10 @@ function ids(values) {
 
 function hasSameIds(currentValues, expectedIds) {
   const current = new Set(ids(currentValues));
-  return expectedIds.every(id => current.has(id)) && current.size === expectedIds.length;
+  return (
+    expectedIds.every((id) => current.has(id)) &&
+    current.size === expectedIds.length
+  );
 }
 
 function formatQuery(params) {
@@ -146,8 +163,11 @@ class DemoApi {
     const data = unwrapResponse(payload);
 
     if (!response.ok) {
-      const message = data?.message ?? payload?.error?.message ?? payload?.message ?? text;
-      const error = new Error(`${method} ${path} failed (${response.status}): ${message}`);
+      const message =
+        data?.message ?? payload?.error?.message ?? payload?.message ?? text;
+      const error = new Error(
+        `${method} ${path} failed (${response.status}): ${message}`,
+      );
       error.status = response.status;
       error.payload = payload;
       throw error;
@@ -201,6 +221,11 @@ async function ensureUser(api, user) {
     status: 'active',
     firstName: user.firstName,
     lastName: user.lastName ?? '',
+    studentYear: user.studentYear,
+    paymentMethod: user.paymentMethod,
+    contactOwner: user.contactOwner,
+    contactOwnerFullName: user.contactOwnerFullName,
+    contactOwnerRelation: user.contactOwnerRelation,
   });
 
   return { record: created, status: 'created' };
@@ -213,7 +238,7 @@ async function findByName(api, path, name, extraParams = {}) {
     ...extraParams,
   });
 
-  return (records ?? []).find(record => record.name === name);
+  return (records ?? []).find((record) => record.name === name);
 }
 
 async function ensureCourse(api, course, teacherId, studentIds) {
@@ -232,23 +257,30 @@ async function ensureCourse(api, course, teacherId, studentIds) {
 
   const existingTeacherIds = Array.isArray(existing.teacherIds)
     ? existing.teacherIds.map(toId)
-    : (existing.teacherId ? [toId(existing.teacherId)] : []);
+    : existing.teacherId
+      ? [toId(existing.teacherId)]
+      : [];
   const needsUpdate =
-    existing.price !== course.price
-    || existingTeacherIds.length !== 1
-    || existingTeacherIds[0] !== teacherId
-    || !hasSameIds(existing.students, studentIds);
+    existing.price !== course.price ||
+    existingTeacherIds.length !== 1 ||
+    existingTeacherIds[0] !== teacherId ||
+    !hasSameIds(existing.students, studentIds);
 
   if (!needsUpdate) {
     return { record: existing, status: 'reused' };
   }
 
-  return { record: await api.patch(`/courses/${existing.id}`, payload), status: 'updated' };
+  return {
+    record: await api.patch(`/courses/${existing.id}`, payload),
+    status: 'updated',
+  };
 }
 
 async function ensureGroup(api, course, courseRecord, teacherId, studentIds) {
   const name = `${course.name} Demo Group`;
-  const existing = await findByName(api, '/groups', name, { courseId: courseRecord.id });
+  const existing = await findByName(api, '/groups', name, {
+    courseId: courseRecord.id,
+  });
   const payload = {
     name,
     course: courseRecord.id,
@@ -261,23 +293,28 @@ async function ensureGroup(api, course, courseRecord, teacherId, studentIds) {
   }
 
   const needsUpdate =
-    toId(existing.course) !== courseRecord.id
-    || toId(existing.teacher) !== teacherId
-    || !hasSameIds(existing.students, studentIds);
+    toId(existing.course) !== courseRecord.id ||
+    toId(existing.teacher) !== teacherId ||
+    !hasSameIds(existing.students, studentIds);
 
   if (!needsUpdate) {
     return { record: existing, status: 'reused' };
   }
 
-  return { record: await api.patch(`/groups/${existing.id}`, payload), status: 'updated' };
+  return {
+    record: await api.patch(`/groups/${existing.id}`, payload),
+    status: 'updated',
+  };
 }
 
 async function ensurePayment(api, studentId, courseId, desiredStatus, method) {
-  const existing = (await api.get('/payments', {
-    studentId,
-    courseId,
-    limit: 1,
-  }))[0];
+  const existing = (
+    await api.get('/payments', {
+      studentId,
+      courseId,
+      limit: 1,
+    })
+  )[0];
 
   let payment = existing;
   let status = existing ? 'reused' : 'created';
@@ -338,7 +375,10 @@ function printOperationSummary(summary) {
 
 async function main() {
   const baseUrl = normalizeBaseUrl(requiredEnv('DEMO_API_BASE_URL'));
-  if (!isLocalBaseUrl(baseUrl) && process.env.DEMO_ALLOW_PRODUCTION !== 'true') {
+  if (
+    !isLocalBaseUrl(baseUrl) &&
+    process.env.DEMO_ALLOW_PRODUCTION !== 'true'
+  ) {
     throw new Error(
       'DEMO_API_BASE_URL does not look local. Set DEMO_ALLOW_PRODUCTION=true to run against this API.',
     );
@@ -355,27 +395,60 @@ async function main() {
   console.log(`Logged in to ${baseUrl} as ${adminUsername}`);
 
   const ownerResult = await ensureUser(api, tempOwner);
-  summary.push({ type: 'owner', name: tempOwner.username, status: ownerResult.status });
+  summary.push({
+    type: 'owner',
+    name: tempOwner.username,
+    status: ownerResult.status,
+  });
 
   const teacherResult = await ensureUser(api, teacher);
   const teacherRecord = teacherResult.record;
-  summary.push({ type: 'teacher', name: teacher.username, status: teacherResult.status });
+  summary.push({
+    type: 'teacher',
+    name: teacher.username,
+    status: teacherResult.status,
+  });
 
   const studentResults = [];
   for (const student of students) {
     const result = await ensureUser(api, student);
     studentResults.push({ student, record: result.record });
-    summary.push({ type: 'student', name: student.username, status: result.status });
+    summary.push({
+      type: 'student',
+      name: student.username,
+      status: result.status,
+    });
   }
 
   for (const course of courses) {
-    const courseStudents = course.studentIndexes.map(index => studentResults[index]);
-    const studentIds = courseStudents.map(item => item.record.id);
-    const courseResult = await ensureCourse(api, course, teacherRecord.id, studentIds);
-    summary.push({ type: 'course', name: course.name, status: courseResult.status });
+    const courseStudents = course.studentIndexes.map(
+      (index) => studentResults[index],
+    );
+    const studentIds = courseStudents.map((item) => item.record.id);
+    const courseResult = await ensureCourse(
+      api,
+      course,
+      teacherRecord.id,
+      studentIds,
+    );
+    summary.push({
+      type: 'course',
+      name: course.name,
+      status: courseResult.status,
+    });
 
-    const groupResult = await ensureGroup(api, course, courseResult.record, teacherRecord.id, studentIds);
-    summary.push({ type: 'group', name: groupResult.record.name, status: groupResult.status });
+    const groupResult = await ensureGroup(
+      api,
+      course,
+      courseResult.record,
+      teacherRecord.id,
+      studentIds,
+    );
+    summary.push({
+      type: 'group',
+      name: groupResult.record.name,
+      status: groupResult.status,
+    });
 
     for (const item of courseStudents) {
       assignments.push({
@@ -408,7 +481,7 @@ async function main() {
   printCredentialSummary(assignments);
 }
 
-main().catch(error => {
+main().catch((error) => {
   console.error(`Demo data creation failed: ${error.message}`);
   process.exitCode = 1;
 });

@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { Role } from '../../roles/roles.enum';
 import { UserStatus } from '../user-status.enum';
+import { StudentPaymentMethod } from '../student-payment-method.enum';
 
 export type UserDocument = User & Document & { _id: string };
 
@@ -31,6 +32,21 @@ export class User {
   @Prop()
   phoneNumber?: string;
 
+  @Prop()
+  studentYear?: string;
+
+  @Prop({ enum: StudentPaymentMethod })
+  paymentMethod?: StudentPaymentMethod;
+
+  @Prop()
+  contactOwner?: string;
+
+  @Prop()
+  contactOwnerFullName?: string;
+
+  @Prop()
+  contactOwnerRelation?: string;
+
   @Prop({ default: true })
   isActive!: boolean;
 
@@ -39,9 +55,6 @@ export class User {
 
   @Prop()
   passwordChangedAt?: Date;
-
-  @Prop()
-  avatarUrl?: string;
 
   @Prop({ type: [String], default: [] })
   branchIds!: string[];

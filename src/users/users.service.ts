@@ -40,6 +40,7 @@ import { Grade, GradeDocument } from '../grades/schemas/grade.schema';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UserStatus } from './user-status.enum';
+import { StudentPaymentMethod } from './student-payment-method.enum';
 import {
   canAuthenticateWithStatus,
   resolveUserStatus,
@@ -64,13 +65,25 @@ type NormalizedContactPayload<T extends object> = Omit<
   phoneNumber?: string | null;
 };
 
+type StudentProfilePayload = {
+  studentYear?: string | null;
+  paymentMethod?: StudentPaymentMethod | 'naqd' | 'karta' | string | null;
+  contactOwner?: string | null;
+  contactOwnerFullName?: string | null;
+  contactOwnerRelation?: string | null;
+};
+
 @Injectable()
 export class UsersService {
   private readonly clearableProfileFields = new Set<keyof User>([
     'email',
     'phoneNumber',
     'telegramId',
-    'avatarUrl',
+    'studentYear',
+    'paymentMethod',
+    'contactOwner',
+    'contactOwnerFullName',
+    'contactOwnerRelation',
   ]);
 
   constructor(
@@ -112,7 +125,11 @@ export class UsersService {
       role: obj.role,
       status,
       isActive: statusToIsActive(status),
-      avatarUrl: obj.avatarUrl,
+      studentYear: obj.studentYear,
+      paymentMethod: obj.paymentMethod,
+      contactOwner: obj.contactOwner,
+      contactOwnerFullName: obj.contactOwnerFullName,
+      contactOwnerRelation: obj.contactOwnerRelation,
       branchIds: this.normalizeBranchIds(obj.branchIds),
       createdAt: obj.createdAt,
       updatedAt: obj.updatedAt,
@@ -178,6 +195,77 @@ export class UsersService {
     delete normalized.telephone;
 
     return normalized;
+  }
+
+  private normalizeOptionalString(value: unknown): unknown {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : '';
+  }
+
+  private normalizeStudentPaymentMethod(value: unknown): unknown {
+    const normalized = this.normalizeOptionalString(value);
+    if (typeof normalized !== 'string' || normalized === '') {
+      return normalized;
+    }
+
+    const lower = normalized.toLowerCase();
+    if (lower === 'naqd') {
+      return StudentPaymentMethod.Cash;
+    }
+
+    if (lower === 'karta') {
+      return StudentPaymentMethod.Card;
+    }
+
+    if (
+      lower === StudentPaymentMethod.Cash ||
+      lower === StudentPaymentMethod.Card
+    ) {
+      return lower;
+    }
+
+    throw new BadRequestException(
+      'Payment method must be one of: cash, card, naqd, karta',
+    );
+  }
+
+  private normalizeStudentProfileFields<T extends object>(
+    payload: T,
+  ): T & StudentProfilePayload {
+    const normalized = { ...payload } as T & StudentProfilePayload;
+
+    for (const field of [
+      'studentYear',
+      'contactOwner',
+      'contactOwnerFullName',
+      'contactOwnerRelation',
+    ] as const) {
+      if (Object.prototype.hasOwnProperty.call(normalized, field)) {
+        normalized[field] = this.normalizeOptionalString(
+          normalized[field],
+        ) as string;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(normalized, 'paymentMethod')) {
+      normalized.paymentMethod = this.normalizeStudentPaymentMethod(
+        normalized.paymentMethod,
+      ) as StudentProfilePayload['paymentMethod'];
+    }
+
+    return normalized;
+  }
+
+  private normalizeUserPayload<T extends object>(
+    payload: T,
+  ): NormalizedContactPayload<T> & StudentProfilePayload {
+    return this.normalizeStudentProfileFields(
+      this.normalizeContactAliases(payload),
+    );
   }
 
   private buildUserUpdate(payload: Partial<User>): UpdateQuery<UserDocument> {
@@ -895,7 +983,7 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto, actorRole?: Role): Promise<PublicUser> {
-    const normalizedDto = this.normalizeContactAliases(dto);
+    const normalizedDto = this.normalizeUserPayload(dto);
     await this.ensureUniqueFields(normalizedDto);
 
     const desiredRole = normalizedDto.role ?? Role.Guest;
@@ -924,7 +1012,7 @@ export class UsersService {
     dto: CreateUserDto,
     actor: AuthenticatedUser,
   ): Promise<PublicUser> {
-    const normalizedDto = this.normalizeContactAliases(dto);
+    const normalizedDto = this.normalizeUserPayload(dto);
     await this.ensureUniqueFields(normalizedDto);
 
     const desiredRole = normalizedDto.role ?? Role.Guest;
@@ -982,7 +1070,7 @@ export class UsersService {
     id: string,
     dto: UpdateProfileDto,
   ): Promise<PublicUser> {
-    const normalizedDto = this.normalizeContactAliases(dto);
+    const normalizedDto = this.normalizeUserPayload(dto);
     await this.ensureUniqueFields(normalizedDto, id);
 
     const updatedUser = await this.usersRepository
@@ -1119,7 +1207,7 @@ export class UsersService {
 
     this.assertCanManageTarget(actorRole, targetUser.role);
 
-    const normalizedDto = this.normalizeContactAliases(
+    const normalizedDto = this.normalizeUserPayload(
       dto as UpdateUserDto & { isActive?: boolean },
     );
     const { roleKey, isActive, branchIds, password, ...updatePayload } =
@@ -1157,7 +1245,7 @@ export class UsersService {
     dto: UpdateUserDto,
     actor: AuthenticatedUser,
   ): Promise<PublicUser> {
-    const normalizedDto = this.normalizeContactAliases(
+    const normalizedDto = this.normalizeUserPayload(
       dto as UpdateUserDto & { isActive?: boolean },
     );
     const actorHasFullUserAccess = this.isSystemWideRole(actor.role);
@@ -1407,12 +1495,16 @@ export class UsersService {
         | 'firstName'
         | 'lastName'
         | 'phoneNumber'
-        | 'avatarUrl'
         | 'telegramId'
+        | 'studentYear'
+        | 'paymentMethod'
+        | 'contactOwner'
+        | 'contactOwnerFullName'
+        | 'contactOwnerRelation'
       >
     >,
   ): Promise<PublicUser> {
-    const normalizedDto = this.normalizeContactAliases(
+    const normalizedDto = this.normalizeUserPayload(
       dto as Partial<CreateUserDto>,
     );
     await this.ensureUniqueFields(normalizedDto, id);

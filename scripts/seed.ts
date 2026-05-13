@@ -32,10 +32,12 @@ if (!mongoUri) {
 }
 
 if (
-  process.env.NODE_ENV === 'production'
-  && process.env.SEED_ALLOW_PRODUCTION !== 'true'
+  process.env.NODE_ENV === 'production' &&
+  process.env.SEED_ALLOW_PRODUCTION !== 'true'
 ) {
-  throw new Error('Refusing to seed production without SEED_ALLOW_PRODUCTION=true');
+  throw new Error(
+    'Refusing to seed production without SEED_ALLOW_PRODUCTION=true',
+  );
 }
 
 const userSchema = new Schema(
@@ -48,6 +50,11 @@ const userSchema = new Schema(
     role: String,
     status: String,
     isActive: Boolean,
+    studentYear: String,
+    paymentMethod: String,
+    contactOwner: String,
+    contactOwnerFullName: String,
+    contactOwnerRelation: String,
     branchIds: [String],
   },
   { timestamps: true },
@@ -137,7 +144,10 @@ const homeworkSchema = new Schema(
   { timestamps: true },
 );
 
-async function upsertUser(UserModel: mongoose.Model<any>, data: Record<string, unknown>) {
+async function upsertUser(
+  UserModel: mongoose.Model<any>,
+  data: Record<string, unknown>,
+) {
   const existing = await UserModel.findOne({ username: data.username }).exec();
   if (existing) {
     return existing;
@@ -200,6 +210,11 @@ async function main() {
     firstName: 'Sample',
     lastName: 'Student',
     role: Role.Student,
+    studentYear: '2026',
+    paymentMethod: 'cash',
+    contactOwner: "o'zi",
+    contactOwnerFullName: 'Sample Student',
+    contactOwnerRelation: "o'zi",
     branchIds: [branchId],
   });
 
@@ -254,7 +269,12 @@ async function main() {
       timeStart: start,
       timeEnd: end,
       students: [student._id],
-      group: (await GroupModel.findOne({ name: 'Sample Group', course: course._id }).exec())?._id,
+      group: (
+        await GroupModel.findOne({
+          name: 'Sample Group',
+          course: course._id,
+        }).exec()
+      )?._id,
       teacher: teacher._id,
     },
     { upsert: true, new: true },
@@ -307,18 +327,20 @@ async function main() {
     { upsert: true, new: true },
   ).exec();
 
-  console.log(JSON.stringify({
-    owner: owner.username,
-    admin: admin.username,
-    panda: panda.username,
-    teacher: teacher.username,
-    student: student.username,
-    branchId,
-  }));
+  console.log(
+    JSON.stringify({
+      owner: owner.username,
+      admin: admin.username,
+      panda: panda.username,
+      teacher: teacher.username,
+      student: student.username,
+      branchId,
+    }),
+  );
   await mongoose.disconnect();
 }
 
-main().catch(async error => {
+main().catch(async (error) => {
   console.error(error);
   await mongoose.disconnect();
   process.exit(1);

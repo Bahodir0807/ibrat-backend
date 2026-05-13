@@ -13,6 +13,7 @@
     "start:cpanel": "node app.js",
     "seed": "ts-node scripts/seed.ts",
     "migrate:course-teachers": "node scripts/migrate-course-teachers.mjs",
+    "cleanup:user-image-url": "node scripts/cleanup-user-image-url.mjs",
     "demo:create": "node scripts/create-demo-data.mjs",
     "demo:create:real": "node scripts/create-real-demo-data.mjs",
     "test": "jest",
