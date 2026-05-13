@@ -25,7 +25,7 @@ function resolveOrigin(
   origin: string | undefined,
   cors: ReturnType<AppConfigService['createCorsOptions']>,
 ): Promise<{ error: Error | null; allowed?: unknown }> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const originCallback = cors.origin;
     if (typeof originCallback !== 'function') {
       throw new Error('Expected CORS origin callback');
@@ -45,7 +45,9 @@ describe('AppConfigService CORS options', () => {
       allowNoOrigin: false,
     });
 
-    await expect(resolveOrigin(undefined, appConfig.createCorsOptions())).resolves.toEqual({
+    await expect(
+      resolveOrigin(undefined, appConfig.createCorsOptions()),
+    ).resolves.toEqual({
       error: null,
       allowed: false,
     });
@@ -58,7 +60,9 @@ describe('AppConfigService CORS options', () => {
       allowNoOrigin: false,
     });
 
-    await expect(resolveOrigin('https://evil.example.com', appConfig.createCorsOptions())).resolves.toEqual({
+    await expect(
+      resolveOrigin('https://evil.example.com', appConfig.createCorsOptions()),
+    ).resolves.toEqual({
       error: null,
       allowed: false,
     });
@@ -71,7 +75,9 @@ describe('AppConfigService CORS options', () => {
       allowNoOrigin: false,
     });
 
-    await expect(resolveOrigin('https://app.example.com', appConfig.createCorsOptions())).resolves.toEqual({
+    await expect(
+      resolveOrigin('https://app.example.com', appConfig.createCorsOptions()),
+    ).resolves.toEqual({
       error: null,
       allowed: true,
     });
@@ -85,11 +91,15 @@ describe('AppConfigService CORS options', () => {
     });
     const corsOptions = appConfig.createCorsOptions();
 
-    await expect(resolveOrigin('http://localhost:5173', corsOptions)).resolves.toEqual({
+    await expect(
+      resolveOrigin('http://localhost:5173', corsOptions),
+    ).resolves.toEqual({
       error: null,
       allowed: true,
     });
-    await expect(resolveOrigin('http://127.0.0.1:5173', corsOptions)).resolves.toEqual({
+    await expect(
+      resolveOrigin('http://127.0.0.1:5173', corsOptions),
+    ).resolves.toEqual({
       error: null,
       allowed: true,
     });

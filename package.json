@@ -12,13 +12,14 @@
     "start:prod": "node dist/main.js",
     "start:cpanel": "node app.js",
     "seed": "ts-node scripts/seed.ts",
+    "migrate:course-teachers": "node scripts/migrate-course-teachers.mjs",
     "demo:create": "node scripts/create-demo-data.mjs",
     "demo:create:real": "node scripts/create-real-demo-data.mjs",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "lint": "eslint '{src,test}/**/*.ts' --fix"
+    "lint": "eslint src/**/*.ts test/**/*.ts --fix"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.0",

@@ -64,7 +64,11 @@ export class ScheduleController {
 
   @Put(':id')
   @Roles(Role.Admin, Role.Owner, Role.Teacher, Role.Extra)
-  async update(@Param() params: IdParamDto, @Body() dto: UpdateScheduleDto, @Request() req) {
+  async update(
+    @Param() params: IdParamDto,
+    @Body() dto: UpdateScheduleDto,
+    @Request() req,
+  ) {
     const { id } = params;
     const schedule = await this.svc.updateForActor(id, dto, req.user);
     this.auditLogService.log({

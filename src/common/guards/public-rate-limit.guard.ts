@@ -1,8 +1,19 @@
-import { CanActivate, ExecutionContext, HttpException, HttpStatus, Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { AppConfigService } from '../../config/app-config.service';
-import { RATE_LIMIT_STORE, RateLimitStore } from '../rate-limit/rate-limit-store';
+import {
+  RATE_LIMIT_STORE,
+  RateLimitStore,
+} from '../rate-limit/rate-limit-store';
 
 @Injectable()
 export class PublicRateLimitGuard implements CanActivate {
@@ -23,7 +34,10 @@ export class PublicRateLimitGuard implements CanActivate {
 
   private isLimitedPath(path: string): boolean {
     const normalized = path.split('?')[0].replace(/\/+$/, '') || '/';
-    return [...this.limitedPaths].some(limitedPath => normalized === limitedPath || normalized.endsWith(limitedPath));
+    return [...this.limitedPaths].some(
+      (limitedPath) =>
+        normalized === limitedPath || normalized.endsWith(limitedPath),
+    );
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -43,8 +57,12 @@ export class PublicRateLimitGuard implements CanActivate {
 
     const ttlMs = this.appConfig.rateLimit.windowMs;
     const max = this.appConfig.rateLimit.publicAuthMax;
-    const actorKey = request.user?.userId ? `actor:${request.user.userId}` : undefined;
-    const clientKey = actorKey ?? `ip:${request.ip ?? request.socket?.remoteAddress ?? 'unknown'}`;
+    const actorKey = request.user?.userId
+      ? `actor:${request.user.userId}`
+      : undefined;
+    const clientKey =
+      actorKey ??
+      `ip:${request.ip ?? request.socket?.remoteAddress ?? 'unknown'}`;
     const key = `public:${path}:${clientKey}`;
     let count: number;
 
@@ -55,7 +73,10 @@ export class PublicRateLimitGuard implements CanActivate {
     }
 
     if (count > max) {
-      throw new HttpException('Too many requests, please try again later', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Too many requests, please try again later',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     return true;

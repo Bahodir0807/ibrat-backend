@@ -1,14 +1,25 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Attendance, AttendanceDocument } from './schemas/attendance.schema';
 import { MarkAttendanceDto } from './dto/mark-attendance.dto';
 import { User, UserDocument } from '../users/schemas/user.schema';
-import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
+import {
+  Schedule,
+  ScheduleDocument,
+} from '../schedule/schemas/schedule.schema';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
 import { Role } from '../roles/roles.enum';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
-import { mapAttendanceResponse, mapAttendanceResponses } from './dto/attendance-response.dto';
+import {
+  mapAttendanceResponse,
+  mapAttendanceResponses,
+} from './dto/attendance-response.dto';
 
 @Injectable()
 export class AttendanceService {
@@ -24,10 +35,16 @@ export class AttendanceService {
   ) {}
 
   private normalizeBranchIds(branchIds?: string[]): string[] {
-    return [...new Set((branchIds ?? [])
-      .filter((branchId): branchId is string => typeof branchId === 'string')
-      .map(branchId => branchId.trim())
-      .filter(branchId => branchId.length > 0))];
+    return [
+      ...new Set(
+        (branchIds ?? [])
+          .filter(
+            (branchId): branchId is string => typeof branchId === 'string',
+          )
+          .map((branchId) => branchId.trim())
+          .filter((branchId) => branchId.length > 0),
+      ),
+    ];
   }
 
   private isSystemWideRole(role?: Role): boolean {
@@ -47,10 +64,18 @@ export class AttendanceService {
     return branchIds;
   }
 
-  private async getTeacherVisibleStudentIds(teacherId: string): Promise<string[]> {
+  private async getTeacherVisibleStudentIds(
+    teacherId: string,
+  ): Promise<string[]> {
     const [groups, schedules] = await Promise.all([
-      this.groupModel.find({ teacher: teacherId }, { students: 1 }).lean().exec(),
-      this.scheduleModel.find({ teacher: teacherId }, { students: 1 }).lean().exec(),
+      this.groupModel
+        .find({ teacher: teacherId }, { students: 1 })
+        .lean()
+        .exec(),
+      this.scheduleModel
+        .find({ teacher: teacherId }, { students: 1 })
+        .lean()
+        .exec(),
     ]);
 
     const studentIds = new Set<string>();
@@ -66,14 +91,19 @@ export class AttendanceService {
     return [...studentIds];
   }
 
-  private async assertActorCanAccessStudent(actor: AuthenticatedUser, userId: string): Promise<UserDocument> {
+  private async assertActorCanAccessStudent(
+    actor: AuthenticatedUser,
+    userId: string,
+  ): Promise<UserDocument> {
     const student = await this.userModel.findById(userId).exec();
     if (!student) {
       throw new NotFoundException('Student not found');
     }
 
     if (student.role !== Role.Student) {
-      throw new BadRequestException('Attendance can only be accessed for students');
+      throw new BadRequestException(
+        'Attendance can only be accessed for students',
+      );
     }
 
     if (this.isSystemWideRole(actor.role)) {
@@ -85,13 +115,17 @@ export class AttendanceService {
         return student;
       }
 
-      throw new ForbiddenException('Students can only access their own attendance');
+      throw new ForbiddenException(
+        'Students can only access their own attendance',
+      );
     }
 
     if (this.isBranchAdminRole(actor.role)) {
       const actorBranches = this.ensureScopedActorHasBranches(actor);
       const studentBranches = this.normalizeBranchIds(student.branchIds);
-      if (studentBranches.some(branchId => actorBranches.includes(branchId))) {
+      if (
+        studentBranches.some((branchId) => actorBranches.includes(branchId))
+      ) {
         return student;
       }
 
@@ -99,12 +133,16 @@ export class AttendanceService {
     }
 
     if (actor.role === Role.Teacher) {
-      const visibleStudentIds = await this.getTeacherVisibleStudentIds(actor.userId);
+      const visibleStudentIds = await this.getTeacherVisibleStudentIds(
+        actor.userId,
+      );
       if (visibleStudentIds.includes(String(student._id))) {
         return student;
       }
 
-      throw new ForbiddenException('Teachers can access attendance only for their assigned students');
+      throw new ForbiddenException(
+        'Teachers can access attendance only for their assigned students',
+      );
     }
 
     throw new ForbiddenException('No access to attendance');
@@ -124,8 +162,9 @@ export class AttendanceService {
     schedule: ScheduleDocument,
     userId: string,
   ): Promise<void> {
-    const inScheduleStudents = Array.isArray(schedule.students)
-      && schedule.students.some(studentId => String(studentId) === userId);
+    const inScheduleStudents =
+      Array.isArray(schedule.students) &&
+      schedule.students.some((studentId) => String(studentId) === userId);
 
     if (inScheduleStudents) {
       return;
@@ -136,17 +175,24 @@ export class AttendanceService {
     }
 
     const group = await this.groupModel.findById(schedule.group).lean().exec();
-    const inGroup = Array.isArray(group?.students)
-      && group.students.some(studentId => String(studentId) === userId);
+    const inGroup =
+      Array.isArray(group?.students) &&
+      group.students.some((studentId) => String(studentId) === userId);
 
     if (!inGroup) {
-      throw new BadRequestException('Student is not enrolled in the scheduled group');
+      throw new BadRequestException(
+        'Student is not enrolled in the scheduled group',
+      );
     }
   }
 
-  private async resolveSchedule(body: MarkAttendanceDto): Promise<ScheduleDocument> {
+  private async resolveSchedule(
+    body: MarkAttendanceDto,
+  ): Promise<ScheduleDocument> {
     if (body.scheduleId) {
-      const schedule = await this.scheduleModel.findById(body.scheduleId).exec();
+      const schedule = await this.scheduleModel
+        .findById(body.scheduleId)
+        .exec();
       if (!schedule) {
         throw new NotFoundException('Schedule not found');
       }
@@ -166,18 +212,24 @@ export class AttendanceService {
         date: { $gte: start, $lte: end },
         $or: [
           { students: new Types.ObjectId(body.userId) },
-          ...(groupIds.length > 0 ? [{ group: { $in: groupIds.map(group => group._id) } }] : []),
+          ...(groupIds.length > 0
+            ? [{ group: { $in: groupIds.map((group) => group._id) } }]
+            : []),
         ],
       })
       .sort({ timeStart: 1 })
       .exec();
 
     if (schedules.length === 0) {
-      throw new BadRequestException('No schedule found for the student on the selected date');
+      throw new BadRequestException(
+        'No schedule found for the student on the selected date',
+      );
     }
 
     if (schedules.length > 1) {
-      throw new BadRequestException('Multiple lessons found for the selected date, scheduleId is required');
+      throw new BadRequestException(
+        'Multiple lessons found for the selected date, scheduleId is required',
+      );
     }
 
     return schedules[0];
@@ -186,7 +238,10 @@ export class AttendanceService {
   async getByUser(userId: string) {
     const attendance = await this.attendanceModel
       .find({ user: userId })
-      .populate({ path: 'schedule', select: 'date timeStart timeEnd course room teacher group' })
+      .populate({
+        path: 'schedule',
+        select: 'date timeStart timeEnd course room teacher group',
+      })
       .sort({ date: -1 })
       .exec();
     return mapAttendanceResponses(attendance);
@@ -197,21 +252,26 @@ export class AttendanceService {
     return this.getByUser(userId);
   }
 
-  async markAttendance(
-    body: MarkAttendanceDto,
-    actor?: AuthenticatedUser,
-  ) {
+  async markAttendance(body: MarkAttendanceDto, actor?: AuthenticatedUser) {
     if (!body.userId || !body.date) {
       throw new BadRequestException('Invalid attendance payload');
     }
 
-    await this.assertActorCanAccessStudent(actor as AuthenticatedUser, body.userId);
+    await this.assertActorCanAccessStudent(
+      actor as AuthenticatedUser,
+      body.userId,
+    );
 
     const schedule = await this.resolveSchedule(body);
     await this.ensureStudentIsEnrolled(schedule, body.userId);
 
-    if (actor?.role === Role.Teacher && String(schedule.teacher) !== actor.userId) {
-      throw new ForbiddenException('Teachers can mark attendance only for their own schedule');
+    if (
+      actor?.role === Role.Teacher &&
+      String(schedule.teacher) !== actor.userId
+    ) {
+      throw new ForbiddenException(
+        'Teachers can mark attendance only for their own schedule',
+      );
     }
 
     const attendance = await this.attendanceModel
@@ -226,7 +286,10 @@ export class AttendanceService {
         },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       )
-      .populate({ path: 'schedule', select: 'date timeStart timeEnd course room teacher group' })
+      .populate({
+        path: 'schedule',
+        select: 'date timeStart timeEnd course room teacher group',
+      })
       .exec();
 
     return mapAttendanceResponse(attendance);

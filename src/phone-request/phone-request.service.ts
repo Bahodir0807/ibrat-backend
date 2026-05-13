@@ -1,11 +1,21 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder } from 'mongoose';
-import { PhoneRequest, PhoneRequestDocument } from './schemas/phone-request.schema';
+import {
+  PhoneRequest,
+  PhoneRequestDocument,
+} from './schemas/phone-request.schema';
 import { CreatePhoneRequestDto } from './dto/create-phone-request.dto';
 import { HandlePhoneRequestDto } from './dto/handle-phone-request.dto';
 import { PhoneRequestListQueryDto } from './dto/phone-request-list-query.dto';
-import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
+import {
+  serializeResource,
+  serializeResources,
+} from '../common/serializers/resource.serializer';
 import { createPaginatedResult } from '../common/responses/paginated-result';
 
 @Injectable()
@@ -16,15 +26,19 @@ export class PhoneRequestService {
   ) {}
 
   private getSort(query: PhoneRequestListQueryDto) {
-    const sortBy = query.sortBy && ['createdAt', 'updatedAt', 'status'].includes(query.sortBy)
-      ? query.sortBy
-      : 'createdAt';
+    const sortBy =
+      query.sortBy &&
+      ['createdAt', 'updatedAt', 'status'].includes(query.sortBy)
+        ? query.sortBy
+        : 'createdAt';
     const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
 
     return { [sortBy]: sortOrder as SortOrder };
   }
 
-  private buildFilter(query: PhoneRequestListQueryDto = {}): FilterQuery<PhoneRequestDocument> {
+  private buildFilter(
+    query: PhoneRequestListQueryDto = {},
+  ): FilterQuery<PhoneRequestDocument> {
     const filter: FilterQuery<PhoneRequestDocument> = {};
 
     if (query.telegramId) {
@@ -37,18 +51,15 @@ export class PhoneRequestService {
 
     if (query.search?.trim()) {
       const regex = new RegExp(query.search.trim(), 'i');
-      filter.$or = [
-        { phone: regex },
-        { name: regex },
-        { telegramId: regex },
-      ];
+      filter.$or = [{ phone: regex }, { name: regex }, { telegramId: regex }];
     }
 
     return filter;
   }
 
   private mapPublicStatus(request: any) {
-    const source = typeof request?.toObject === 'function' ? request.toObject() : request;
+    const source =
+      typeof request?.toObject === 'function' ? request.toObject() : request;
     return {
       id: String(source.id ?? source._id),
       status: source.status,
@@ -58,7 +69,9 @@ export class PhoneRequestService {
   }
 
   async create(dto: CreatePhoneRequestDto) {
-    const existing = await this.phoneRequestModel.findOne({ telegramId: dto.telegramId }).exec();
+    const existing = await this.phoneRequestModel
+      .findOne({ telegramId: dto.telegramId })
+      .exec();
 
     if (existing && existing.status === 'pending') {
       existing.phone = dto.phone;
@@ -151,7 +164,12 @@ export class PhoneRequestService {
       this.phoneRequestModel.countDocuments(filter).exec(),
     ]);
 
-    return createPaginatedResult(serializeResources(requests), total, page, limit);
+    return createPaginatedResult(
+      serializeResources(requests),
+      total,
+      page,
+      limit,
+    );
   }
 
   async getPending(query: PhoneRequestListQueryDto = {}) {
@@ -159,11 +177,9 @@ export class PhoneRequestService {
   }
 
   async updateName(id: string, name: string) {
-    const updated = await this.phoneRequestModel.findByIdAndUpdate(
-      id,
-      { name, updatedAt: new Date() },
-      { new: true },
-    ).exec();
+    const updated = await this.phoneRequestModel
+      .findByIdAndUpdate(id, { name, updatedAt: new Date() }, { new: true })
+      .exec();
 
     if (!updated) {
       throw new NotFoundException('Request not found');

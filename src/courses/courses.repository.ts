@@ -5,9 +5,15 @@ import { Course, CourseDocument } from './schemas/course.schema';
 
 @Injectable()
 export class CoursesRepository {
-  constructor(@InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>) {}
+  constructor(
+    @InjectModel(Course.name)
+    private readonly courseModel: Model<CourseDocument>,
+  ) {}
 
-  find(filter: FilterQuery<CourseDocument> = {}, projection?: ProjectionType<CourseDocument>) {
+  find(
+    filter: FilterQuery<CourseDocument> = {},
+    projection?: ProjectionType<CourseDocument>,
+  ) {
     return this.courseModel.find(filter, projection);
   }
 

@@ -29,21 +29,25 @@ function createService(overrides: Record<string, jest.Mock> = {}) {
 describe('PhoneRequestService public responses', () => {
   it('does not expose phone, telegramId, name, or raw _id in public status lookup', async () => {
     const { service, phoneRequestModel } = createService();
-    phoneRequestModel.findOne.mockReturnValue(chain({
-      _id: 'request-1',
-      phone: '+100000000',
-      name: 'Private Name',
-      telegramId: '12345',
-      status: 'pending',
-      createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2026-01-02T00:00:00.000Z'),
-    }));
+    phoneRequestModel.findOne.mockReturnValue(
+      chain({
+        _id: 'request-1',
+        phone: '+100000000',
+        name: 'Private Name',
+        telegramId: '12345',
+        status: 'pending',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+      }),
+    );
 
-    await expect(service.getPublicStatusByTelegramId('12345')).resolves.toEqual({
-      id: 'request-1',
-      status: 'pending',
-      createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2026-01-02T00:00:00.000Z'),
-    });
+    await expect(service.getPublicStatusByTelegramId('12345')).resolves.toEqual(
+      {
+        id: 'request-1',
+        status: 'pending',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+      },
+    );
   });
 });

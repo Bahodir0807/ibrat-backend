@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -6,12 +11,18 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 import { Course, CourseDocument } from './schemas/course.schema';
 import { CoursesRepository } from './courses.repository';
 import { CoursesListQueryDto } from './dto/courses-list-query.dto';
-import { mapCourseResponse, mapCourseResponses } from './dto/course-response.dto';
+import {
+  mapCourseResponse,
+  mapCourseResponses,
+} from './dto/course-response.dto';
 import { createPaginatedResult } from '../common/responses/paginated-result';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Role } from '../roles/roles.enum';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
-import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
+import {
+  Schedule,
+  ScheduleDocument,
+} from '../schedule/schemas/schedule.schema';
 import { Payment, PaymentDocument } from '../payments/schemas/payment.schema';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
 import {
@@ -28,30 +39,55 @@ export class CoursesService {
     private readonly coursesRepository: CoursesRepository,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>,
-    @InjectModel(Schedule.name) private readonly scheduleModel: Model<ScheduleDocument>,
-    @InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>,
+    @InjectModel(Schedule.name)
+    private readonly scheduleModel: Model<ScheduleDocument>,
+    @InjectModel(Payment.name)
+    private readonly paymentModel: Model<PaymentDocument>,
   ) {}
 
   private readonly coursePopulate = [
-    { path: 'teacherId', select: 'username firstName lastName role' },
+    { path: 'teacherIds', select: 'username firstName lastName role' },
     { path: 'students', select: 'username firstName lastName role' },
   ];
 
   private extractReferenceId(value: unknown): string {
-    if (value && typeof value === 'object' && 'id' in (value as Record<string, unknown>)) {
+    if (
+      value &&
+      typeof value === 'object' &&
+      'id' in (value as Record<string, unknown>)
+    ) {
       return String((value as { id: unknown }).id);
     }
 
     return String(value ?? '');
   }
 
-  private assertTeacherCanManageCourse(course: { teacherId?: unknown }, actor: AuthenticatedUser) {
+  private getCourseTeacherIds(course: {
+    teacherId?: unknown;
+    teacherIds?: unknown[];
+  }): string[] {
+    return [
+      ...(Array.isArray(course.teacherIds)
+        ? course.teacherIds.map((teacherId) =>
+            this.extractReferenceId(teacherId),
+          )
+        : []),
+      this.extractReferenceId(course.teacherId),
+    ].filter((id) => Types.ObjectId.isValid(id));
+  }
+
+  private assertTeacherCanManageCourse(
+    course: { teacherId?: unknown; teacherIds?: unknown[] },
+    actor: AuthenticatedUser,
+  ) {
     if (actor.role !== Role.Teacher) {
       return;
     }
 
-    if (String(course.teacherId ?? '') !== actor.userId) {
-      throw new ForbiddenException('Teachers can manage only their own courses');
+    if (!this.getCourseTeacherIds(course).includes(actor.userId)) {
+      throw new ForbiddenException(
+        'Teachers can manage only their own courses',
+      );
     }
   }
 
@@ -63,19 +99,28 @@ export class CoursesService {
     throw new ForbiddenException('Only admin roles can mutate courses');
   }
 
-  private async getBranchScopedUserIds(actor: AuthenticatedUser, roles?: Role[]): Promise<string[]> {
+  private async getBranchScopedUserIds(
+    actor: AuthenticatedUser,
+    roles?: Role[],
+  ): Promise<string[]> {
     const actorBranches = ensureActorBranchScope(actor);
-    const filter: FilterQuery<UserDocument> = { branchIds: { $in: actorBranches } };
+    const filter: FilterQuery<UserDocument> = {
+      branchIds: { $in: actorBranches },
+    };
     if (roles?.length) {
       filter.role = { $in: roles };
     }
 
     const users = await this.userModel.find(filter, { _id: 1 }).lean().exec();
-    return users.map(user => String(user._id));
+    return users.map((user) => String(user._id));
   }
 
   private async assertBranchAdminCanAccessCourse(
-    course: { teacherId?: unknown; students?: unknown[] },
+    course: {
+      teacherId?: unknown;
+      teacherIds?: unknown[];
+      students?: unknown[];
+    },
     actor: AuthenticatedUser,
   ): Promise<void> {
     if (!isBranchAdminRole(actor.role)) {
@@ -84,11 +129,11 @@ export class CoursesService {
 
     const actorBranches = ensureActorBranchScope(actor);
     const relatedUserIds = [
-      this.extractReferenceId(course.teacherId),
+      ...this.getCourseTeacherIds(course),
       ...(Array.isArray(course.students)
-        ? course.students.map(student => this.extractReferenceId(student))
+        ? course.students.map((student) => this.extractReferenceId(student))
         : []),
-    ].filter(id => Types.ObjectId.isValid(id));
+    ].filter((id) => Types.ObjectId.isValid(id));
 
     if (relatedUserIds.length === 0) {
       throw new NotFoundException('Course not found');
@@ -100,8 +145,10 @@ export class CoursesService {
       .exec();
 
     if (
-      relatedUsers.length !== relatedUserIds.length
-      || relatedUsers.some(user => !hasBranchOverlap(actorBranches, user.branchIds))
+      relatedUsers.length !== relatedUserIds.length ||
+      relatedUsers.some(
+        (user) => !hasBranchOverlap(actorBranches, user.branchIds),
+      )
     ) {
       throw new NotFoundException('Course not found');
     }
@@ -115,13 +162,23 @@ export class CoursesService {
       return;
     }
 
-    const normalizedIds = [...new Set(studentIds.filter(studentId => Types.ObjectId.isValid(studentId)))];
+    const normalizedIds = [
+      ...new Set(
+        studentIds.filter((studentId) => Types.ObjectId.isValid(studentId)),
+      ),
+    ];
     if (normalizedIds.length === 0) {
       return;
     }
 
     const groups = await this.groupModel
-      .find({ teacher: actor.userId, students: { $in: toObjectIds(normalizedIds) } }, { students: 1 })
+      .find(
+        {
+          teacher: actor.userId,
+          students: { $in: toObjectIds(normalizedIds) },
+        },
+        { students: 1 },
+      )
       .lean()
       .exec();
     const visibleStudentIds = new Set<string>();
@@ -131,8 +188,10 @@ export class CoursesService {
       }
     }
 
-    if (!normalizedIds.every(studentId => visibleStudentIds.has(studentId))) {
-      throw new ForbiddenException('Teachers can assign only students from their own groups');
+    if (!normalizedIds.every((studentId) => visibleStudentIds.has(studentId))) {
+      throw new ForbiddenException(
+        'Teachers can assign only students from their own groups',
+      );
     }
   }
 
@@ -147,30 +206,46 @@ export class CoursesService {
 
     const actorBranches = ensureActorBranchScope(actor);
     const userIds = [
+      ...(Array.isArray(payload.teacherIds)
+        ? payload.teacherIds.map((teacherId) => String(teacherId))
+        : []),
       ...(payload.teacherId ? [String(payload.teacherId)] : []),
-      ...(Array.isArray(payload.students) ? payload.students.map(student => String(student)) : []),
-    ].filter(id => Types.ObjectId.isValid(id));
+      ...(Array.isArray(payload.students)
+        ? payload.students.map((student) => String(student))
+        : []),
+    ].filter((id) => Types.ObjectId.isValid(id));
 
     if (userIds.length === 0 && !requireRelatedUser) {
       return;
     }
 
     if (userIds.length === 0) {
-      throw new ForbiddenException('Course must be assigned to users inside your branch scope');
+      throw new ForbiddenException(
+        'Course must be assigned to users inside your branch scope',
+      );
     }
 
-    const users = await this.userModel.find({ _id: { $in: userIds } }, { branchIds: 1 }).lean().exec();
+    const users = await this.userModel
+      .find({ _id: { $in: userIds } }, { branchIds: 1 })
+      .lean()
+      .exec();
     if (users.length !== userIds.length) {
       throw new NotFoundException('One or more users were not found');
     }
 
-    if (users.some(user => !hasBranchOverlap(actorBranches, user.branchIds))) {
+    if (
+      users.some((user) => !hasBranchOverlap(actorBranches, user.branchIds))
+    ) {
       throw new ForbiddenException('Cannot manage course outside branch scope');
     }
   }
 
   private assertActorCanReadCourse(
-    course: { teacherId?: unknown; students?: unknown[] },
+    course: {
+      teacherId?: unknown;
+      teacherIds?: unknown[];
+      students?: unknown[];
+    },
     actor: AuthenticatedUser,
   ) {
     if ([Role.Owner, Role.Extra, Role.Admin].includes(actor.role)) {
@@ -178,8 +253,10 @@ export class CoursesService {
     }
 
     if (actor.role === Role.Teacher) {
-      if (this.extractReferenceId(course.teacherId) !== actor.userId) {
-        throw new ForbiddenException('Teachers can access only their own courses');
+      if (!this.getCourseTeacherIds(course).includes(actor.userId)) {
+        throw new ForbiddenException(
+          'Teachers can access only their own courses',
+        );
       }
 
       return;
@@ -187,9 +264,13 @@ export class CoursesService {
 
     if (actor.role === Role.Student) {
       const students = Array.isArray(course.students) ? course.students : [];
-      const isMember = students.some(student => this.extractReferenceId(student) === actor.userId);
+      const isMember = students.some(
+        (student) => this.extractReferenceId(student) === actor.userId,
+      );
       if (!isMember) {
-        throw new ForbiddenException('Students can access only their own courses');
+        throw new ForbiddenException(
+          'Students can access only their own courses',
+        );
       }
     }
   }
@@ -217,33 +298,53 @@ export class CoursesService {
   private normalizePayload(dto: CreateCourseDto | UpdateCourseDto) {
     const payload: Record<string, unknown> = { ...dto };
 
-    if ('teacherId' in dto && dto.teacherId !== undefined) {
-      payload.teacherId = dto.teacherId ? this.toObjectId(dto.teacherId) : undefined;
+    if ('teacherIds' in dto && dto.teacherIds !== undefined) {
+      payload.teacherIds = Array.from(
+        new Set(
+          (dto.teacherIds ?? []).map((teacherId) =>
+            this.toObjectId(teacherId)!.toString(),
+          ),
+        ),
+      ).map((teacherId) => new Types.ObjectId(teacherId));
+      delete payload.teacherId;
+    } else if ('teacherId' in dto && dto.teacherId !== undefined) {
+      payload.teacherIds = dto.teacherId
+        ? [this.toObjectId(dto.teacherId)]
+        : [];
+      delete payload.teacherId;
     }
 
     if ('students' in dto && dto.students !== undefined) {
       payload.students = Array.from(
-        new Set((dto.students ?? []).map(studentId => this.toObjectId(studentId)!.toString())),
-      ).map(studentId => new Types.ObjectId(studentId));
+        new Set(
+          (dto.students ?? []).map((studentId) =>
+            this.toObjectId(studentId)!.toString(),
+          ),
+        ),
+      ).map((studentId) => new Types.ObjectId(studentId));
     }
 
     return payload;
   }
 
   private getSort(query: CoursesListQueryDto) {
-    const sortBy = query.sortBy && ['name', 'price', 'createdAt'].includes(query.sortBy)
-      ? query.sortBy
-      : 'createdAt';
+    const sortBy =
+      query.sortBy && ['name', 'price', 'createdAt'].includes(query.sortBy)
+        ? query.sortBy
+        : 'createdAt';
     const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
 
     return { [sortBy]: sortOrder as SortOrder };
   }
 
-  private buildFilter(query: CoursesListQueryDto = {}): FilterQuery<CourseDocument> {
+  private buildFilter(
+    query: CoursesListQueryDto = {},
+  ): FilterQuery<CourseDocument> {
     const filter: FilterQuery<CourseDocument> = {};
 
-    if (query.teacherId) {
-      filter.teacherId = this.toObjectId(query.teacherId);
+    const teacherFilter = query.teacherIds ?? query.teacherId;
+    if (teacherFilter) {
+      filter.teacherIds = this.toObjectId(teacherFilter);
     }
 
     if (query.studentId) {
@@ -252,10 +353,7 @@ export class CoursesService {
 
     if (query.search?.trim()) {
       const regex = new RegExp(query.search.trim(), 'i');
-      filter.$or = [
-        { name: regex },
-        { description: regex },
-      ];
+      filter.$or = [{ name: regex }, { description: regex }];
     }
 
     return filter;
@@ -274,26 +372,42 @@ export class CoursesService {
   }
 
   private async validateRelations(payload: Record<string, unknown>) {
-    if (payload.teacherId) {
-      const teacher = await this.userModel.findById(payload.teacherId).lean().exec();
-      if (!teacher) {
-        throw new NotFoundException('Teacher not found');
+    if (Array.isArray(payload.teacherIds) && payload.teacherIds.length > 0) {
+      const teachers = await this.userModel
+        .find({ _id: { $in: payload.teacherIds } })
+        .lean()
+        .exec();
+      if (teachers.length !== payload.teacherIds.length) {
+        throw new NotFoundException('One or more teachers were not found');
       }
 
-      if (teacher.role !== Role.Teacher) {
-        throw new BadRequestException('Assigned teacher must have teacher role');
+      if (teachers.some((teacher) => teacher.role !== Role.Teacher)) {
+        throw new BadRequestException(
+          'Assigned teachers must have teacher role',
+        );
       }
     }
 
-    if (payload.students && Array.isArray(payload.students) && payload.students.length > 0) {
-      const students = await this.userModel.find({ _id: { $in: payload.students } }).lean().exec();
+    if (
+      payload.students &&
+      Array.isArray(payload.students) &&
+      payload.students.length > 0
+    ) {
+      const students = await this.userModel
+        .find({ _id: { $in: payload.students } })
+        .lean()
+        .exec();
       if (students.length !== payload.students.length) {
         throw new NotFoundException('One or more students were not found');
       }
 
-      const invalidStudent = students.find(student => student.role !== Role.Student);
+      const invalidStudent = students.find(
+        (student) => student.role !== Role.Student,
+      );
       if (invalidStudent) {
-        throw new BadRequestException('Only users with student role can be assigned to a course');
+        throw new BadRequestException(
+          'Only users with student role can be assigned to a course',
+        );
       }
     }
   }
@@ -307,8 +421,8 @@ export class CoursesService {
     const normalizedIds = Array.from(
       new Set(
         (studentIds ?? [])
-          .filter(studentId => Types.ObjectId.isValid(studentId))
-          .map(studentId => String(studentId)),
+          .filter((studentId) => Types.ObjectId.isValid(studentId))
+          .map((studentId) => String(studentId)),
       ),
     );
 
@@ -316,22 +430,35 @@ export class CoursesService {
       return this.findOne(courseId);
     }
 
-    const students = await this.userModel.find({ _id: { $in: normalizedIds } }).lean().exec();
+    const students = await this.userModel
+      .find({ _id: { $in: normalizedIds } })
+      .lean()
+      .exec();
     if (students.length !== normalizedIds.length) {
       throw new NotFoundException('One or more students were not found');
     }
 
-    const invalidStudent = students.find(student => student.role !== Role.Student);
+    const invalidStudent = students.find(
+      (student) => student.role !== Role.Student,
+    );
     if (invalidStudent) {
-      throw new BadRequestException('Only users with student role can be assigned to a course');
+      throw new BadRequestException(
+        'Only users with student role can be assigned to a course',
+      );
     }
 
-    const currentIds = (course.students ?? []).map(studentId => String(studentId));
-    const nextIds = normalizedIds.filter(studentId => !currentIds.includes(studentId));
+    const currentIds = (course.students ?? []).map((studentId) =>
+      String(studentId),
+    );
+    const nextIds = normalizedIds.filter(
+      (studentId) => !currentIds.includes(studentId),
+    );
 
     if (nextIds.length > 0) {
       course.students ??= [];
-      course.students.push(...nextIds.map(studentId => new Types.ObjectId(studentId)));
+      course.students.push(
+        ...nextIds.map((studentId) => new Types.ObjectId(studentId)),
+      );
       await course.save();
     }
 
@@ -355,7 +482,11 @@ export class CoursesService {
     }
 
     await this.assertBranchAdminCanAccessCourse(course, actor);
-    await this.assertCoursePayloadWithinActorScope({ students: studentIds }, actor, true);
+    await this.assertCoursePayloadWithinActorScope(
+      { students: studentIds },
+      actor,
+      true,
+    );
 
     return this.addManyStudentsToCourse(courseId, studentIds);
   }
@@ -367,20 +498,36 @@ export class CoursesService {
     return this.findOne(String(createdCourse._id));
   }
 
-  async createForActor(createCourseDto: CreateCourseDto, actor: AuthenticatedUser) {
+  async createForActor(
+    createCourseDto: CreateCourseDto,
+    actor: AuthenticatedUser,
+  ) {
     this.assertActorCanMutateCourses(actor);
     const payload = { ...createCourseDto };
 
     if (actor.role === Role.Teacher) {
-      if (payload.teacherId && payload.teacherId !== actor.userId) {
-        throw new ForbiddenException('Teachers can create courses only for themselves');
+      if (
+        payload.teacherIds?.length &&
+        !payload.teacherIds.includes(actor.userId)
+      ) {
+        throw new ForbiddenException(
+          'Teachers can create courses only for themselves',
+        );
       }
 
-      payload.teacherId = actor.userId;
-      await this.assertTeacherCourseStudentsWithinScope(payload.students, actor);
+      payload.teacherIds = [actor.userId];
+      delete payload.teacherId;
+      await this.assertTeacherCourseStudentsWithinScope(
+        payload.students,
+        actor,
+      );
     }
 
-    await this.assertCoursePayloadWithinActorScope(this.normalizePayload(payload), actor, true);
+    await this.assertCoursePayloadWithinActorScope(
+      this.normalizePayload(payload),
+      actor,
+      true,
+    );
 
     return this.create(payload);
   }
@@ -402,7 +549,12 @@ export class CoursesService {
       this.coursesRepository.countDocuments(filter).exec(),
     ]);
 
-    return createPaginatedResult(mapCourseResponses(courses), total, page, limit);
+    return createPaginatedResult(
+      mapCourseResponses(courses),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findAllForActor(query: CoursesListQueryDto, actor: AuthenticatedUser) {
@@ -415,7 +567,10 @@ export class CoursesService {
     }
 
     if (isBranchAdminRole(actor.role)) {
-      const scopedUserIds = await this.getBranchScopedUserIds(actor, [Role.Teacher, Role.Student]);
+      const scopedUserIds = await this.getBranchScopedUserIds(actor, [
+        Role.Teacher,
+        Role.Student,
+      ]);
       if (scopedUserIds.length === 0) {
         return createPaginatedResult([], 0, query.page ?? 1, query.limit ?? 20);
       }
@@ -434,9 +589,9 @@ export class CoursesService {
       const filter = this.appendAndFilter(this.buildFilter(query), [
         {
           $or: [
-            { teacherId: { $exists: false } },
-            { teacherId: null },
-            { teacherId: { $in: scopedObjectIds } },
+            { teacherIds: { $exists: false } },
+            { teacherIds: { $size: 0 } },
+            { teacherIds: { $in: scopedObjectIds } },
           ],
         },
         { students: { $not: { $elemMatch: { $nin: scopedObjectIds } } } },
@@ -453,7 +608,12 @@ export class CoursesService {
         this.coursesRepository.countDocuments(filter).exec(),
       ]);
 
-      return createPaginatedResult(mapCourseResponses(courses), total, page, limit);
+      return createPaginatedResult(
+        mapCourseResponses(courses),
+        total,
+        page,
+        limit,
+      );
     }
 
     return this.findAll(query);
@@ -464,7 +624,10 @@ export class CoursesService {
       throw new BadRequestException('Invalid course ID');
     }
 
-    const course = await this.coursesRepository.findById(id).populate(this.coursePopulate).exec();
+    const course = await this.coursesRepository
+      .findById(id)
+      .populate(this.coursePopulate)
+      .exec();
     if (!course) {
       throw new NotFoundException('Course not found');
     }
@@ -474,8 +637,22 @@ export class CoursesService {
 
   async findOneForActor(id: string, actor: AuthenticatedUser) {
     const course = await this.findOne(id);
-    await this.assertBranchAdminCanAccessCourse(course as { teacherId?: unknown; students?: unknown[] }, actor);
-    this.assertActorCanReadCourse(course as { teacherId?: unknown; students?: unknown[] }, actor);
+    await this.assertBranchAdminCanAccessCourse(
+      course as {
+        teacherId?: unknown;
+        teacherIds?: unknown[];
+        students?: unknown[];
+      },
+      actor,
+    );
+    this.assertActorCanReadCourse(
+      course as {
+        teacherId?: unknown;
+        teacherIds?: unknown[];
+        students?: unknown[];
+      },
+      actor,
+    );
     return course;
   }
 
@@ -498,7 +675,11 @@ export class CoursesService {
     return this.findOne(id);
   }
 
-  async updateForActor(id: string, updateCourseDto: UpdateCourseDto, actor: AuthenticatedUser) {
+  async updateForActor(
+    id: string,
+    updateCourseDto: UpdateCourseDto,
+    actor: AuthenticatedUser,
+  ) {
     this.assertActorCanMutateCourses(actor);
     const payload = { ...updateCourseDto };
     const course = await this.findDocumentById(id);
@@ -509,16 +690,28 @@ export class CoursesService {
     if (actor.role === Role.Teacher) {
       this.assertTeacherCanManageCourse(course, actor);
 
-      if (payload.teacherId && payload.teacherId !== actor.userId) {
-        throw new ForbiddenException('Teachers cannot reassign courses to another teacher');
+      if (
+        payload.teacherIds?.length &&
+        !payload.teacherIds.includes(actor.userId)
+      ) {
+        throw new ForbiddenException(
+          'Teachers cannot reassign courses to another teacher',
+        );
       }
 
-      payload.teacherId = actor.userId;
-      await this.assertTeacherCourseStudentsWithinScope(payload.students, actor);
+      payload.teacherIds = [actor.userId];
+      delete payload.teacherId;
+      await this.assertTeacherCourseStudentsWithinScope(
+        payload.students,
+        actor,
+      );
     }
 
     await this.assertBranchAdminCanAccessCourse(course, actor);
-    await this.assertCoursePayloadWithinActorScope(this.normalizePayload(payload), actor);
+    await this.assertCoursePayloadWithinActorScope(
+      this.normalizePayload(payload),
+      actor,
+    );
 
     return this.update(id, payload);
   }
@@ -545,7 +738,9 @@ export class CoursesService {
     ]);
 
     if (groupsExist || schedulesExist || paymentsExist) {
-      throw new BadRequestException('Course cannot be deleted while dependent groups, schedule entries, or payments exist');
+      throw new BadRequestException(
+        'Course cannot be deleted while dependent groups, schedule entries, or payments exist',
+      );
     }
 
     const result = await this.coursesRepository.deleteById(id).exec();

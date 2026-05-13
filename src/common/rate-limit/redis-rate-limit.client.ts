@@ -18,7 +18,7 @@ return count
 
 function encodeCommand(parts: Array<string | number>): string {
   return `*${parts.length}\r\n${parts
-    .map(part => {
+    .map((part) => {
       const value = String(part);
       return `$${Buffer.byteLength(value)}\r\n${value}\r\n`;
     })
@@ -52,7 +52,9 @@ class RespParser {
         return null;
       }
 
-      const value = this.buffer.subarray(this.offset, this.offset + length).toString();
+      const value = this.buffer
+        .subarray(this.offset, this.offset + length)
+        .toString();
       this.offset += length + 2;
       return value;
     }
@@ -84,7 +86,10 @@ class RespParser {
 export class TcpRedisRateLimitClient implements RedisRateLimitClient {
   private readonly url: URL;
 
-  constructor(redisUrl: string, private readonly timeoutMs = 5000) {
+  constructor(
+    redisUrl: string,
+    private readonly timeoutMs = 5000,
+  ) {
     this.url = new URL(redisUrl);
   }
 
@@ -93,7 +98,13 @@ export class TcpRedisRateLimitClient implements RedisRateLimitClient {
   }
 
   async incrementWithExpiry(key: string, ttlMs: number): Promise<number> {
-    const result = await this.runCommand(['EVAL', RATE_LIMIT_SCRIPT, 1, key, ttlMs]);
+    const result = await this.runCommand([
+      'EVAL',
+      RATE_LIMIT_SCRIPT,
+      1,
+      key,
+      ttlMs,
+    ]);
     if (typeof result !== 'number') {
       throw new Error('Unexpected Redis rate limit response');
     }
@@ -106,9 +117,16 @@ export class TcpRedisRateLimitClient implements RedisRateLimitClient {
 
     try {
       if (this.url.password) {
-        await this.writeAndRead(socket, this.url.username
-          ? ['AUTH', decodeURIComponent(this.url.username), decodeURIComponent(this.url.password)]
-          : ['AUTH', decodeURIComponent(this.url.password)]);
+        await this.writeAndRead(
+          socket,
+          this.url.username
+            ? [
+                'AUTH',
+                decodeURIComponent(this.url.username),
+                decodeURIComponent(this.url.password),
+              ]
+            : ['AUTH', decodeURIComponent(this.url.password)],
+        );
       }
 
       const db = this.url.pathname.replace('/', '');
@@ -140,14 +158,17 @@ export class TcpRedisRateLimitClient implements RedisRateLimitClient {
         clearTimeout(timer);
         resolve(socket);
       });
-      socket.once('error', error => {
+      socket.once('error', (error) => {
         clearTimeout(timer);
         reject(error);
       });
     });
   }
 
-  private writeAndRead(socket: RedisSocket, parts: Array<string | number>): Promise<unknown> {
+  private writeAndRead(
+    socket: RedisSocket,
+    parts: Array<string | number>,
+  ): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
       const timer = setTimeout(() => {
@@ -170,7 +191,10 @@ export class TcpRedisRateLimitClient implements RedisRateLimitClient {
           cleanup();
           resolve(response);
         } catch (error) {
-          if (error instanceof Error && error.message === 'Incomplete Redis response') {
+          if (
+            error instanceof Error &&
+            error.message === 'Incomplete Redis response'
+          ) {
             return;
           }
           cleanup();

@@ -1,13 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model, ProjectionType, SortOrder, UpdateQuery } from 'mongoose';
+import {
+  FilterQuery,
+  Model,
+  ProjectionType,
+  SortOrder,
+  UpdateQuery,
+} from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 
 @Injectable()
 export class UsersRepository {
-  constructor(@InjectModel(User.name) private readonly userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+  ) {}
 
-  find(filter: FilterQuery<UserDocument> = {}, projection?: ProjectionType<UserDocument>) {
+  find(
+    filter: FilterQuery<UserDocument> = {},
+    projection?: ProjectionType<UserDocument>,
+  ) {
     return this.userModel.find(filter, projection);
   }
 
@@ -31,7 +42,11 @@ export class UsersRepository {
     return this.userModel.findByIdAndUpdate(id, payload, { new: true });
   }
 
-  findByIdAndUpdate(id: string, payload: UpdateQuery<UserDocument>, options?: Record<string, unknown>) {
+  findByIdAndUpdate(
+    id: string,
+    payload: UpdateQuery<UserDocument>,
+    options?: Record<string, unknown>,
+  ) {
     return this.userModel.findByIdAndUpdate(id, payload, options);
   }
 

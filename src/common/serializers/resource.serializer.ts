@@ -6,7 +6,7 @@ function isPlainObject(value: unknown): value is PlainObject {
 
 function toPlain(value: unknown): unknown {
   if (Array.isArray(value)) {
-    return value.map(item => toPlain(item));
+    return value.map((item) => toPlain(item));
   }
 
   if (!isPlainObject(value)) {
@@ -17,7 +17,7 @@ function toPlain(value: unknown): unknown {
     return toPlain((value as { toObject: () => unknown }).toObject());
   }
 
-  const source = value as PlainObject;
+  const source = value;
   const result: PlainObject = {};
 
   if (source._id != null) {
@@ -41,5 +41,5 @@ export function serializeResource<T>(value: T): T {
 }
 
 export function serializeResources<T>(value: T[]): T[] {
-  return value.map(item => serializeResource(item));
+  return value.map((item) => serializeResource(item));
 }

@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
 import { Statistic, StatisticDocument } from './schemas/statistic.schema';
@@ -7,21 +12,35 @@ import { StatisticsListQueryDto } from './dto/statistics-list-query.dto';
 import { createPaginatedResult } from '../common/responses/paginated-result';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
 import { Role } from '../roles/roles.enum';
-import { ensureActorBranchScope, isBranchAdminRole, isSystemWideRole } from '../common/access/actor-scope';
+import {
+  ensureActorBranchScope,
+  isBranchAdminRole,
+  isSystemWideRole,
+} from '../common/access/actor-scope';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
-import { mapStatisticResponse, mapStatisticResponses } from './dto/statistic-response.dto';
+import {
+  mapStatisticResponse,
+  mapStatisticResponses,
+} from './dto/statistic-response.dto';
 
 @Injectable()
 export class StatisticsService {
   constructor(
-    @InjectModel(Statistic.name) private statisticModel: Model<StatisticDocument>,
+    @InjectModel(Statistic.name)
+    private statisticModel: Model<StatisticDocument>,
     @InjectModel(Group.name) private groupModel: Model<GroupDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
-  private metadataValue(statistic: StatisticDocument, key: string): string | undefined {
-    const metadata = statistic.metadata as Map<string, unknown> | Record<string, unknown> | undefined;
+  private metadataValue(
+    statistic: StatisticDocument,
+    key: string,
+  ): string | undefined {
+    const metadata = statistic.metadata as
+      | Map<string, unknown>
+      | Record<string, unknown>
+      | undefined;
     if (!metadata) {
       return undefined;
     }
@@ -30,7 +49,9 @@ export class StatisticsService {
     return value === undefined || value === null ? undefined : String(value);
   }
 
-  private buildFilter(query: StatisticsListQueryDto = {}): FilterQuery<StatisticDocument> {
+  private buildFilter(
+    query: StatisticsListQueryDto = {},
+  ): FilterQuery<StatisticDocument> {
     const filter: FilterQuery<StatisticDocument> = {};
 
     if (query.type?.trim()) {
@@ -57,12 +78,18 @@ export class StatisticsService {
   }
 
   private async getTeacherGroupIds(teacherId: string): Promise<string[]> {
-    const groups = await this.groupModel.find({ teacher: teacherId }, { _id: 1 }).lean().exec();
-    return groups.map(group => String(group._id));
+    const groups = await this.groupModel
+      .find({ teacher: teacherId }, { _id: 1 })
+      .lean()
+      .exec();
+    return groups.map((group) => String(group._id));
   }
 
   private async getTeacherStudentIds(teacherId: string): Promise<string[]> {
-    const groups = await this.groupModel.find({ teacher: teacherId }, { students: 1 }).lean().exec();
+    const groups = await this.groupModel
+      .find({ teacher: teacherId }, { students: 1 })
+      .lean()
+      .exec();
     const studentIds = new Set<string>();
     for (const group of groups) {
       for (const studentId of group.students ?? []) {
@@ -78,36 +105,66 @@ export class StatisticsService {
     actorBranches: string[],
   ): Promise<void> {
     const userIds = ['teacherId', 'studentId']
-      .map(key => metadata[key])
-      .filter((value): value is string => typeof value === 'string' && Types.ObjectId.isValid(value));
+      .map((key) => metadata[key])
+      .filter(
+        (value): value is string =>
+          typeof value === 'string' && Types.ObjectId.isValid(value),
+      );
 
     if (userIds.length > 0) {
-      const users = await this.userModel.find({ _id: { $in: userIds } }, { branchIds: 1 }).lean().exec();
+      const users = await this.userModel
+        .find({ _id: { $in: userIds } }, { branchIds: 1 })
+        .lean()
+        .exec();
       if (
-        users.length !== userIds.length
-        || users.some(user => !(user.branchIds ?? []).some(branchId => actorBranches.includes(branchId)))
+        users.length !== userIds.length ||
+        users.some(
+          (user) =>
+            !(user.branchIds ?? []).some((branchId) =>
+              actorBranches.includes(branchId),
+            ),
+        )
       ) {
-        throw new ForbiddenException('Statistic metadata references users outside your branch');
+        throw new ForbiddenException(
+          'Statistic metadata references users outside your branch',
+        );
       }
     }
 
-    const groupId = typeof metadata.groupId === 'string' ? metadata.groupId : undefined;
+    const groupId =
+      typeof metadata.groupId === 'string' ? metadata.groupId : undefined;
     if (!groupId || !Types.ObjectId.isValid(groupId)) {
       return;
     }
 
-    const group = await this.groupModel.findById(groupId, { teacher: 1, students: 1 }).lean().exec();
+    const group = await this.groupModel
+      .findById(groupId, { teacher: 1, students: 1 })
+      .lean()
+      .exec();
     if (!group) {
       throw new NotFoundException('Group not found');
     }
 
-    const groupUserIds = [String(group.teacher), ...(group.students ?? []).map(student => String(student))];
-    const groupUsers = await this.userModel.find({ _id: { $in: groupUserIds } }, { branchIds: 1 }).lean().exec();
+    const groupUserIds = [
+      String(group.teacher),
+      ...(group.students ?? []).map((student) => String(student)),
+    ];
+    const groupUsers = await this.userModel
+      .find({ _id: { $in: groupUserIds } }, { branchIds: 1 })
+      .lean()
+      .exec();
     if (
-      groupUsers.length !== groupUserIds.length
-      || groupUsers.some(user => !(user.branchIds ?? []).some(branchId => actorBranches.includes(branchId)))
+      groupUsers.length !== groupUserIds.length ||
+      groupUsers.some(
+        (user) =>
+          !(user.branchIds ?? []).some((branchId) =>
+            actorBranches.includes(branchId),
+          ),
+      )
     ) {
-      throw new ForbiddenException('Statistic metadata references a group outside your branch');
+      throw new ForbiddenException(
+        'Statistic metadata references a group outside your branch',
+      );
     }
   }
 
@@ -152,7 +209,10 @@ export class StatisticsService {
     throw new ForbiddenException('You are not allowed to access statistics');
   }
 
-  private async assertStatisticInActorScope(id: string, actor: AuthenticatedUser): Promise<void> {
+  private async assertStatisticInActorScope(
+    id: string,
+    actor: AuthenticatedUser,
+  ): Promise<void> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid statistic ID');
     }
@@ -177,14 +237,22 @@ export class StatisticsService {
     if (actor.role === Role.Teacher) {
       const teacherId = this.metadataValue(statistic, 'teacherId');
       const groupId = this.metadataValue(statistic, 'groupId');
-      const groupIds = groupId ? await this.getTeacherGroupIds(actor.userId) : [];
-      if (teacherId !== actor.userId && (!groupId || !groupIds.includes(groupId))) {
+      const groupIds = groupId
+        ? await this.getTeacherGroupIds(actor.userId)
+        : [];
+      if (
+        teacherId !== actor.userId &&
+        (!groupId || !groupIds.includes(groupId))
+      ) {
         throw new NotFoundException('Statistic not found');
       }
       return;
     }
 
-    if (actor.role === Role.Student && this.metadataValue(statistic, 'studentId') === actor.userId) {
+    if (
+      actor.role === Role.Student &&
+      this.metadataValue(statistic, 'studentId') === actor.userId
+    ) {
       return;
     }
 
@@ -203,11 +271,14 @@ export class StatisticsService {
 
     if (isBranchAdminRole(actor.role)) {
       const actorBranches = ensureActorBranchScope(actor);
-      const branchId = typeof metadata.branchId === 'string' ? metadata.branchId : undefined;
+      const branchId =
+        typeof metadata.branchId === 'string' ? metadata.branchId : undefined;
       if (!branchId && actorBranches.length === 1) {
         metadata.branchId = actorBranches[0];
       } else if (!branchId || !actorBranches.includes(branchId)) {
-        throw new ForbiddenException('Statistics must be scoped to your branch');
+        throw new ForbiddenException(
+          'Statistics must be scoped to your branch',
+        );
       }
 
       await this.assertMetadataUsersWithinBranch(metadata, actorBranches);
@@ -216,18 +287,24 @@ export class StatisticsService {
     }
 
     if (actor.role === Role.Teacher) {
-      const groupId = typeof metadata.groupId === 'string' ? metadata.groupId : undefined;
+      const groupId =
+        typeof metadata.groupId === 'string' ? metadata.groupId : undefined;
       if (groupId) {
         const groupIds = await this.getTeacherGroupIds(actor.userId);
         if (!groupIds.includes(groupId)) {
-          throw new ForbiddenException('Teachers can create statistics only for their own groups');
+          throw new ForbiddenException(
+            'Teachers can create statistics only for their own groups',
+          );
         }
       }
-      const studentId = typeof metadata.studentId === 'string' ? metadata.studentId : undefined;
+      const studentId =
+        typeof metadata.studentId === 'string' ? metadata.studentId : undefined;
       if (studentId) {
         const studentIds = await this.getTeacherStudentIds(actor.userId);
         if (!studentIds.includes(studentId)) {
-          throw new ForbiddenException('Teachers can create statistics only for students they teach');
+          throw new ForbiddenException(
+            'Teachers can create statistics only for students they teach',
+          );
         }
       }
       delete metadata.branchId;
@@ -255,16 +332,23 @@ export class StatisticsService {
     }
 
     if (isBranchAdminRole(actor.role)) {
-      const branchId = typeof dto.metadata.branchId === 'string' ? dto.metadata.branchId : undefined;
+      const branchId =
+        typeof dto.metadata.branchId === 'string'
+          ? dto.metadata.branchId
+          : undefined;
       const actorBranches = ensureActorBranchScope(actor);
       if (!branchId || !actorBranches.includes(branchId)) {
-        throw new ForbiddenException('Statistics must remain scoped to your branch');
+        throw new ForbiddenException(
+          'Statistics must remain scoped to your branch',
+        );
       }
       await this.assertMetadataUsersWithinBranch(dto.metadata, actorBranches);
       return;
     }
 
-    throw new ForbiddenException('You are not allowed to change statistic metadata');
+    throw new ForbiddenException(
+      'You are not allowed to change statistic metadata',
+    );
   }
 
   async create(dto: CreateStatisticDto) {
@@ -276,7 +360,9 @@ export class StatisticsService {
   }
 
   async createForActor(dto: CreateStatisticDto, actor: AuthenticatedUser) {
-    return this.create(await this.assertStatisticPayloadWithinActorScope(dto, actor));
+    return this.create(
+      await this.assertStatisticPayloadWithinActorScope(dto, actor),
+    );
   }
 
   async findAll(query: StatisticsListQueryDto = {}) {
@@ -285,38 +371,71 @@ export class StatisticsService {
     const filter = this.buildFilter(query);
 
     const [statistics, total] = await Promise.all([
-      this.statisticModel.find(filter).sort({ date: -1 }).skip((page - 1) * limit).limit(limit).exec(),
+      this.statisticModel
+        .find(filter)
+        .sort({ date: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
       this.statisticModel.countDocuments(filter).exec(),
     ]);
 
-    return createPaginatedResult(mapStatisticResponses(statistics), total, page, limit);
+    return createPaginatedResult(
+      mapStatisticResponses(statistics),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findByType(type: string, query: StatisticsListQueryDto = {}) {
     return this.findAll({ ...query, type });
   }
 
-  async findAllForActor(query: StatisticsListQueryDto = {}, actor: AuthenticatedUser) {
+  async findAllForActor(
+    query: StatisticsListQueryDto = {},
+    actor: AuthenticatedUser,
+  ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const filter = await this.buildActorFilter(query, actor);
 
     const [statistics, total] = await Promise.all([
-      this.statisticModel.find(filter).sort({ date: -1 }).skip((page - 1) * limit).limit(limit).exec(),
+      this.statisticModel
+        .find(filter)
+        .sort({ date: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
       this.statisticModel.countDocuments(filter).exec(),
     ]);
 
-    return createPaginatedResult(mapStatisticResponses(statistics), total, page, limit);
+    return createPaginatedResult(
+      mapStatisticResponses(statistics),
+      total,
+      page,
+      limit,
+    );
   }
 
-  async findByTypeForActor(type: string, query: StatisticsListQueryDto = {}, actor: AuthenticatedUser) {
+  async findByTypeForActor(
+    type: string,
+    query: StatisticsListQueryDto = {},
+    actor: AuthenticatedUser,
+  ) {
     return this.findAllForActor({ ...query, type }, actor);
   }
 
-  async updateForActor(id: string, dto: { value?: number; metadata?: Record<string, unknown> }, actor: AuthenticatedUser) {
+  async updateForActor(
+    id: string,
+    dto: { value?: number; metadata?: Record<string, unknown> },
+    actor: AuthenticatedUser,
+  ) {
     await this.assertStatisticInActorScope(id, actor);
     await this.assertStatisticUpdatePayloadWithinActorScope(dto, actor);
-    const updated = await this.statisticModel.findByIdAndUpdate(id, dto, { new: true }).exec();
+    const updated = await this.statisticModel
+      .findByIdAndUpdate(id, dto, { new: true })
+      .exec();
     if (!updated) {
       throw new NotFoundException('Statistic not found');
     }

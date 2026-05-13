@@ -14,7 +14,9 @@ import { AuthSession, AuthSessionSchema } from './schemas/auth-session.schema';
 @Module({
   imports: [
     AppConfigModule,
-    MongooseModule.forFeature([{ name: AuthSession.name, schema: AuthSessionSchema }]),
+    MongooseModule.forFeature([
+      { name: AuthSession.name, schema: AuthSessionSchema },
+    ]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [AppConfigModule],

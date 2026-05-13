@@ -9,10 +9,10 @@ import { PaginatedResult } from '../responses/paginated-result';
 
 function isPaginatedResult(value: unknown): value is PaginatedResult<unknown> {
   return Boolean(
-    value
-      && typeof value === 'object'
-      && 'items' in value
-      && 'pagination' in value,
+    value &&
+      typeof value === 'object' &&
+      'items' in value &&
+      'pagination' in value,
   );
 }
 

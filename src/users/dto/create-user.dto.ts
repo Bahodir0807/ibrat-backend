@@ -28,7 +28,7 @@ const optionalTrimmedString = (value: unknown) => {
 
 export class CreateUserDto {
   @IsString()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MinLength(3, { message: 'Username must be at least 3 characters long' })
   @MaxLength(20, { message: 'Username must be at most 20 characters long' })
   username!: string;
@@ -39,28 +39,35 @@ export class CreateUserDto {
   password!: string;
 
   @IsOptional()
-  @IsEnum(Role, { message: 'Role must be one of: admin, teacher, student, owner, panda, guest' })
+  @IsEnum(Role, {
+    message:
+      'Role must be one of: admin, teacher, student, owner, panda, guest',
+  })
   role?: Role;
 
   @IsOptional()
-  @IsEnum(UserStatus, { message: 'Status must be one of: active, inactive, blocked' })
+  @IsEnum(UserStatus, {
+    message: 'Status must be one of: active, inactive, blocked',
+  })
   status?: UserStatus;
 
   @IsOptional()
   @Transform(({ value }) => {
     const normalized = optionalTrimmedString(value);
-    return typeof normalized === 'string' ? normalized.toLowerCase() : normalized;
+    return typeof normalized === 'string'
+      ? normalized.toLowerCase()
+      : normalized;
   })
   @IsEmail({}, { message: 'Email must be valid' })
   email?: string;
 
   @IsString()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MaxLength(100)
   firstName!: string;
 
   @IsString()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MaxLength(100)
   lastName!: string;
 
@@ -69,6 +76,18 @@ export class CreateUserDto {
   @Transform(({ value }) => optionalTrimmedString(value))
   @MaxLength(30)
   phoneNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => optionalTrimmedString(value))
+  @MaxLength(30)
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => optionalTrimmedString(value))
+  @MaxLength(30)
+  telephone?: string;
 
   @IsOptional()
   @Transform(({ value }) => optionalTrimmedString(value))
@@ -88,8 +107,8 @@ export class CreateUserDto {
   @Transform(({ value }) => {
     if (Array.isArray(value)) {
       return value
-        .map(item => typeof item === 'string' ? item.trim() : item)
-        .filter(item => typeof item === 'string' && item.length > 0);
+        .map((item) => (typeof item === 'string' ? item.trim() : item))
+        .filter((item) => typeof item === 'string' && item.length > 0);
     }
 
     if (typeof value === 'string') {

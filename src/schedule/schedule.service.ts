@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { Schedule, ScheduleDocument } from './schemas/schedule.schema';
@@ -12,19 +17,27 @@ import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { Room, RoomDocument } from '../rooms/schemas/room.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
-import { Attendance, AttendanceDocument } from '../attendance/schemas/attendance.schema';
+import {
+  Attendance,
+  AttendanceDocument,
+} from '../attendance/schemas/attendance.schema';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
-import { mapScheduleResponse, mapScheduleResponses } from './dto/schedule-response.dto';
+import {
+  mapScheduleResponse,
+  mapScheduleResponses,
+} from './dto/schedule-response.dto';
 
 @Injectable()
 export class ScheduleService {
   constructor(
     private readonly scheduleRepository: ScheduleRepository,
-    @InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>,
+    @InjectModel(Course.name)
+    private readonly courseModel: Model<CourseDocument>,
     @InjectModel(Room.name) private readonly roomModel: Model<RoomDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>,
-    @InjectModel(Attendance.name) private readonly attendanceModel: Model<AttendanceDocument>,
+    @InjectModel(Attendance.name)
+    private readonly attendanceModel: Model<AttendanceDocument>,
   ) {}
 
   private readonly schedulePopulate = [
@@ -36,7 +49,11 @@ export class ScheduleService {
   ];
 
   private extractReferenceId(value: unknown): string {
-    if (value && typeof value === 'object' && 'id' in (value as Record<string, unknown>)) {
+    if (
+      value &&
+      typeof value === 'object' &&
+      'id' in (value as Record<string, unknown>)
+    ) {
       return String((value as { id: unknown }).id);
     }
 
@@ -44,19 +61,30 @@ export class ScheduleService {
   }
 
   private normalizeBranchIds(branchIds?: string[]): string[] {
-    return [...new Set((branchIds ?? [])
-      .filter((branchId): branchId is string => typeof branchId === 'string')
-      .map(branchId => branchId.trim())
-      .filter(branchId => branchId.length > 0))];
+    return [
+      ...new Set(
+        (branchIds ?? [])
+          .filter(
+            (branchId): branchId is string => typeof branchId === 'string',
+          )
+          .map((branchId) => branchId.trim())
+          .filter((branchId) => branchId.length > 0),
+      ),
+    ];
   }
 
-  private assertTeacherCanManageSchedule(schedule: { teacher?: unknown }, actor: AuthenticatedUser) {
+  private assertTeacherCanManageSchedule(
+    schedule: { teacher?: unknown },
+    actor: AuthenticatedUser,
+  ) {
     if (actor.role !== Role.Teacher) {
       return;
     }
 
     if (String(schedule.teacher ?? '') !== actor.userId) {
-      throw new ForbiddenException('Teachers can manage only their own schedule');
+      throw new ForbiddenException(
+        'Teachers can manage only their own schedule',
+      );
     }
   }
 
@@ -78,17 +106,26 @@ export class ScheduleService {
     }
 
     const teacherId = this.extractReferenceId(schedule.teacher);
-    const teacher = teacherId && Types.ObjectId.isValid(teacherId)
-      ? await this.userModel.findById(teacherId, { branchIds: 1 }).lean().exec()
-      : null;
+    const teacher =
+      teacherId && Types.ObjectId.isValid(teacherId)
+        ? await this.userModel
+            .findById(teacherId, { branchIds: 1 })
+            .lean()
+            .exec()
+        : null;
 
     const teacherBranches = this.normalizeBranchIds(teacher?.branchIds);
-    if (!teacher || !teacherBranches.some(branchId => actorBranches.includes(branchId))) {
+    if (
+      !teacher ||
+      !teacherBranches.some((branchId) => actorBranches.includes(branchId))
+    ) {
       throw new NotFoundException('Schedule not found');
     }
 
     const scheduleStudentIds = Array.isArray(schedule.students)
-      ? schedule.students.map(student => this.extractReferenceId(student)).filter(Boolean)
+      ? schedule.students
+          .map((student) => this.extractReferenceId(student))
+          .filter(Boolean)
       : [];
 
     if (scheduleStudentIds.length === 0) {
@@ -100,15 +137,22 @@ export class ScheduleService {
       .lean()
       .exec();
 
-    const allStudentsScoped = students.length === scheduleStudentIds.length
-      && students.every(student => this.normalizeBranchIds(student!.branchIds)
-        .some(branchId => actorBranches.includes(branchId)));
+    const allStudentsScoped =
+      students.length === scheduleStudentIds.length &&
+      students.every((student) =>
+        this.normalizeBranchIds(student.branchIds).some((branchId) =>
+          actorBranches.includes(branchId),
+        ),
+      );
     if (!allStudentsScoped) {
       throw new NotFoundException('Schedule not found');
     }
   }
 
-  private async assertAdminCanUseGroup(groupId: string | undefined, actorBranches: string[]): Promise<void> {
+  private async assertAdminCanUseGroup(
+    groupId: string | undefined,
+    actorBranches: string[],
+  ): Promise<void> {
     if (!groupId) {
       return;
     }
@@ -118,11 +162,21 @@ export class ScheduleService {
       throw new NotFoundException('Group not found');
     }
 
-    const relatedUserIds = [String(group.teacher), ...(group.students ?? []).map(student => String(student))];
-    const users = await this.userModel.find({ _id: { $in: relatedUserIds } }, { branchIds: 1 }).lean().exec();
-    const allUsersScoped = users.length === relatedUserIds.length
-      && users.every(user => this.normalizeBranchIds(user.branchIds)
-        .some(branchId => actorBranches.includes(branchId)));
+    const relatedUserIds = [
+      String(group.teacher),
+      ...(group.students ?? []).map((student) => String(student)),
+    ];
+    const users = await this.userModel
+      .find({ _id: { $in: relatedUserIds } }, { branchIds: 1 })
+      .lean()
+      .exec();
+    const allUsersScoped =
+      users.length === relatedUserIds.length &&
+      users.every((user) =>
+        this.normalizeBranchIds(user.branchIds).some((branchId) =>
+          actorBranches.includes(branchId),
+        ),
+      );
 
     if (!allUsersScoped) {
       throw new ForbiddenException('Cannot use group outside branch scope');
@@ -144,17 +198,25 @@ export class ScheduleService {
 
     if (actor.role === Role.Teacher) {
       if (this.extractReferenceId(schedule.teacher) !== actor.userId) {
-        throw new ForbiddenException('Teachers can access only their own schedule');
+        throw new ForbiddenException(
+          'Teachers can access only their own schedule',
+        );
       }
 
       return;
     }
 
     if (actor.role === Role.Student) {
-      const students = Array.isArray(schedule.students) ? schedule.students : [];
-      const isParticipant = students.some(student => this.extractReferenceId(student) === actor.userId);
+      const students = Array.isArray(schedule.students)
+        ? schedule.students
+        : [];
+      const isParticipant = students.some(
+        (student) => this.extractReferenceId(student) === actor.userId,
+      );
       if (!isParticipant) {
-        throw new ForbiddenException('Students can access only their own schedule');
+        throw new ForbiddenException(
+          'Students can access only their own schedule',
+        );
       }
     }
   }
@@ -200,15 +262,23 @@ export class ScheduleService {
 
     if ('students' in dto && dto.students !== undefined) {
       payload.students = Array.from(
-        new Set((dto.students ?? []).map(studentId => this.toObjectId(studentId)!.toString())),
-      ).map(studentId => new Types.ObjectId(studentId));
+        new Set(
+          (dto.students ?? []).map((studentId) =>
+            this.toObjectId(studentId)!.toString(),
+          ),
+        ),
+      ).map((studentId) => new Types.ObjectId(studentId));
     }
 
     return payload;
   }
 
-  private toScheduleState(dto: CreateScheduleDto | UpdateScheduleDto | Record<string, unknown>) {
-    const payload = this.normalizePayload(dto as CreateScheduleDto | UpdateScheduleDto) as Record<string, unknown>;
+  private toScheduleState(
+    dto: CreateScheduleDto | UpdateScheduleDto | Record<string, unknown>,
+  ) {
+    const payload = this.normalizePayload(
+      dto as CreateScheduleDto | UpdateScheduleDto,
+    );
 
     if (payload.date) {
       payload.date = new Date(String(payload.date));
@@ -246,9 +316,9 @@ export class ScheduleService {
 
   private ensureValidTimeRange(date: Date, timeStart: Date, timeEnd: Date) {
     if (
-      Number.isNaN(date.getTime())
-      || Number.isNaN(timeStart.getTime())
-      || Number.isNaN(timeEnd.getTime())
+      Number.isNaN(date.getTime()) ||
+      Number.isNaN(timeStart.getTime()) ||
+      Number.isNaN(timeEnd.getTime())
     ) {
       throw new BadRequestException('Invalid schedule date or time');
     }
@@ -258,8 +328,15 @@ export class ScheduleService {
     }
 
     const { start, end } = this.getDayRange(date);
-    if (timeStart < start || timeStart > end || timeEnd < start || timeEnd > end) {
-      throw new BadRequestException('timeStart and timeEnd must belong to the same schedule date');
+    if (
+      timeStart < start ||
+      timeStart > end ||
+      timeEnd < start ||
+      timeEnd > end
+    ) {
+      throw new BadRequestException(
+        'timeStart and timeEnd must belong to the same schedule date',
+      );
     }
   }
 
@@ -282,7 +359,9 @@ export class ScheduleService {
       this.courseModel.findById(state.course).lean().exec(),
       this.roomModel.findById(state.room).lean().exec(),
       this.userModel.findById(state.teacher).lean().exec(),
-      state.group ? this.groupModel.findById(state.group).lean().exec() : Promise.resolve(null),
+      state.group
+        ? this.groupModel.findById(state.group).lean().exec()
+        : Promise.resolve(null),
     ]);
 
     if (!course) {
@@ -305,12 +384,25 @@ export class ScheduleService {
       throw new BadRequestException('Assigned teacher must have teacher role');
     }
 
-    if (course.teacherId && String(course.teacherId) !== String(state.teacher)) {
-      throw new BadRequestException('Schedule teacher must match the course teacher');
+    const courseTeacherIds = [
+      ...(Array.isArray(course.teacherIds)
+        ? course.teacherIds.map((teacherId) => String(teacherId))
+        : []),
+      ...(course.teacherId ? [String(course.teacherId)] : []),
+    ];
+    if (
+      courseTeacherIds.length > 0 &&
+      !courseTeacherIds.includes(String(state.teacher))
+    ) {
+      throw new BadRequestException(
+        'Schedule teacher must be one of the course teachers',
+      );
     }
 
     let allowedStudentIds = new Set<string>(
-      Array.isArray(course.students) ? course.students.map(studentId => String(studentId)) : [],
+      Array.isArray(course.students)
+        ? course.students.map((studentId) => String(studentId))
+        : [],
     );
 
     if (state.group) {
@@ -319,36 +411,55 @@ export class ScheduleService {
       }
 
       if (String(group.course) !== String(state.course)) {
-        throw new BadRequestException('Group must belong to the selected course');
+        throw new BadRequestException(
+          'Group must belong to the selected course',
+        );
       }
 
       if (String(group.teacher) !== String(state.teacher)) {
-        throw new BadRequestException('Group teacher must match the schedule teacher');
+        throw new BadRequestException(
+          'Group teacher must match the schedule teacher',
+        );
       }
 
       allowedStudentIds = new Set(
-        Array.isArray(group.students) ? group.students.map(studentId => String(studentId)) : [],
+        Array.isArray(group.students)
+          ? group.students.map((studentId) => String(studentId))
+          : [],
       );
 
       if (!state.students || state.students.length === 0) {
-        state.students = group.students.map(studentId => new Types.ObjectId(String(studentId)));
+        state.students = group.students.map(
+          (studentId) => new Types.ObjectId(String(studentId)),
+        );
       }
     }
 
     if (state.students && state.students.length > 0) {
-      const students = await this.userModel.find({ _id: { $in: state.students } }).lean().exec();
+      const students = await this.userModel
+        .find({ _id: { $in: state.students } })
+        .lean()
+        .exec();
       if (students.length !== state.students.length) {
         throw new NotFoundException('One or more students were not found');
       }
 
-      const invalidStudent = students.find(student => student!.role !== Role.Student);
+      const invalidStudent = students.find(
+        (student) => student.role !== Role.Student,
+      );
       if (invalidStudent) {
-        throw new BadRequestException('Only users with student role can be assigned to schedule');
+        throw new BadRequestException(
+          'Only users with student role can be assigned to schedule',
+        );
       }
 
-      const notEnrolled = state.students.find(studentId => !allowedStudentIds.has(String(studentId)));
+      const notEnrolled = state.students.find(
+        (studentId) => !allowedStudentIds.has(String(studentId)),
+      );
       if (notEnrolled) {
-        throw new BadRequestException('All scheduled students must be enrolled in the related course or group');
+        throw new BadRequestException(
+          'All scheduled students must be enrolled in the related course or group',
+        );
       }
     }
 
@@ -362,17 +473,26 @@ export class ScheduleService {
         { room: state.room },
         { teacher: state.teacher },
         ...(state.group ? [{ group: state.group }] : []),
-        ...(state.students && state.students.length > 0 ? [{ students: { $in: state.students } }] : []),
+        ...(state.students && state.students.length > 0
+          ? [{ students: { $in: state.students } }]
+          : []),
       ],
     };
 
-    const conflictingSchedule = await this.scheduleRepository.findOne(overlapFilter).lean().exec();
+    const conflictingSchedule = await this.scheduleRepository
+      .findOne(overlapFilter)
+      .lean()
+      .exec();
     if (conflictingSchedule) {
-      throw new BadRequestException('Schedule conflicts with an existing room, teacher, group, or student allocation');
+      throw new BadRequestException(
+        'Schedule conflicts with an existing room, teacher, group, or student allocation',
+      );
     }
   }
 
-  private buildFilter(query: ScheduleListQueryDto = {}): FilterQuery<ScheduleDocument> {
+  private buildFilter(
+    query: ScheduleListQueryDto = {},
+  ): FilterQuery<ScheduleDocument> {
     const filter: FilterQuery<ScheduleDocument> = {};
 
     if (query.teacherId) {
@@ -409,9 +529,10 @@ export class ScheduleService {
   }
 
   private getSort(query: ScheduleListQueryDto) {
-    const sortBy = query.sortBy && ['date', 'timeStart', 'createdAt'].includes(query.sortBy)
-      ? query.sortBy
-      : 'date';
+    const sortBy =
+      query.sortBy && ['date', 'timeStart', 'createdAt'].includes(query.sortBy)
+        ? query.sortBy
+        : 'date';
     const sortOrder = query.sortOrder === 'desc' ? -1 : 1;
 
     return sortBy === 'date'
@@ -421,11 +542,21 @@ export class ScheduleService {
 
   async getScheduleForUser(userId: string, role: string) {
     if (role === Role.Student) {
-      return this.findAll({ studentId: userId, sortBy: 'date', sortOrder: 'asc', limit: 100 });
+      return this.findAll({
+        studentId: userId,
+        sortBy: 'date',
+        sortOrder: 'asc',
+        limit: 100,
+      });
     }
 
     if (role === Role.Teacher) {
-      return this.findAll({ teacherId: userId, sortBy: 'date', sortOrder: 'asc', limit: 100 });
+      return this.findAll({
+        teacherId: userId,
+        sortBy: 'date',
+        sortOrder: 'asc',
+        limit: 100,
+      });
     }
 
     if ([Role.Admin, Role.Owner, Role.Extra].includes(role as Role)) {
@@ -437,7 +568,9 @@ export class ScheduleService {
 
   async getScheduleByUserIdForActor(userId: string, actor: AuthenticatedUser) {
     if (actor.role === Role.Teacher && actor.userId !== userId) {
-      throw new ForbiddenException('Teachers can access only their own schedule');
+      throw new ForbiddenException(
+        'Teachers can access only their own schedule',
+      );
     }
 
     if ([Role.Owner, Role.Admin, Role.Extra].includes(actor.role)) {
@@ -457,7 +590,7 @@ export class ScheduleService {
 
       const userBranches = this.normalizeBranchIds(user.branchIds);
 
-      if (!userBranches.some(branchId => actorBranches.includes(branchId))) {
+      if (!userBranches.some((branchId) => actorBranches.includes(branchId))) {
         throw new NotFoundException('User not found');
       }
 
@@ -477,11 +610,11 @@ export class ScheduleService {
 
     const [schedule, total] = await Promise.all([
       this.scheduleRepository
-      .find(filter)
-      .populate(this.schedulePopulate)
-      .sort({ date: 1, timeStart: 1 })
-      .limit(100)
-      .exec(),
+        .find(filter)
+        .populate(this.schedulePopulate)
+        .sort({ date: 1, timeStart: 1 })
+        .limit(100)
+        .exec(),
       this.scheduleRepository.countDocuments(filter).exec(),
     ]);
 
@@ -504,7 +637,12 @@ export class ScheduleService {
       this.scheduleRepository.countDocuments(filter).exec(),
     ]);
 
-    return createPaginatedResult(mapScheduleResponses(schedule), total, page, limit);
+    return createPaginatedResult(
+      mapScheduleResponses(schedule),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findAllForActor(query: ScheduleListQueryDto, actor: AuthenticatedUser) {
@@ -526,36 +664,58 @@ export class ScheduleService {
       const limit = query.limit ?? 20;
 
       if (query.teacherId) {
-        const teacher = await this.userModel.findById(query.teacherId, { branchIds: 1 }).lean().exec();
+        const teacher = await this.userModel
+          .findById(query.teacherId, { branchIds: 1 })
+          .lean()
+          .exec();
         if (!teacher) {
           throw new NotFoundException('Teacher not found');
         }
 
         const teacherBranches = this.normalizeBranchIds(teacher!.branchIds);
-        if (!teacherBranches.some(branchId => actorBranches.includes(branchId))) {
+        if (
+          !teacherBranches.some((branchId) => actorBranches.includes(branchId))
+        ) {
           throw new NotFoundException('Teacher not found');
         }
       }
 
       if (query.studentId) {
-        const student = await this.userModel.findById(query.studentId, { branchIds: 1, role: 1 }).lean().exec();
+        const student = await this.userModel
+          .findById(query.studentId, { branchIds: 1, role: 1 })
+          .lean()
+          .exec();
         if (!student || student!.role !== Role.Student) {
           throw new NotFoundException('Student not found');
         }
 
         const studentBranches = this.normalizeBranchIds(student!.branchIds);
-        if (!studentBranches.some(branchId => actorBranches.includes(branchId))) {
+        if (
+          !studentBranches.some((branchId) => actorBranches.includes(branchId))
+        ) {
           throw new NotFoundException('Student not found');
         }
       }
 
       const [scopedTeachers, scopedStudents] = await Promise.all([
-        this.userModel.find({ role: Role.Teacher, branchIds: { $in: actorBranches } }, { _id: 1 }).lean().exec(),
-        this.userModel.find({ role: Role.Student, branchIds: { $in: actorBranches } }, { _id: 1 }).lean().exec(),
+        this.userModel
+          .find(
+            { role: Role.Teacher, branchIds: { $in: actorBranches } },
+            { _id: 1 },
+          )
+          .lean()
+          .exec(),
+        this.userModel
+          .find(
+            { role: Role.Student, branchIds: { $in: actorBranches } },
+            { _id: 1 },
+          )
+          .lean()
+          .exec(),
       ]);
 
-      const teacherIds = scopedTeachers.map(teacher => teacher._id);
-      const studentIds = scopedStudents.map(student => student._id);
+      const teacherIds = scopedTeachers.map((teacher) => teacher._id);
+      const studentIds = scopedStudents.map((student) => student._id);
       if (teacherIds.length === 0 && studentIds.length === 0) {
         return createPaginatedResult([], 0, query.page ?? 1, query.limit ?? 20);
       }
@@ -577,7 +737,12 @@ export class ScheduleService {
         this.scheduleRepository.countDocuments(baseFilter).exec(),
       ]);
 
-      return createPaginatedResult(mapScheduleResponses(schedule), total, page, limit);
+      return createPaginatedResult(
+        mapScheduleResponses(schedule),
+        total,
+        page,
+        limit,
+      );
     }
 
     return this.findAll(query);
@@ -588,7 +753,10 @@ export class ScheduleService {
       throw new BadRequestException('Invalid schedule ID');
     }
 
-    const schedule = await this.scheduleRepository.findById(id).populate(this.schedulePopulate).exec();
+    const schedule = await this.scheduleRepository
+      .findById(id)
+      .populate(this.schedulePopulate)
+      .exec();
     if (!schedule) {
       throw new NotFoundException('Schedule not found');
     }
@@ -598,7 +766,10 @@ export class ScheduleService {
 
   async findOneForActor(id: string, actor: AuthenticatedUser) {
     const schedule = await this.findOne(id);
-    await this.assertActorCanReadSchedule(schedule as { teacher?: unknown; students?: unknown[] }, actor);
+    await this.assertActorCanReadSchedule(
+      schedule as { teacher?: unknown; students?: unknown[] },
+      actor,
+    );
     return schedule;
   }
 
@@ -610,13 +781,18 @@ export class ScheduleService {
     return this.findOne(String(schedule._id));
   }
 
-  async createForActor(createScheduleDto: CreateScheduleDto, actor: AuthenticatedUser) {
+  async createForActor(
+    createScheduleDto: CreateScheduleDto,
+    actor: AuthenticatedUser,
+  ) {
     this.assertActorCanMutateSchedule(actor);
     const payload = { ...createScheduleDto };
 
     if (actor.role === Role.Teacher) {
       if (payload.teacher && payload.teacher !== actor.userId) {
-        throw new ForbiddenException('Teachers can create schedule only for themselves');
+        throw new ForbiddenException(
+          'Teachers can create schedule only for themselves',
+        );
       }
 
       payload.teacher = actor.userId;
@@ -628,14 +804,21 @@ export class ScheduleService {
         throw new ForbiddenException('User has no assigned branch scope');
       }
 
-      const teacher = await this.userModel.findById(payload.teacher, { branchIds: 1 }).lean().exec();
+      const teacher = await this.userModel
+        .findById(payload.teacher, { branchIds: 1 })
+        .lean()
+        .exec();
       if (!teacher) {
         throw new NotFoundException('Teacher not found');
       }
 
       const teacherBranches = this.normalizeBranchIds(teacher!.branchIds);
-      if (!teacherBranches.some(branchId => actorBranches.includes(branchId))) {
-        throw new ForbiddenException('Cannot create schedule outside branch scope');
+      if (
+        !teacherBranches.some((branchId) => actorBranches.includes(branchId))
+      ) {
+        throw new ForbiddenException(
+          'Cannot create schedule outside branch scope',
+        );
       }
 
       if (payload.students?.length) {
@@ -648,17 +831,21 @@ export class ScheduleService {
           throw new NotFoundException('One or more students were not found');
         }
 
-        const outOfScopeStudent = students.find(student => {
-          if (student!.role !== Role.Student) {
+        const outOfScopeStudent = students.find((student) => {
+          if (student.role !== Role.Student) {
             return true;
           }
 
-          const studentBranches = this.normalizeBranchIds(student!.branchIds);
-          return !studentBranches.some(branchId => actorBranches.includes(branchId));
+          const studentBranches = this.normalizeBranchIds(student.branchIds);
+          return !studentBranches.some((branchId) =>
+            actorBranches.includes(branchId),
+          );
         });
 
         if (outOfScopeStudent) {
-          throw new ForbiddenException('Cannot create schedule outside branch scope');
+          throw new ForbiddenException(
+            'Cannot create schedule outside branch scope',
+          );
         }
       }
 
@@ -685,7 +872,9 @@ export class ScheduleService {
       timeStart: existing.timeStart.toISOString(),
       timeEnd: existing.timeEnd.toISOString(),
       teacher: String(existing.teacher),
-      students: Array.isArray(existing.students) ? existing.students.map(studentId => String(studentId)) : [],
+      students: Array.isArray(existing.students)
+        ? existing.students.map((studentId) => String(studentId))
+        : [],
       group: existing.group ? String(existing.group) : undefined,
       ...updateScheduleDto,
     });
@@ -703,7 +892,11 @@ export class ScheduleService {
     return this.findOne(id);
   }
 
-  async updateForActor(id: string, updateScheduleDto: UpdateScheduleDto, actor: AuthenticatedUser) {
+  async updateForActor(
+    id: string,
+    updateScheduleDto: UpdateScheduleDto,
+    actor: AuthenticatedUser,
+  ) {
     this.assertActorCanMutateSchedule(actor);
     const payload = { ...updateScheduleDto };
 
@@ -716,7 +909,9 @@ export class ScheduleService {
       this.assertTeacherCanManageSchedule(schedule, actor);
 
       if (payload.teacher && payload.teacher !== actor.userId) {
-        throw new ForbiddenException('Teachers cannot reassign schedule to another teacher');
+        throw new ForbiddenException(
+          'Teachers cannot reassign schedule to another teacher',
+        );
       }
 
       payload.teacher = actor.userId;
@@ -735,14 +930,21 @@ export class ScheduleService {
       );
 
       if (payload.teacher) {
-        const teacher = await this.userModel.findById(payload.teacher, { branchIds: 1 }).lean().exec();
+        const teacher = await this.userModel
+          .findById(payload.teacher, { branchIds: 1 })
+          .lean()
+          .exec();
         if (!teacher) {
           throw new NotFoundException('Teacher not found');
         }
 
         const teacherBranches = this.normalizeBranchIds(teacher!.branchIds);
-        if (!teacherBranches.some(branchId => actorBranches.includes(branchId))) {
-          throw new ForbiddenException('Cannot update schedule outside branch scope');
+        if (
+          !teacherBranches.some((branchId) => actorBranches.includes(branchId))
+        ) {
+          throw new ForbiddenException(
+            'Cannot update schedule outside branch scope',
+          );
         }
       }
 
@@ -756,17 +958,21 @@ export class ScheduleService {
           throw new NotFoundException('One or more students were not found');
         }
 
-        const outOfScopeStudent = students.find(student => {
-          if (student!.role !== Role.Student) {
+        const outOfScopeStudent = students.find((student) => {
+          if (student.role !== Role.Student) {
             return true;
           }
 
-          const studentBranches = this.normalizeBranchIds(student!.branchIds);
-          return !studentBranches.some(branchId => actorBranches.includes(branchId));
+          const studentBranches = this.normalizeBranchIds(student.branchIds);
+          return !studentBranches.some((branchId) =>
+            actorBranches.includes(branchId),
+          );
         });
 
         if (outOfScopeStudent) {
-          throw new ForbiddenException('Cannot update schedule outside branch scope');
+          throw new ForbiddenException(
+            'Cannot update schedule outside branch scope',
+          );
         }
       }
 
@@ -797,9 +1003,13 @@ export class ScheduleService {
       throw new BadRequestException('Invalid schedule ID');
     }
 
-    const attendanceExists = await this.attendanceModel.exists({ schedule: id }).exec();
+    const attendanceExists = await this.attendanceModel
+      .exists({ schedule: id })
+      .exec();
     if (attendanceExists) {
-      throw new BadRequestException('Schedule cannot be deleted while attendance records reference it');
+      throw new BadRequestException(
+        'Schedule cannot be deleted while attendance records reference it',
+      );
     }
 
     const deleted = await this.scheduleRepository.findByIdAndDelete(id).exec();

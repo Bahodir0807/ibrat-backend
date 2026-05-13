@@ -5,9 +5,14 @@ import { Group, GroupDocument } from './schemas/group.schema';
 
 @Injectable()
 export class GroupsRepository {
-  constructor(@InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>) {}
+  constructor(
+    @InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>,
+  ) {}
 
-  find(filter: FilterQuery<GroupDocument> = {}, projection?: ProjectionType<GroupDocument>) {
+  find(
+    filter: FilterQuery<GroupDocument> = {},
+    projection?: ProjectionType<GroupDocument>,
+  ) {
     return this.groupModel.find(filter, projection);
   }
 

@@ -29,13 +29,25 @@ describe('academic domain consistency', () => {
     const studentId = objectId();
     const service = new AttendanceService(
       {} as any,
-      { findById: jest.fn(() => chain({ _id: studentId, role: Role.Student, branchIds: ['branch-a'] })) } as any,
+      {
+        findById: jest.fn(() =>
+          chain({
+            _id: studentId,
+            role: Role.Student,
+            branchIds: ['branch-a'],
+          }),
+        ),
+      } as any,
       { find: jest.fn(() => chain([])) } as any,
       { find: jest.fn(() => chain([])) } as any,
     );
 
     await expect(
-      service.getByUserForActor(studentId, { userId: objectId(), role: Role.Teacher, branchIds: ['branch-a'] }),
+      service.getByUserForActor(studentId, {
+        userId: objectId(),
+        role: Role.Teacher,
+        branchIds: ['branch-a'],
+      }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
@@ -43,14 +55,26 @@ describe('academic domain consistency', () => {
     const studentId = objectId();
     const service = new HomeworkService(
       {} as any,
-      { findById: jest.fn(() => chain({ _id: studentId, role: Role.Student, branchIds: ['branch-a'] })) } as any,
+      {
+        findById: jest.fn(() =>
+          chain({
+            _id: studentId,
+            role: Role.Student,
+            branchIds: ['branch-a'],
+          }),
+        ),
+      } as any,
       {} as any,
       {} as any,
       {} as any,
     );
 
     await expect(
-      service.getByUserForActor(studentId, { userId: objectId(), role: Role.Student, branchIds: ['branch-a'] }),
+      service.getByUserForActor(studentId, {
+        userId: objectId(),
+        role: Role.Student,
+        branchIds: ['branch-a'],
+      }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
@@ -58,14 +82,26 @@ describe('academic domain consistency', () => {
     const studentId = objectId();
     const service = new GradesService(
       { find: jest.fn(() => chain([])) } as any,
-      { findById: jest.fn(() => chain({ _id: studentId, role: Role.Student, branchIds: ['branch-b'] })) } as any,
+      {
+        findById: jest.fn(() =>
+          chain({
+            _id: studentId,
+            role: Role.Student,
+            branchIds: ['branch-b'],
+          }),
+        ),
+      } as any,
       {} as any,
       {} as any,
       {} as any,
     );
 
     await expect(
-      service.getByUserForActor(studentId, { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] }),
+      service.getByUserForActor(studentId, {
+        userId: objectId(),
+        role: Role.Admin,
+        branchIds: ['branch-a'],
+      }),
     ).resolves.toEqual([]);
   });
 
@@ -75,24 +111,34 @@ describe('academic domain consistency', () => {
     const studentId = objectId();
     const service = new ScheduleService(
       {
-        findById: jest.fn(() => chain({
-          _id: scheduleId,
-          teacher: { id: teacherId },
-          students: [{ id: studentId }],
-        })),
+        findById: jest.fn(() =>
+          chain({
+            _id: scheduleId,
+            teacher: { id: teacherId },
+            students: [{ id: studentId }],
+          }),
+        ),
       } as any,
       {} as any,
       {} as any,
       {
-        findById: jest.fn(() => chain({ _id: teacherId, branchIds: ['branch-a'] })),
-        find: jest.fn(() => chain([{ _id: studentId, branchIds: ['branch-b'] }])),
+        findById: jest.fn(() =>
+          chain({ _id: teacherId, branchIds: ['branch-a'] }),
+        ),
+        find: jest.fn(() =>
+          chain([{ _id: studentId, branchIds: ['branch-b'] }]),
+        ),
       } as any,
       {} as any,
       {} as any,
     );
 
     await expect(
-      service.findOneForActor(scheduleId, { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] }),
+      service.findOneForActor(scheduleId, {
+        userId: objectId(),
+        role: Role.Admin,
+        branchIds: ['branch-a'],
+      }),
     ).resolves.toMatchObject({ id: scheduleId });
   });
 

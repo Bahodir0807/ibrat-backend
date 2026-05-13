@@ -40,7 +40,9 @@ describe('PublicRateLimitGuard', () => {
 
     await expect(guard.canActivate(context('/auth/login'))).resolves.toBe(true);
     await expect(guard.canActivate(context('/auth/login'))).resolves.toBe(true);
-    await expect(guard.canActivate(context('/auth/login'))).rejects.toBeInstanceOf(HttpException);
+    await expect(
+      guard.canActivate(context('/auth/login')),
+    ).rejects.toBeInstanceOf(HttpException);
     expect(store.increment).toHaveBeenCalledWith(
       'public:/auth/login:ip:127.0.0.1',
       60_000,
@@ -57,8 +59,12 @@ describe('PublicRateLimitGuard', () => {
       store as any,
     );
 
-    await expect(guard.canActivate(context('/api/auth/login'))).resolves.toBe(true);
-    await expect(guard.canActivate(context('/api/auth/login'))).rejects.toBeInstanceOf(HttpException);
+    await expect(guard.canActivate(context('/api/auth/login'))).resolves.toBe(
+      true,
+    );
+    await expect(
+      guard.canActivate(context('/api/auth/login')),
+    ).rejects.toBeInstanceOf(HttpException);
   });
 
   it('limits public phone request endpoints', async () => {
@@ -71,8 +77,12 @@ describe('PublicRateLimitGuard', () => {
       store as any,
     );
 
-    await expect(guard.canActivate(context('/phone-request/tg-check'))).resolves.toBe(true);
-    await expect(guard.canActivate(context('/phone-request/tg-check'))).rejects.toBeInstanceOf(HttpException);
+    await expect(
+      guard.canActivate(context('/phone-request/tg-check')),
+    ).resolves.toBe(true);
+    await expect(
+      guard.canActivate(context('/phone-request/tg-check')),
+    ).rejects.toBeInstanceOf(HttpException);
   });
 
   it('does not limit non-public handlers', async () => {

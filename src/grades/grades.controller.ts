@@ -29,7 +29,10 @@ export class GradesController {
   @Get('me')
   @Roles(Role.Student)
   async getMine(@Request() req) {
-    return this.gradesService.getByUserForActor(req.user.userId, req.user as AuthenticatedUser);
+    return this.gradesService.getByUserForActor(
+      req.user.userId,
+      req.user as AuthenticatedUser,
+    );
   }
 
   @Get('user/:userId')
@@ -40,7 +43,10 @@ export class GradesController {
       throw new ForbiddenException('Students can only access their own grades');
     }
 
-    return this.gradesService.getByUserForActor(userId, req.user as AuthenticatedUser);
+    return this.gradesService.getByUserForActor(
+      userId,
+      req.user as AuthenticatedUser,
+    );
   }
 
   @Post()
@@ -64,8 +70,16 @@ export class GradesController {
 
   @Patch(':id')
   @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Extra)
-  async update(@Param() params: IdParamDto, @Body() dto: UpdateGradeDto, @Request() req) {
-    const grade = await this.gradesService.updateForActor(params.id, dto.score, req.user as AuthenticatedUser);
+  async update(
+    @Param() params: IdParamDto,
+    @Body() dto: UpdateGradeDto,
+    @Request() req,
+  ) {
+    const grade = await this.gradesService.updateForActor(
+      params.id,
+      dto.score,
+      req.user as AuthenticatedUser,
+    );
     this.auditLogService.log({
       action: 'grade.update',
       actor: { id: req.user.userId, role: req.user.role },

@@ -20,7 +20,9 @@ describe('RedisRateLimitStore', () => {
     };
     const store = new RedisRateLimitStore(client);
 
-    await expect(store.increment('rate-limit:auth:127.0.0.1', 60_000)).resolves.toBe(2);
+    await expect(
+      store.increment('rate-limit:auth:127.0.0.1', 60_000),
+    ).resolves.toBe(2);
     expect(client.incrementWithExpiry).toHaveBeenCalledWith(
       'rate-limit:auth:127.0.0.1',
       60_000,

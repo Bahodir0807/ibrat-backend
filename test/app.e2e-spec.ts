@@ -170,16 +170,13 @@ describe('AppController (e2e)', () => {
   });
 
   it('/version (GET)', async () => {
-    await request(app.getHttpServer())
-      .get('/version')
-      .expect(200)
-      .expect({
-        name: 'panda',
-        version: '0.0.1',
-        environment: 'test',
-        buildHash: 'test',
-        buildTime: '2026-04-18T00:00:00.000Z',
-        timestamp: '2026-04-18T00:00:00.000Z',
-      });
+    await request(app.getHttpServer()).get('/version').expect(200).expect({
+      name: 'panda',
+      version: '0.0.1',
+      environment: 'test',
+      buildHash: 'test',
+      buildTime: '2026-04-18T00:00:00.000Z',
+      timestamp: '2026-04-18T00:00:00.000Z',
+    });
   });
 });

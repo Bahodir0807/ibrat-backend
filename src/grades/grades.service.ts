@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Grade, GradeDocument } from './schemas/grade.schema';
@@ -7,7 +12,10 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { Role } from '../roles/roles.enum';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
-import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
+import {
+  Schedule,
+  ScheduleDocument,
+} from '../schedule/schemas/schedule.schema';
 import { mapGradeResponse, mapGradeResponses } from './dto/grade-response.dto';
 
 @Injectable()
@@ -15,16 +23,24 @@ export class GradesService {
   constructor(
     @InjectModel(Grade.name) private readonly gradeModel: Model<GradeDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>,
+    @InjectModel(Course.name)
+    private readonly courseModel: Model<CourseDocument>,
     @InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>,
-    @InjectModel(Schedule.name) private readonly scheduleModel: Model<ScheduleDocument>,
+    @InjectModel(Schedule.name)
+    private readonly scheduleModel: Model<ScheduleDocument>,
   ) {}
 
   private normalizeBranchIds(branchIds?: string[]): string[] {
-    return [...new Set((branchIds ?? [])
-      .filter((branchId): branchId is string => typeof branchId === 'string')
-      .map(branchId => branchId.trim())
-      .filter(branchId => branchId.length > 0))];
+    return [
+      ...new Set(
+        (branchIds ?? [])
+          .filter(
+            (branchId): branchId is string => typeof branchId === 'string',
+          )
+          .map((branchId) => branchId.trim())
+          .filter((branchId) => branchId.length > 0),
+      ),
+    ];
   }
 
   private isSystemWideRole(role?: Role): boolean {
@@ -44,11 +60,25 @@ export class GradesService {
     return branchIds;
   }
 
-  private async getTeacherVisibleStudentIds(teacherId: string): Promise<string[]> {
+  private async getTeacherVisibleStudentIds(
+    teacherId: string,
+  ): Promise<string[]> {
     const [courses, groups, schedules] = await Promise.all([
-      this.courseModel.find({ teacherId }, { students: 1 }).lean().exec(),
-      this.groupModel.find({ teacher: teacherId }, { students: 1 }).lean().exec(),
-      this.scheduleModel.find({ teacher: teacherId }, { students: 1 }).lean().exec(),
+      this.courseModel
+        .find(
+          { $or: [{ teacherIds: teacherId }, { teacherId }] },
+          { students: 1 },
+        )
+        .lean()
+        .exec(),
+      this.groupModel
+        .find({ teacher: teacherId }, { students: 1 })
+        .lean()
+        .exec(),
+      this.scheduleModel
+        .find({ teacher: teacherId }, { students: 1 })
+        .lean()
+        .exec(),
     ]);
 
     const studentIds = new Set<string>();
@@ -64,7 +94,10 @@ export class GradesService {
     return [...studentIds];
   }
 
-  private async assertActorCanAccessStudent(actor: AuthenticatedUser, userId: string): Promise<UserDocument> {
+  private async assertActorCanAccessStudent(
+    actor: AuthenticatedUser,
+    userId: string,
+  ): Promise<UserDocument> {
     const user = await this.userModel.findById(userId).exec();
     if (!user) {
       throw new NotFoundException('Student not found');
@@ -89,7 +122,9 @@ export class GradesService {
     if (this.isBranchAdminRole(actor.role)) {
       const actorBranches = this.ensureScopedActorHasBranches(actor);
       const studentBranches = this.normalizeBranchIds(user.branchIds);
-      if (studentBranches.some(branchId => actorBranches.includes(branchId))) {
+      if (
+        studentBranches.some((branchId) => actorBranches.includes(branchId))
+      ) {
         return user;
       }
 
@@ -97,19 +132,26 @@ export class GradesService {
     }
 
     if (actor.role === Role.Teacher) {
-      const visibleStudentIds = await this.getTeacherVisibleStudentIds(actor.userId);
+      const visibleStudentIds = await this.getTeacherVisibleStudentIds(
+        actor.userId,
+      );
       if (visibleStudentIds.includes(String(user._id))) {
         return user;
       }
 
-      throw new ForbiddenException('Teachers can access grades only for their assigned students');
+      throw new ForbiddenException(
+        'Teachers can access grades only for their assigned students',
+      );
     }
 
     throw new ForbiddenException('No access to grades');
   }
 
   async getByUser(userId: string) {
-    const grades = await this.gradeModel.find({ user: userId }).sort({ date: -1 }).exec();
+    const grades = await this.gradeModel
+      .find({ user: userId })
+      .sort({ date: -1 })
+      .exec();
     return mapGradeResponses(grades);
   }
 
@@ -128,7 +170,12 @@ export class GradesService {
     return mapGradeResponse(await entry.save());
   }
 
-  async addForActor(userId: string, subject: string, score: number, actor: AuthenticatedUser) {
+  async addForActor(
+    userId: string,
+    subject: string,
+    score: number,
+    actor: AuthenticatedUser,
+  ) {
     await this.assertActorCanAccessStudent(actor, userId);
     return this.add(userId, subject, score);
   }
@@ -138,7 +185,9 @@ export class GradesService {
       throw new BadRequestException('Invalid grade ID');
     }
 
-    const grade = await this.gradeModel.findByIdAndUpdate(id, { score }, { new: true }).exec();
+    const grade = await this.gradeModel
+      .findByIdAndUpdate(id, { score }, { new: true })
+      .exec();
     if (!grade) {
       throw new NotFoundException('Grade not found');
     }

@@ -13,10 +13,19 @@ import { Role } from '../roles/roles.enum';
 import { PublicUser } from '../users/types/public-user.type';
 import { verifyPassword } from '../common/password';
 import { AppConfigService } from '../config/app-config.service';
-import { AuthSession, AuthSessionDocument } from './schemas/auth-session.schema';
+import {
+  AuthSession,
+  AuthSessionDocument,
+} from './schemas/auth-session.schema';
 import { UserStatus } from '../users/user-status.enum';
-import { canAuthenticateWithStatus, resolveUserStatus } from '../users/user-status';
-import { mapAdminUser, mapPublicUser } from '../common/responses/public-response.mapper';
+import {
+  canAuthenticateWithStatus,
+  resolveUserStatus,
+} from '../users/user-status';
+import {
+  mapAdminUser,
+  mapPublicUser,
+} from '../common/responses/public-response.mapper';
 
 type RequestContext = {
   ipAddress?: string;
@@ -47,7 +56,9 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private isUserAllowedToAuthenticate(user: Pick<PublicUser, 'status' | 'isActive'>): boolean {
+  private isUserAllowedToAuthenticate(
+    user: Pick<PublicUser, 'status' | 'isActive'>,
+  ): boolean {
     return canAuthenticateWithStatus(resolveUserStatus(user));
   }
 
@@ -82,18 +93,25 @@ export class AuthService {
     reason: string,
     replacedByTokenId?: string,
   ): Promise<void> {
-    await this.authSessionModel.findByIdAndUpdate(sessionId, {
-      revokedAt: new Date(),
-      revokeReason: reason,
-      ...(replacedByTokenId ? { replacedByTokenId } : {}),
-    }).exec();
+    await this.authSessionModel
+      .findByIdAndUpdate(sessionId, {
+        revokedAt: new Date(),
+        revokeReason: reason,
+        ...(replacedByTokenId ? { replacedByTokenId } : {}),
+      })
+      .exec();
   }
 
-  private async revokeAllUserSessions(userId: string, reason: string): Promise<void> {
-    await this.authSessionModel.updateMany(
-      { user: new Types.ObjectId(userId), revokedAt: { $exists: false } },
-      { revokedAt: new Date(), revokeReason: reason },
-    ).exec();
+  private async revokeAllUserSessions(
+    userId: string,
+    reason: string,
+  ): Promise<void> {
+    await this.authSessionModel
+      .updateMany(
+        { user: new Types.ObjectId(userId), revokedAt: { $exists: false } },
+        { revokedAt: new Date(), revokeReason: reason },
+      )
+      .exec();
   }
 
   private async buildTokenPair(user: PublicUser, context?: RequestContext) {
@@ -135,7 +153,9 @@ export class AuthService {
       lastUsedUserAgent: context?.userAgent,
     });
 
-    const responseUser = [Role.Admin, Role.Owner, Role.Extra].includes(user.role)
+    const responseUser = [Role.Admin, Role.Owner, Role.Extra].includes(
+      user.role,
+    )
       ? mapAdminUser(user)
       : mapPublicUser(user);
 
@@ -145,7 +165,9 @@ export class AuthService {
       token: accessToken,
       tokenType: 'Bearer',
       expiresIn: this.parseTtlToSeconds(this.appConfigService.jwtExpiresIn),
-      refreshExpiresIn: this.parseTtlToSeconds(this.appConfigService.jwtRefreshExpiresIn),
+      refreshExpiresIn: this.parseTtlToSeconds(
+        this.appConfigService.jwtRefreshExpiresIn,
+      ),
       user: responseUser,
     };
   }
@@ -174,7 +196,10 @@ export class AuthService {
     }
 
     if (session.revokedAt) {
-      await this.revokeAllUserSessions(payload.sub, 'refresh-token-reuse-detected');
+      await this.revokeAllUserSessions(
+        payload.sub,
+        'refresh-token-reuse-detected',
+      );
       throw new UnauthorizedException('Refresh token has been revoked');
     }
 
@@ -185,7 +210,10 @@ export class AuthService {
 
     const user = await this.usersService.findById(payload.sub);
     if (!this.isUserAllowedToAuthenticate(user)) {
-      await this.revokeAllUserSessions(user.id, 'user-no-longer-allowed-to-authenticate');
+      await this.revokeAllUserSessions(
+        user.id,
+        'user-no-longer-allowed-to-authenticate',
+      );
       throw new UnauthorizedException('User is not allowed to authenticate');
     }
 
@@ -212,16 +240,21 @@ export class AuthService {
     });
   }
 
-  async validateUser(username: string, password: string): Promise<PublicUser | null> {
+  async validateUser(
+    username: string,
+    password: string,
+  ): Promise<PublicUser | null> {
     const user = await this.usersService.findByUsernameForAuth(username);
     if (!user) {
       return null;
     }
 
-    if (!this.isUserAllowedToAuthenticate({
-      status: resolveUserStatus(user),
-      isActive: user.isActive,
-    })) {
+    if (
+      !this.isUserAllowedToAuthenticate({
+        status: resolveUserStatus(user),
+        isActive: user.isActive,
+      })
+    ) {
       return null;
     }
 
@@ -258,7 +291,9 @@ export class AuthService {
     const { payload, session } = await this.validateRefreshToken(refreshToken);
 
     if (payload.sub !== userId) {
-      throw new UnauthorizedException('Refresh token does not belong to the current user');
+      throw new UnauthorizedException(
+        'Refresh token does not belong to the current user',
+      );
     }
 
     await this.revokeSession(String(session._id), 'user-logout');
@@ -269,13 +304,17 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
   ): Promise<void> {
-    await this.usersService.changePassword(userId, currentPassword, newPassword);
+    await this.usersService.changePassword(
+      userId,
+      currentPassword,
+      newPassword,
+    );
     await this.revokeAllUserSessions(userId, 'password-changed');
   }
 
   private extractRefreshTokenId(refreshToken: string): string | undefined {
     try {
-      const payload = this.jwtService.decode(refreshToken) as TokenPayload | null;
+      const payload = this.jwtService.decode(refreshToken);
       return payload?.jti;
     } catch {
       return undefined;

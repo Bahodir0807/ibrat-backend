@@ -35,6 +35,8 @@ const USER_REFERENCE_KEYS = new Set([
   'students',
   'teacher',
   'teacherId',
+  'teacherIds',
+  'teachers',
 ]);
 
 export type PublicUserDto = {
@@ -64,10 +66,14 @@ function isPlainObject(value: unknown): value is PlainObject {
 
 function toPlain(value: unknown): unknown {
   if (Array.isArray(value)) {
-    return value.map(item => toPlain(item));
+    return value.map((item) => toPlain(item));
   }
 
-  if (value && typeof value === 'object' && typeof (value as { toHexString?: () => string }).toHexString === 'function') {
+  if (
+    value &&
+    typeof value === 'object' &&
+    typeof (value as { toHexString?: () => string }).toHexString === 'function'
+  ) {
     return (value as { toHexString: () => string }).toHexString();
   }
 
@@ -97,8 +103,10 @@ function getId(source: PlainObject): string | undefined {
 }
 
 function getFullName(source: PlainObject): string {
-  const firstName = typeof source.firstName === 'string' ? source.firstName.trim() : '';
-  const lastName = typeof source.lastName === 'string' ? source.lastName.trim() : '';
+  const firstName =
+    typeof source.firstName === 'string' ? source.firstName.trim() : '';
+  const lastName =
+    typeof source.lastName === 'string' ? source.lastName.trim() : '';
   const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
   if (fullName) {
     return fullName;
@@ -112,10 +120,17 @@ function looksLikeUser(value: unknown): value is PlainObject {
     return false;
   }
 
-  return 'role' in value || 'username' in value || 'firstName' in value || 'lastName' in value;
+  return (
+    'role' in value ||
+    'username' in value ||
+    'firstName' in value ||
+    'lastName' in value
+  );
 }
 
-export function mapPublicUser(value: unknown): PublicUserDto | string | unknown {
+export function mapPublicUser(
+  value: unknown,
+): PublicUserDto | string | unknown {
   const source = toPlain(value);
   if (!isPlainObject(source)) {
     return source;
@@ -171,7 +186,11 @@ export function mapAdminUser(value: unknown): AdminUserDto {
     role: source.role as Role,
     status: source.status as UserStatus,
     isActive: Boolean(source.isActive),
-    branchIds: Array.isArray(source.branchIds) ? source.branchIds.filter((branchId): branchId is string => typeof branchId === 'string') : [],
+    branchIds: Array.isArray(source.branchIds)
+      ? source.branchIds.filter(
+          (branchId): branchId is string => typeof branchId === 'string',
+        )
+      : [],
   };
 
   for (const key of [
@@ -194,7 +213,7 @@ export function mapPublicResource<T = PlainObject>(value: unknown): T {
   const source = toPlain(value);
 
   if (Array.isArray(source)) {
-    return source.map(item => mapPublicResource(item)) as T;
+    return source.map((item) => mapPublicResource(item)) as T;
   }
 
   if (!isPlainObject(source)) {
@@ -215,8 +234,8 @@ export function mapPublicResource<T = PlainObject>(value: unknown): T {
     if (USER_REFERENCE_KEYS.has(key)) {
       if (Array.isArray(nestedValue)) {
         result[key] = nestedValue
-          .filter(item => looksLikeUser(item))
-          .map(item => mapPublicUser(item));
+          .filter((item) => looksLikeUser(item))
+          .map((item) => mapPublicUser(item));
       } else {
         if (!looksLikeUser(nestedValue)) {
           continue;
@@ -234,5 +253,5 @@ export function mapPublicResource<T = PlainObject>(value: unknown): T {
 }
 
 export function mapPublicResources<T = PlainObject>(values: unknown[]): T[] {
-  return values.map(value => mapPublicResource<T>(value));
+  return values.map((value) => mapPublicResource<T>(value));
 }

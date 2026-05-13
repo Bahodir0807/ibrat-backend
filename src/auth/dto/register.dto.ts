@@ -17,23 +17,26 @@ const optionalTrimmedString = (value: unknown) => {
 
 export class RegisterDto {
   @IsString()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   username!: string;
 
   @IsString()
   password!: string;
 
   @IsString()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MaxLength(100)
   firstName!: string;
 
   @IsString()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MaxLength(100)
   lastName!: string;
 
-  @IsIn([Role.Student, Role.Guest], { message: 'Only "student" and "guest" roles are available during registration' })
+  @IsIn([Role.Student, Role.Guest], {
+    message:
+      'Only "student" and "guest" roles are available during registration',
+  })
   @IsOptional()
   role?: Role;
 
@@ -47,4 +50,16 @@ export class RegisterDto {
   @Transform(({ value }) => optionalTrimmedString(value))
   @MaxLength(30)
   phoneNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => optionalTrimmedString(value))
+  @MaxLength(30)
+  phone?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => optionalTrimmedString(value))
+  @MaxLength(30)
+  telephone?: string;
 }

@@ -15,7 +15,7 @@ export class UsersListQueryDto extends ListQueryDto {
 
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MaxLength(100)
   branchId?: string;
 }

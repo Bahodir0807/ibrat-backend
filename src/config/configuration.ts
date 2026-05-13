@@ -1,4 +1,9 @@
-const APP_ENVIRONMENTS = ['development', 'test', 'production', 'staging'] as const;
+const APP_ENVIRONMENTS = [
+  'development',
+  'test',
+  'production',
+  'staging',
+] as const;
 const TENANT_MODES = ['single-database', 'database-per-tenant-ready'] as const;
 
 export type AppEnvironment = (typeof APP_ENVIRONMENTS)[number];
@@ -13,7 +18,14 @@ const DEFAULT_TELEGRAM_WEBHOOK_PATH = '/bot';
 const DEFAULT_TENANT_MODE: TenantMode = 'single-database';
 const DEFAULT_TENANT_KEY_HEADER = 'x-tenant-id';
 const DEFAULT_BRANCH_KEY_HEADER = 'x-branch-id';
-const DEFAULT_ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
+const DEFAULT_ALLOWED_METHODS = [
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'OPTIONS',
+];
 const DEFAULT_ALLOWED_HEADERS = [
   'Content-Type',
   'Authorization',
@@ -33,7 +45,10 @@ function normalizeString(value?: string): string | undefined {
   return normalized ? normalized : undefined;
 }
 
-function normalizeBoolean(value: string | undefined, defaultValue: boolean): boolean {
+function normalizeBoolean(
+  value: string | undefined,
+  defaultValue: boolean,
+): boolean {
   if (value === undefined) {
     return defaultValue;
   }
@@ -76,7 +91,10 @@ function normalizeNumber(
 function normalizeRateLimitProvider(value?: string): RateLimitProvider {
   const normalized = value?.trim().toLowerCase();
 
-  if (normalized && RATE_LIMIT_PROVIDERS.includes(normalized as RateLimitProvider)) {
+  if (
+    normalized &&
+    RATE_LIMIT_PROVIDERS.includes(normalized as RateLimitProvider)
+  ) {
     return normalized as RateLimitProvider;
   }
 
@@ -107,7 +125,7 @@ function normalizeWebhookPath(value?: string): string {
 function parseCsv(value?: string): string[] {
   return (value ?? '')
     .split(',')
-    .map(item => item.trim())
+    .map((item) => item.trim())
     .filter(Boolean);
 }
 
@@ -116,7 +134,7 @@ function parseOrigins(value?: string) {
   const hasWildcard = origins.includes('*');
 
   return {
-    origins: origins.filter(origin => origin !== '*'),
+    origins: origins.filter((origin) => origin !== '*'),
     hasWildcard,
   };
 }
@@ -136,11 +154,13 @@ export function getEnvFilePaths(nodeEnv = process.env.NODE_ENV): string[] {
 
 const configuration = () => {
   const environment = normalizeEnvironment(process.env.NODE_ENV);
-  const isProductionLike = environment === 'production' || environment === 'staging';
+  const isProductionLike =
+    environment === 'production' || environment === 'staging';
   const tenantMode = normalizeTenantMode(process.env.TENANT_MODE);
   const parsedOrigins = parseOrigins(process.env.CORS_ORIGINS);
-  const allowAllOrigins = parsedOrigins.hasWildcard
-    || normalizeBoolean(
+  const allowAllOrigins =
+    parsedOrigins.hasWildcard ||
+    normalizeBoolean(
       process.env.CORS_ALLOW_ALL_ORIGINS,
       !isProductionLike && parsedOrigins.origins.length === 0,
     );
@@ -153,7 +173,10 @@ const configuration = () => {
       host: normalizeString(process.env.APP_HOST) ?? DEFAULT_HOST,
       port: Number(process.env.PORT ?? DEFAULT_PORT),
       globalPrefix: normalizePrefix(process.env.API_PREFIX),
-      enableVersioning: normalizeBoolean(process.env.API_ENABLE_VERSIONING, false),
+      enableVersioning: normalizeBoolean(
+        process.env.API_ENABLE_VERSIONING,
+        false,
+      ),
       defaultVersion: normalizeString(process.env.API_DEFAULT_VERSION) ?? '1',
       bodyLimit: normalizeString(process.env.BODY_LIMIT) ?? DEFAULT_BODY_LIMIT,
       trustProxy: normalizeBoolean(process.env.TRUST_PROXY, isProductionLike),
@@ -161,13 +184,14 @@ const configuration = () => {
     auth: {
       jwtSecret: process.env.JWT_SECRET as string,
       tokenTtl:
-        normalizeString(process.env.ACCESS_TOKEN_EXPIRES_IN)
-        ?? normalizeString(process.env.JWT_EXPIRES_IN)
-        ?? '15m',
+        normalizeString(process.env.ACCESS_TOKEN_EXPIRES_IN) ??
+        normalizeString(process.env.JWT_EXPIRES_IN) ??
+        '15m',
       refreshTokenSecret:
-        normalizeString(process.env.JWT_REFRESH_SECRET)
-        ?? (process.env.JWT_SECRET as string),
-      refreshTokenTtl: normalizeString(process.env.REFRESH_TOKEN_EXPIRES_IN) ?? '7d',
+        normalizeString(process.env.JWT_REFRESH_SECRET) ??
+        (process.env.JWT_SECRET as string),
+      refreshTokenTtl:
+        normalizeString(process.env.REFRESH_TOKEN_EXPIRES_IN) ?? '7d',
     },
     database: {
       uri: process.env.MONGO_URI as string,
@@ -175,12 +199,18 @@ const configuration = () => {
       dnsServers: parseCsv(process.env.DNS_SERVERS),
       minPoolSize: normalizeNumber(process.env.MONGO_MIN_POOL_SIZE, 1),
       maxPoolSize: normalizeNumber(process.env.MONGO_MAX_POOL_SIZE, 10),
-      autoIndex: normalizeBoolean(process.env.MONGO_AUTO_INDEX, !isProductionLike),
+      autoIndex: normalizeBoolean(
+        process.env.MONGO_AUTO_INDEX,
+        !isProductionLike,
+      ),
     },
     cors: {
       origins: parsedOrigins.origins,
       allowAllOrigins,
-      allowNoOrigin: normalizeBoolean(process.env.CORS_ALLOW_NO_ORIGIN, !isProductionLike),
+      allowNoOrigin: normalizeBoolean(
+        process.env.CORS_ALLOW_NO_ORIGIN,
+        !isProductionLike,
+      ),
       credentials: true,
       methods: DEFAULT_ALLOWED_METHODS,
       allowedHeaders: DEFAULT_ALLOWED_HEADERS,
@@ -197,9 +227,11 @@ const configuration = () => {
       branchAware: true,
       tenantMode,
       tenantKeyHeader:
-        normalizeString(process.env.TENANT_KEY_HEADER) ?? DEFAULT_TENANT_KEY_HEADER,
+        normalizeString(process.env.TENANT_KEY_HEADER) ??
+        DEFAULT_TENANT_KEY_HEADER,
       branchKeyHeader:
-        normalizeString(process.env.BRANCH_KEY_HEADER) ?? DEFAULT_BRANCH_KEY_HEADER,
+        normalizeString(process.env.BRANCH_KEY_HEADER) ??
+        DEFAULT_BRANCH_KEY_HEADER,
     },
     rateLimit: {
       windowMs: normalizeNumber(
@@ -207,7 +239,8 @@ const configuration = () => {
         DEFAULT_RATE_LIMIT_WINDOW_MS,
       ),
       publicAuthMax: normalizeNumber(
-        process.env.PUBLIC_RATE_LIMIT_LIMIT ?? process.env.RATE_LIMIT_PUBLIC_AUTH_MAX,
+        process.env.PUBLIC_RATE_LIMIT_LIMIT ??
+          process.env.RATE_LIMIT_PUBLIC_AUTH_MAX,
         DEFAULT_PUBLIC_AUTH_RATE_LIMIT,
       ),
       provider: normalizeRateLimitProvider(process.env.RATE_LIMIT_PROVIDER),

@@ -27,7 +27,10 @@ export class HomeworkController {
   @Get('me')
   @Roles(Role.Student)
   async getMine(@Request() req) {
-    return this.hwService.getByUserForActor(req.user.userId, req.user as AuthenticatedUser);
+    return this.hwService.getByUserForActor(
+      req.user.userId,
+      req.user as AuthenticatedUser,
+    );
   }
 
   @Get('user/:userId')
@@ -35,16 +38,24 @@ export class HomeworkController {
   async getByUser(@Param() params: UserIdParamDto, @Request() req) {
     const { userId } = params;
     if (req.user.role === Role.Student && req.user.userId !== userId) {
-      throw new ForbiddenException('Students can only access their own homework');
+      throw new ForbiddenException(
+        'Students can only access their own homework',
+      );
     }
 
-    return this.hwService.getByUserForActor(userId, req.user as AuthenticatedUser);
+    return this.hwService.getByUserForActor(
+      userId,
+      req.user as AuthenticatedUser,
+    );
   }
 
   @Post()
   @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Extra)
   async create(@Body() dto: CreateHomeworkDto, @Request() req) {
-    const homework = await this.hwService.createForActor(dto, req.user as AuthenticatedUser);
+    const homework = await this.hwService.createForActor(
+      dto,
+      req.user as AuthenticatedUser,
+    );
     this.auditLogService.log({
       action: 'homework.create',
       actor: { id: req.user.userId, role: req.user.role },
@@ -59,7 +70,10 @@ export class HomeworkController {
   @Roles(Role.Admin, Role.Teacher, Role.Owner, Role.Extra)
   async complete(@Param() params: IdParamDto, @Request() req) {
     const { id } = params;
-    const homework = await this.hwService.markCompleteForActor(id, req.user as AuthenticatedUser);
+    const homework = await this.hwService.markCompleteForActor(
+      id,
+      req.user as AuthenticatedUser,
+    );
     this.auditLogService.log({
       action: 'homework.complete',
       actor: { id: req.user.userId, role: req.user.role },

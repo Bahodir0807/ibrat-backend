@@ -3,7 +3,12 @@ import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import { AppConfigService } from '../config/app-config.service';
 
-type DatabaseStatus = 'up' | 'down' | 'connecting' | 'disconnecting' | 'unknown';
+type DatabaseStatus =
+  | 'up'
+  | 'down'
+  | 'connecting'
+  | 'disconnecting'
+  | 'unknown';
 
 type HealthPayload = {
   status: 'ok' | 'error';

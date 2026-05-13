@@ -7,11 +7,13 @@ import { Schedule, ScheduleSchema } from '../schedule/schemas/schedule.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 
 @Module({
-  imports: [MongooseModule.forFeature([
-    { name: Room.name, schema: RoomSchema },
-    { name: Schedule.name, schema: ScheduleSchema },
-    { name: User.name, schema: UserSchema },
-  ])],
+  imports: [
+    MongooseModule.forFeature([
+      { name: Room.name, schema: RoomSchema },
+      { name: Schedule.name, schema: ScheduleSchema },
+      { name: User.name, schema: UserSchema },
+    ]),
+  ],
   controllers: [RoomController],
   providers: [RoomService],
   exports: [RoomService],

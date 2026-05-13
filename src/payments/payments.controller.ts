@@ -29,7 +29,10 @@ export class PaymentsController {
   @Post()
   @Roles(Role.Admin, Role.Owner, Role.Extra)
   async create(@Body() dto: CreatePaymentDto, @Request() req) {
-    const payment = await this.paymentsService.createForActor(dto, req.user as AuthenticatedUser);
+    const payment = await this.paymentsService.createForActor(
+      dto,
+      req.user as AuthenticatedUser,
+    );
     this.auditLogService.log({
       action: 'payment.create',
       actor: { id: req.user.userId, role: req.user.role },
@@ -43,7 +46,10 @@ export class PaymentsController {
   @Get()
   @Roles(Role.Admin, Role.Owner, Role.Extra)
   async getAll(@Query() query: PaymentsListQueryDto, @Request() req) {
-    return this.paymentsService.getAllForActor(query, req.user as AuthenticatedUser);
+    return this.paymentsService.getAllForActor(
+      query,
+      req.user as AuthenticatedUser,
+    );
   }
 
   @Get('me')
@@ -108,7 +114,10 @@ export class PaymentsController {
   @Roles(Role.Admin, Role.Owner, Role.Extra)
   async delete(@Param() params: IdParamDto, @Request() req) {
     const { id } = params;
-    await this.paymentsService.deleteForActor(id, req.user as AuthenticatedUser);
+    await this.paymentsService.deleteForActor(
+      id,
+      req.user as AuthenticatedUser,
+    );
     this.auditLogService.log({
       action: 'payment.delete',
       actor: { id: req.user.userId, role: req.user.role },

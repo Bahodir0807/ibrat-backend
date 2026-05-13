@@ -1,13 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model, ProjectionType, QueryOptions, SaveOptions, UpdateQuery } from 'mongoose';
+import {
+  FilterQuery,
+  Model,
+  ProjectionType,
+  QueryOptions,
+  SaveOptions,
+  UpdateQuery,
+} from 'mongoose';
 import { Payment, PaymentDocument } from './schemas/payment.schema';
 
 @Injectable()
 export class PaymentsRepository {
-  constructor(@InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>) {}
+  constructor(
+    @InjectModel(Payment.name)
+    private readonly paymentModel: Model<PaymentDocument>,
+  ) {}
 
-  find(filter: FilterQuery<PaymentDocument> = {}, projection?: ProjectionType<PaymentDocument>) {
+  find(
+    filter: FilterQuery<PaymentDocument> = {},
+    projection?: ProjectionType<PaymentDocument>,
+  ) {
     return this.paymentModel.find(filter, projection);
   }
 
@@ -36,7 +49,11 @@ export class PaymentsRepository {
     return this.paymentModel.findByIdAndUpdate(id, payload, { new: true });
   }
 
-  findByIdAndUpdate(id: string, payload: UpdateQuery<PaymentDocument>, options?: Record<string, unknown>) {
+  findByIdAndUpdate(
+    id: string,
+    payload: UpdateQuery<PaymentDocument>,
+    options?: Record<string, unknown>,
+  ) {
     return this.paymentModel.findByIdAndUpdate(id, payload, options);
   }
 

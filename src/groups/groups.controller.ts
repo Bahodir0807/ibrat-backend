@@ -52,7 +52,11 @@ export class GroupsController {
 
   @Patch(':id')
   @Roles(Role.Admin, Role.Owner, Role.Extra)
-  async update(@Param() params: IdParamDto, @Body() dto: UpdateGroupDto, @Request() req) {
+  async update(
+    @Param() params: IdParamDto,
+    @Body() dto: UpdateGroupDto,
+    @Request() req,
+  ) {
     const { id } = params;
     const group = await this.groupsService.updateForActor(id, dto, req.user);
     this.auditLogService.log({

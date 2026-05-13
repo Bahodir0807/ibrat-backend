@@ -36,10 +36,15 @@ export class AttendanceController {
   async getByUser(@Param() params: UserIdParamDto, @Request() req) {
     const { userId } = params;
     if (req.user.role === Role.Student && req.user.userId !== userId) {
-      throw new ForbiddenException('Students can only access their own attendance');
+      throw new ForbiddenException(
+        'Students can only access their own attendance',
+      );
     }
 
-    return this.attendanceService.getByUserForActor(userId, req.user as AuthenticatedUser);
+    return this.attendanceService.getByUserForActor(
+      userId,
+      req.user as AuthenticatedUser,
+    );
   }
 
   @Post()

@@ -5,9 +5,15 @@ import { Schedule, ScheduleDocument } from './schemas/schedule.schema';
 
 @Injectable()
 export class ScheduleRepository {
-  constructor(@InjectModel(Schedule.name) private readonly scheduleModel: Model<ScheduleDocument>) {}
+  constructor(
+    @InjectModel(Schedule.name)
+    private readonly scheduleModel: Model<ScheduleDocument>,
+  ) {}
 
-  find(filter: FilterQuery<ScheduleDocument> = {}, projection?: ProjectionType<ScheduleDocument>) {
+  find(
+    filter: FilterQuery<ScheduleDocument> = {},
+    projection?: ProjectionType<ScheduleDocument>,
+  ) {
     return this.scheduleModel.find(filter, projection);
   }
 
@@ -31,7 +37,11 @@ export class ScheduleRepository {
     return this.scheduleModel.findByIdAndUpdate(id, payload, { new: true });
   }
 
-  findByIdAndUpdate(id: string, payload: UpdateQuery<ScheduleDocument>, options?: Record<string, unknown>) {
+  findByIdAndUpdate(
+    id: string,
+    payload: UpdateQuery<ScheduleDocument>,
+    options?: Record<string, unknown>,
+  ) {
     return this.scheduleModel.findByIdAndUpdate(id, payload, options);
   }
 

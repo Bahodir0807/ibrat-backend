@@ -222,7 +222,7 @@ async function ensureCourse(api, course, teacherId, studentIds) {
     name: course.name,
     description: `Demo course: ${course.name}`,
     price: course.price,
-    teacherId,
+    teacherIds: [teacherId],
     students: studentIds,
   };
 
@@ -230,9 +230,13 @@ async function ensureCourse(api, course, teacherId, studentIds) {
     return { record: await api.post('/courses', payload), status: 'created' };
   }
 
+  const existingTeacherIds = Array.isArray(existing.teacherIds)
+    ? existing.teacherIds.map(toId)
+    : (existing.teacherId ? [toId(existing.teacherId)] : []);
   const needsUpdate =
     existing.price !== course.price
-    || toId(existing.teacherId) !== teacherId
+    || existingTeacherIds.length !== 1
+    || existingTeacherIds[0] !== teacherId
     || !hasSameIds(existing.students, studentIds);
 
   if (!needsUpdate) {

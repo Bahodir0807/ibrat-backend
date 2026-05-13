@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { Room, RoomDocument } from './schemas/room.schema';
@@ -6,25 +11,35 @@ import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { RoomsListQueryDto } from './dto/rooms-list-query.dto';
 import { createPaginatedResult } from '../common/responses/paginated-result';
-import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
+import {
+  Schedule,
+  ScheduleDocument,
+} from '../schedule/schemas/schedule.schema';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
 import { Role } from '../roles/roles.enum';
 import { User, UserDocument } from '../users/schemas/user.schema';
-import { ensureActorBranchScope, isBranchAdminRole, isSystemWideRole, toObjectIds } from '../common/access/actor-scope';
+import {
+  ensureActorBranchScope,
+  isBranchAdminRole,
+  isSystemWideRole,
+  toObjectIds,
+} from '../common/access/actor-scope';
 import { mapRoomResponse, mapRoomResponses } from './dto/room-response.dto';
 
 @Injectable()
 export class RoomService {
   constructor(
     @InjectModel(Room.name) private readonly roomModel: Model<RoomDocument>,
-    @InjectModel(Schedule.name) private readonly scheduleModel: Model<ScheduleDocument>,
+    @InjectModel(Schedule.name)
+    private readonly scheduleModel: Model<ScheduleDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
 
   private getSort(query: RoomsListQueryDto) {
-    const sortBy = query.sortBy && ['name', 'capacity', 'type'].includes(query.sortBy)
-      ? query.sortBy
-      : 'name';
+    const sortBy =
+      query.sortBy && ['name', 'capacity', 'type'].includes(query.sortBy)
+        ? query.sortBy
+        : 'name';
     const sortOrder = query.sortOrder === 'desc' ? -1 : 1;
 
     return { [sortBy]: sortOrder as SortOrder };
@@ -34,11 +49,15 @@ export class RoomService {
     // Rooms are intentionally global inventory in the current schema; scoped actors
     // can only read rooms that appear in their schedules.
     if (!isSystemWideRole(actor.role)) {
-      throw new ForbiddenException('Rooms are global resources and can be managed only by system-wide roles');
+      throw new ForbiddenException(
+        'Rooms are global resources and can be managed only by system-wide roles',
+      );
     }
   }
 
-  private buildFilter(query: RoomsListQueryDto = {}): FilterQuery<RoomDocument> {
+  private buildFilter(
+    query: RoomsListQueryDto = {},
+  ): FilterQuery<RoomDocument> {
     const filter: FilterQuery<RoomDocument> = {};
 
     if (query.type) {
@@ -51,16 +70,15 @@ export class RoomService {
 
     if (query.search?.trim()) {
       const regex = new RegExp(query.search.trim(), 'i');
-      filter.$or = [
-        { name: regex },
-        { description: regex },
-      ];
+      filter.$or = [{ name: regex }, { description: regex }];
     }
 
     return filter;
   }
 
-  private async getVisibleRoomIdsForActor(actor: AuthenticatedUser): Promise<string[]> {
+  private async getVisibleRoomIdsForActor(
+    actor: AuthenticatedUser,
+  ): Promise<string[]> {
     if (isSystemWideRole(actor.role)) {
       return [];
     }
@@ -70,7 +88,7 @@ export class RoomService {
         .find({ teacher: actor.userId }, { room: 1 })
         .lean()
         .exec();
-      return [...new Set(schedules.map(schedule => String(schedule.room)))];
+      return [...new Set(schedules.map((schedule) => String(schedule.room)))];
     }
 
     if (actor.role === Role.Student) {
@@ -78,16 +96,22 @@ export class RoomService {
         .find({ students: actor.userId }, { room: 1 })
         .lean()
         .exec();
-      return [...new Set(schedules.map(schedule => String(schedule.room)))];
+      return [...new Set(schedules.map((schedule) => String(schedule.room)))];
     }
 
     if (isBranchAdminRole(actor.role)) {
       const actorBranches = ensureActorBranchScope(actor);
       const scopedUsers = await this.userModel
-        .find({ branchIds: { $in: actorBranches }, role: { $in: [Role.Teacher, Role.Student] } }, { _id: 1 })
+        .find(
+          {
+            branchIds: { $in: actorBranches },
+            role: { $in: [Role.Teacher, Role.Student] },
+          },
+          { _id: 1 },
+        )
         .lean()
         .exec();
-      const scopedUserIds = scopedUsers.map(user => String(user._id));
+      const scopedUserIds = scopedUsers.map((user) => String(user._id));
       if (scopedUserIds.length === 0) {
         return [];
       }
@@ -105,7 +129,7 @@ export class RoomService {
         )
         .lean()
         .exec();
-      return [...new Set(schedules.map(schedule => String(schedule.room)))];
+      return [...new Set(schedules.map((schedule) => String(schedule.room)))];
     }
 
     return [];
@@ -140,7 +164,10 @@ export class RoomService {
     return this.create(dto);
   }
 
-  async findAllForActor(query: RoomsListQueryDto = {}, actor: AuthenticatedUser) {
+  async findAllForActor(
+    query: RoomsListQueryDto = {},
+    actor: AuthenticatedUser,
+  ) {
     if (isSystemWideRole(actor.role)) {
       return this.findAll(query);
     }
@@ -200,7 +227,9 @@ export class RoomService {
       throw new BadRequestException('Invalid room ID');
     }
 
-    const updated = await this.roomModel.findByIdAndUpdate(id, dto, { new: true }).exec();
+    const updated = await this.roomModel
+      .findByIdAndUpdate(id, dto, { new: true })
+      .exec();
     if (!updated) {
       throw new NotFoundException('Room not found');
     }
@@ -208,7 +237,11 @@ export class RoomService {
     return mapRoomResponse(updated);
   }
 
-  async updateForActor(id: string, dto: UpdateRoomDto, actor: AuthenticatedUser) {
+  async updateForActor(
+    id: string,
+    dto: UpdateRoomDto,
+    actor: AuthenticatedUser,
+  ) {
     this.assertCanMutateGlobalRoom(actor);
     await this.findById(id);
     return this.update(id, dto);
@@ -221,7 +254,9 @@ export class RoomService {
 
     const scheduleExists = await this.scheduleModel.exists({ room: id }).exec();
     if (scheduleExists) {
-      throw new BadRequestException('Room cannot be deleted while schedule entries reference it');
+      throw new BadRequestException(
+        'Room cannot be deleted while schedule entries reference it',
+      );
     }
 
     const deleted = await this.roomModel.findByIdAndDelete(id).exec();

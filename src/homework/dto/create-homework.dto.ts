@@ -1,4 +1,11 @@
-import { ArrayNotEmpty, IsArray, IsDateString, IsMongoId, IsNotEmpty, IsString } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsDateString,
+  IsMongoId,
+  IsNotEmpty,
+  IsString,
+} from 'class-validator';
 
 export class CreateHomeworkDto {
   @IsNotEmpty()

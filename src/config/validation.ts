@@ -14,7 +14,10 @@ function configError(helpers: Joi.CustomHelpers, message: string) {
   return helpers.message({ custom: message });
 }
 
-export function validateProductionConfig(value: Record<string, unknown>, helpers: Joi.CustomHelpers) {
+export function validateProductionConfig(
+  value: Record<string, unknown>,
+  helpers: Joi.CustomHelpers,
+) {
   const env = value.NODE_ENV;
   const jwtSecret = String(value.JWT_SECRET ?? '');
   const refreshSecret = String(value.JWT_REFRESH_SECRET ?? '');
@@ -22,7 +25,10 @@ export function validateProductionConfig(value: Record<string, unknown>, helpers
   const rateLimitProvider = value.RATE_LIMIT_PROVIDER;
 
   if (rateLimitProvider === 'redis' && !value.REDIS_URL) {
-    return configError(helpers, 'REDIS_URL is required when RATE_LIMIT_PROVIDER=redis');
+    return configError(
+      helpers,
+      'REDIS_URL is required when RATE_LIMIT_PROVIDER=redis',
+    );
   }
 
   if (env !== 'production' && env !== 'staging') {
@@ -30,27 +36,51 @@ export function validateProductionConfig(value: Record<string, unknown>, helpers
   }
 
   if (jwtSecret.length < 32) {
-    return configError(helpers, 'JWT_SECRET must be at least 32 characters in production/staging');
+    return configError(
+      helpers,
+      'JWT_SECRET must be at least 32 characters in production/staging',
+    );
   }
 
   if (refreshSecret.length < 32) {
-    return configError(helpers, 'JWT_REFRESH_SECRET must be at least 32 characters in production/staging');
+    return configError(
+      helpers,
+      'JWT_REFRESH_SECRET must be at least 32 characters in production/staging',
+    );
   }
 
   if (jwtSecret === refreshSecret) {
-    return configError(helpers, 'JWT_REFRESH_SECRET must differ from JWT_SECRET in production/staging');
+    return configError(
+      helpers,
+      'JWT_REFRESH_SECRET must differ from JWT_SECRET in production/staging',
+    );
   }
 
-  if (value.CORS_ALLOW_ALL_ORIGINS === true || corsOrigins.split(',').map(origin => origin.trim()).includes('*')) {
-    return configError(helpers, 'Wildcard CORS is not allowed in production/staging');
+  if (
+    value.CORS_ALLOW_ALL_ORIGINS === true ||
+    corsOrigins
+      .split(',')
+      .map((origin) => origin.trim())
+      .includes('*')
+  ) {
+    return configError(
+      helpers,
+      'Wildcard CORS is not allowed in production/staging',
+    );
   }
 
   if (value.CORS_ALLOW_NO_ORIGIN === true) {
-    return configError(helpers, 'CORS_ALLOW_NO_ORIGIN must be false in production/staging');
+    return configError(
+      helpers,
+      'CORS_ALLOW_NO_ORIGIN must be false in production/staging',
+    );
   }
 
   if (rateLimitProvider !== 'redis') {
-    return configError(helpers, 'RATE_LIMIT_PROVIDER=redis is required in production/staging');
+    return configError(
+      helpers,
+      'RATE_LIMIT_PROVIDER=redis is required in production/staging',
+    );
   }
 
   return value;
@@ -67,7 +97,10 @@ export const configValidationSchema = Joi.object({
   API_PREFIX: Joi.string().allow('').default(''),
   API_ENABLE_VERSIONING: booleanEnvSchema.default(false),
   API_DEFAULT_VERSION: Joi.string().trim().default('1'),
-  BODY_LIMIT: Joi.string().trim().pattern(/^\d+\s*(b|kb|mb)$/i).default('1mb'),
+  BODY_LIMIT: Joi.string()
+    .trim()
+    .pattern(/^\d+\s*(b|kb|mb)$/i)
+    .default('1mb'),
   TRUST_PROXY: booleanEnvSchema.default(false),
   JWT_SECRET: Joi.string().min(10).required(),
   JWT_EXPIRES_IN: Joi.string().trim().default('15m'),
@@ -90,12 +123,18 @@ export const configValidationSchema = Joi.object({
     .try(Joi.number(), Joi.string().pattern(/^\d+$/))
     .optional(),
   DOMAIN: Joi.string().uri().optional(),
-  TELEGRAM_WEBHOOK_PATH: Joi.string().trim().pattern(/^\/[^\s]*$/).default('/bot'),
+  TELEGRAM_WEBHOOK_PATH: Joi.string()
+    .trim()
+    .pattern(/^\/[^\s]*$/)
+    .default('/bot'),
   CORS_ORIGINS: Joi.string().allow('').default(''),
   CORS_ALLOW_ALL_ORIGINS: booleanEnvSchema.optional(),
   CORS_ALLOW_NO_ORIGIN: booleanEnvSchema.default(false),
   RATE_LIMIT_PROVIDER: Joi.string().valid('memory', 'redis').optional(),
-  REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).allow('').optional(),
+  REDIS_URL: Joi.string()
+    .uri({ scheme: ['redis', 'rediss'] })
+    .allow('')
+    .optional(),
   PUBLIC_RATE_LIMIT_TTL: Joi.number().integer().min(1000).optional(),
   PUBLIC_RATE_LIMIT_LIMIT: Joi.number().integer().min(1).optional(),
   RATE_LIMIT_WINDOW_MS: Joi.number().integer().min(1000).default(60000),

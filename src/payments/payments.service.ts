@@ -1,6 +1,19 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Connection, FilterQuery, Model, SortOrder, Types } from 'mongoose';
+import {
+  ClientSession,
+  Connection,
+  FilterQuery,
+  Model,
+  SortOrder,
+  Types,
+} from 'mongoose';
 import { Payment, PaymentDocument } from './schemas/payment.schema';
 import { PaymentsRepository } from './payments.repository';
 import { CreatePaymentDto } from './dto/create-payments.dto';
@@ -10,7 +23,10 @@ import { PaymentsListQueryDto } from './dto/payments-list-query.dto';
 import { createPaginatedResult } from '../common/responses/paginated-result';
 import { Role } from '../roles/roles.enum';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
-import { mapPaymentResponse, mapPaymentResponses } from './dto/payment-response.dto';
+import {
+  mapPaymentResponse,
+  mapPaymentResponses,
+} from './dto/payment-response.dto';
 import { PaymentStatus } from './payment-status.enum';
 import { FinancialTransactionType } from './financial-transaction-type.enum';
 import { FinancialTransactionsRepository } from './financial-transactions.repository';
@@ -21,7 +37,8 @@ export class PaymentsService {
     private readonly paymentsRepository: PaymentsRepository,
     private readonly financialTransactionsRepository: FinancialTransactionsRepository,
     @InjectConnection() private readonly connection: Connection,
-    @InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>,
+    @InjectModel(Course.name)
+    private readonly courseModel: Model<CourseDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
 
@@ -31,10 +48,16 @@ export class PaymentsService {
   ];
 
   private normalizeBranchIds(branchIds?: string[]): string[] {
-    return [...new Set((branchIds ?? [])
-      .filter((branchId): branchId is string => typeof branchId === 'string')
-      .map(branchId => branchId.trim())
-      .filter(branchId => branchId.length > 0))];
+    return [
+      ...new Set(
+        (branchIds ?? [])
+          .filter(
+            (branchId): branchId is string => typeof branchId === 'string',
+          )
+          .map((branchId) => branchId.trim())
+          .filter((branchId) => branchId.length > 0),
+      ),
+    ];
   }
 
   private isSystemWideRole(role?: Role): boolean {
@@ -54,7 +77,10 @@ export class PaymentsService {
     return branchIds;
   }
 
-  private assertActorCanAccessStudent(actor: AuthenticatedUser, student: Pick<UserDocument, '_id' | 'role' | 'branchIds'>): void {
+  private assertActorCanAccessStudent(
+    actor: AuthenticatedUser,
+    student: Pick<UserDocument, '_id' | 'role' | 'branchIds'>,
+  ): void {
     if (this.isSystemWideRole(actor.role)) {
       return;
     }
@@ -64,13 +90,17 @@ export class PaymentsService {
         return;
       }
 
-      throw new ForbiddenException('Students can only access their own payments');
+      throw new ForbiddenException(
+        'Students can only access their own payments',
+      );
     }
 
     if (this.isBranchAdminRole(actor.role)) {
       const actorBranches = this.ensureScopedActorHasBranches(actor);
       const studentBranches = this.normalizeBranchIds(student.branchIds);
-      if (studentBranches.some(branchId => actorBranches.includes(branchId))) {
+      if (
+        studentBranches.some((branchId) => actorBranches.includes(branchId))
+      ) {
         return;
       }
 
@@ -81,15 +111,18 @@ export class PaymentsService {
   }
 
   private getSort(query: PaymentsListQueryDto) {
-    const sortBy = query.sortBy && ['createdAt', 'paidAt', 'amount'].includes(query.sortBy)
-      ? query.sortBy
-      : 'createdAt';
+    const sortBy =
+      query.sortBy && ['createdAt', 'paidAt', 'amount'].includes(query.sortBy)
+        ? query.sortBy
+        : 'createdAt';
     const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
 
     return { [sortBy]: sortOrder as SortOrder };
   }
 
-  private buildFilter(query: PaymentsListQueryDto = {}): FilterQuery<PaymentDocument> {
+  private buildFilter(
+    query: PaymentsListQueryDto = {},
+  ): FilterQuery<PaymentDocument> {
     const filter: FilterQuery<PaymentDocument> = {};
 
     if (query.studentId) {
@@ -107,12 +140,19 @@ export class PaymentsService {
     return filter;
   }
 
-  private resolveStatus(payment: Pick<Payment, 'status' | 'isConfirmed'>): PaymentStatus {
-    return payment.status ?? (payment.isConfirmed ? PaymentStatus.Confirmed : PaymentStatus.Pending);
+  private resolveStatus(
+    payment: Pick<Payment, 'status' | 'isConfirmed'>,
+  ): PaymentStatus {
+    return (
+      payment.status ??
+      (payment.isConfirmed ? PaymentStatus.Confirmed : PaymentStatus.Pending)
+    );
   }
 
   private actorObjectId(actorId?: string): Types.ObjectId | undefined {
-    return actorId && Types.ObjectId.isValid(actorId) ? new Types.ObjectId(actorId) : undefined;
+    return actorId && Types.ObjectId.isValid(actorId)
+      ? new Types.ObjectId(actorId)
+      : undefined;
   }
 
   private async createLedgerEntry(
@@ -128,7 +168,9 @@ export class PaymentsService {
   ) {
     const ledgerPayload = {
       studentId: new Types.ObjectId(String(payload.studentId)),
-      paymentId: payload.paymentId ? new Types.ObjectId(String(payload.paymentId)) : undefined,
+      paymentId: payload.paymentId
+        ? new Types.ObjectId(String(payload.paymentId))
+        : undefined,
       amount: payload.amount,
       type: payload.type,
       actorId: this.actorObjectId(payload.actorId),
@@ -147,10 +189,12 @@ export class PaymentsService {
       'replica set member or mongos',
       'Current topology does not support sessions',
       'Transaction API error',
-    ].some(fragment => message.includes(fragment));
+    ].some((fragment) => message.includes(fragment));
   }
 
-  private async runFinancialMutation<T>(operation: (session?: ClientSession) => Promise<T>): Promise<T> {
+  private async runFinancialMutation<T>(
+    operation: (session?: ClientSession) => Promise<T>,
+  ): Promise<T> {
     if (!this.connection?.readyState) {
       return operation();
     }
@@ -178,7 +222,10 @@ export class PaymentsService {
     const [student, course, existingPayment] = await Promise.all([
       this.userModel.findById(dto.student).lean().exec(),
       this.courseModel.findById(dto.courseId).lean().exec(),
-      this.paymentsRepository.findOne({ student: dto.student, course: dto.courseId }).lean().exec(),
+      this.paymentsRepository
+        .findOne({ student: dto.student, course: dto.courseId })
+        .lean()
+        .exec(),
     ]);
 
     if (!student) {
@@ -186,36 +233,53 @@ export class PaymentsService {
     }
 
     if (student.role !== Role.Student) {
-      throw new BadRequestException('Payments can only be created for students');
+      throw new BadRequestException(
+        'Payments can only be created for students',
+      );
     }
 
     if (!course) {
       throw new NotFoundException('Course not found');
     }
 
-    if (typeof course.price !== 'number' || Number.isNaN(course.price) || course.price <= 0) {
+    if (
+      typeof course.price !== 'number' ||
+      Number.isNaN(course.price) ||
+      course.price <= 0
+    ) {
       throw new BadRequestException('Course price must be a positive number');
     }
 
-    const isEnrolled = Array.isArray(course.students)
-      && course.students.some(studentId => String(studentId) === dto.student);
+    const isEnrolled =
+      Array.isArray(course.students) &&
+      course.students.some((studentId) => String(studentId) === dto.student);
     if (!isEnrolled) {
-      throw new BadRequestException('Student is not enrolled in the selected course');
+      throw new BadRequestException(
+        'Student is not enrolled in the selected course',
+      );
     }
 
     if (existingPayment) {
-      throw new ConflictException('Payment for this student and course already exists');
+      throw new ConflictException(
+        'Payment for this student and course already exists',
+      );
     }
 
-    const coursesOfStudent = await this.courseModel.find({ students: dto.student }).lean();
+    const coursesOfStudent = await this.courseModel
+      .find({ students: dto.student })
+      .lean();
     const hasMultipleCourses = coursesOfStudent.length > 1;
-    const finalPrice = hasMultipleCourses ? Math.round(course.price * 0.9) : course.price;
+    const finalPrice = hasMultipleCourses
+      ? Math.round(course.price * 0.9)
+      : course.price;
 
     if (finalPrice <= 0) {
-      throw new BadRequestException('Calculated payment amount must be greater than zero');
+      throw new BadRequestException(
+        'Calculated payment amount must be greater than zero',
+      );
     }
 
-    const payment = await this.runFinancialMutation(async session => {
+    const payment = await this.runFinancialMutation(async (session) => {
       const paymentPayload = {
         student: dto.student,
         course: dto.courseId,
@@ -229,14 +293,17 @@ export class PaymentsService {
         ? await this.paymentsRepository.create(paymentPayload, { session })
         : await this.paymentsRepository.create(paymentPayload);
 
-      await this.createLedgerEntry({
-        studentId: dto.student,
-        paymentId: created._id,
-        amount: finalPrice,
-        type: FinancialTransactionType.PaymentCreated,
-        actorId,
-        metadata: { courseId: dto.courseId, method: dto.method },
-      }, session);
+      await this.createLedgerEntry(
+        {
+          studentId: dto.student,
+          paymentId: created._id,
+          amount: finalPrice,
+          type: FinancialTransactionType.PaymentCreated,
+          actorId,
+          metadata: { courseId: dto.courseId, method: dto.method },
+        },
+        session,
+      );
 
       return created;
     });
@@ -256,7 +323,10 @@ export class PaymentsService {
   }
 
   async findOne(id: string) {
-    const payment = await this.paymentsRepository.findById(id).populate(this.paymentPopulate).exec();
+    const payment = await this.paymentsRepository
+      .findById(id)
+      .populate(this.paymentPopulate)
+      .exec();
     if (!payment) {
       throw new NotFoundException('Payment not found');
     }
@@ -280,10 +350,18 @@ export class PaymentsService {
       this.paymentsRepository.countDocuments(filter).exec(),
     ]);
 
-    return createPaginatedResult(mapPaymentResponses(payments), total, page, limit);
+    return createPaginatedResult(
+      mapPaymentResponses(payments),
+      total,
+      page,
+      limit,
+    );
   }
 
-  async getAllForActor(query: PaymentsListQueryDto = {}, actor: AuthenticatedUser) {
+  async getAllForActor(
+    query: PaymentsListQueryDto = {},
+    actor: AuthenticatedUser,
+  ) {
     if (this.isSystemWideRole(actor.role)) {
       return this.getAll(query);
     }
@@ -291,10 +369,13 @@ export class PaymentsService {
     if (this.isBranchAdminRole(actor.role)) {
       const actorBranches = this.ensureScopedActorHasBranches(actor);
       const scopedStudents = await this.userModel
-        .find({ role: Role.Student, branchIds: { $in: actorBranches } }, { _id: 1 })
+        .find(
+          { role: Role.Student, branchIds: { $in: actorBranches } },
+          { _id: 1 },
+        )
         .lean()
         .exec();
-      const studentIds = scopedStudents.map(student => String(student._id));
+      const studentIds = scopedStudents.map((student) => String(student._id));
 
       if (query.studentId && !studentIds.includes(query.studentId)) {
         throw new NotFoundException('Student not found');
@@ -307,7 +388,7 @@ export class PaymentsService {
       const filter = this.buildFilter(query);
       filter.student = query.studentId
         ? new Types.ObjectId(query.studentId)
-        : { $in: studentIds.map(studentId => new Types.ObjectId(studentId)) };
+        : { $in: studentIds.map((studentId) => new Types.ObjectId(studentId)) };
 
       const page = query.page ?? 1;
       const limit = query.limit ?? 20;
@@ -322,7 +403,12 @@ export class PaymentsService {
         this.paymentsRepository.countDocuments(filter).exec(),
       ]);
 
-      return createPaginatedResult(mapPaymentResponses(payments), total, page, limit);
+      return createPaginatedResult(
+        mapPaymentResponses(payments),
+        total,
+        page,
+        limit,
+      );
     }
 
     throw new ForbiddenException('You are not allowed to access payments');
@@ -332,7 +418,11 @@ export class PaymentsService {
     return this.getAll({ ...query, studentId });
   }
 
-  async getByStudentForActor(studentId: string, query: PaymentsListQueryDto, actor: AuthenticatedUser) {
+  async getByStudentForActor(
+    studentId: string,
+    query: PaymentsListQueryDto,
+    actor: AuthenticatedUser,
+  ) {
     const student = await this.userModel.findById(studentId).exec();
     if (!student) {
       throw new NotFoundException('Student not found');
@@ -369,7 +459,7 @@ export class PaymentsService {
       throw new ConflictException('Payment confirmation was already recorded');
     }
 
-    await this.runFinancialMutation(async session => {
+    await this.runFinancialMutation(async (session) => {
       const confirmedAt = new Date();
       const payment = await this.paymentsRepository
         .findOneAndUpdate(
@@ -394,13 +484,16 @@ export class PaymentsService {
         throw new ConflictException('Payment is no longer pending');
       }
 
-      await this.createLedgerEntry({
-        studentId: payment.student,
-        paymentId,
-        amount: payment.amount,
-        type: FinancialTransactionType.PaymentConfirmed,
-        actorId,
-      }, session);
+      await this.createLedgerEntry(
+        {
+          studentId: payment.student,
+          paymentId,
+          amount: payment.amount,
+          type: FinancialTransactionType.PaymentConfirmed,
+          actorId,
+        },
+        session,
+      );
     });
 
     return this.findOne(paymentId);
@@ -413,7 +506,10 @@ export class PaymentsService {
 
     const payment = await this.paymentsRepository
       .findById(paymentId)
-      .populate({ path: 'student', select: 'username firstName lastName role branchIds' })
+      .populate({
+        path: 'student',
+        select: 'username firstName lastName role branchIds',
+      })
       .exec();
     if (!payment) {
       throw new NotFoundException('Payment not found');
@@ -448,7 +544,7 @@ export class PaymentsService {
       throw new ConflictException('Payment is already cancelled');
     }
 
-    await this.runFinancialMutation(async session => {
+    await this.runFinancialMutation(async (session) => {
       const cancelledAt = new Date();
       const payment = await this.paymentsRepository
         .findOneAndUpdate(
@@ -468,13 +564,16 @@ export class PaymentsService {
         throw new ConflictException('Payment is no longer pending');
       }
 
-      await this.createLedgerEntry({
-        studentId: payment.student,
-        paymentId,
-        amount: payment.amount,
-        type: FinancialTransactionType.PaymentCancelled,
-        actorId,
-      }, session);
+      await this.createLedgerEntry(
+        {
+          studentId: payment.student,
+          paymentId,
+          amount: payment.amount,
+          type: FinancialTransactionType.PaymentCancelled,
+          actorId,
+        },
+        session,
+      );
     });
 
     return this.findOne(paymentId);
@@ -487,7 +586,10 @@ export class PaymentsService {
 
     const payment = await this.paymentsRepository
       .findById(paymentId)
-      .populate({ path: 'student', select: 'username firstName lastName role branchIds' })
+      .populate({
+        path: 'student',
+        select: 'username firstName lastName role branchIds',
+      })
       .exec();
     if (!payment) {
       throw new NotFoundException('Payment not found');
@@ -507,27 +609,37 @@ export class PaymentsService {
       throw new BadRequestException('Invalid payment ID');
     }
 
-    const existingPayment = await this.paymentsRepository.findById(id).lean().exec();
+    const existingPayment = await this.paymentsRepository
+      .findById(id)
+      .lean()
+      .exec();
     if (!existingPayment) {
       throw new NotFoundException('Payment not found');
     }
 
     const status = this.resolveStatus(existingPayment);
     if (status === PaymentStatus.Confirmed) {
-      throw new BadRequestException('Confirmed payments cannot be deleted silently; cancel/reversal flow is required');
+      throw new BadRequestException(
+        'Confirmed payments cannot be deleted silently; cancel/reversal flow is required',
+      );
     }
 
-    const payment = await this.runFinancialMutation(async session => {
-      await this.createLedgerEntry({
-        studentId: existingPayment.student,
-        paymentId: id,
-        amount: existingPayment.amount,
-        type: FinancialTransactionType.PaymentDeleted,
-        actorId,
-        metadata: { previousStatus: status },
-      }, session);
+    const payment = await this.runFinancialMutation(async (session) => {
+      await this.createLedgerEntry(
+        {
+          studentId: existingPayment.student,
+          paymentId: id,
+          amount: existingPayment.amount,
+          type: FinancialTransactionType.PaymentDeleted,
+          actorId,
+          metadata: { previousStatus: status },
+        },
+        session,
+      );
 
-      return this.paymentsRepository.findByIdAndDelete(id, session ? { session } : undefined).exec();
+      return this.paymentsRepository
+        .findByIdAndDelete(id, session ? { session } : undefined)
+        .exec();
     });
     if (!payment) {
       throw new NotFoundException('Payment not found');
@@ -543,7 +655,10 @@ export class PaymentsService {
 
     const payment = await this.paymentsRepository
       .findById(id)
-      .populate({ path: 'student', select: 'username firstName lastName role branchIds' })
+      .populate({
+        path: 'student',
+        select: 'username firstName lastName role branchIds',
+      })
       .exec();
     if (!payment) {
       throw new NotFoundException('Payment not found');

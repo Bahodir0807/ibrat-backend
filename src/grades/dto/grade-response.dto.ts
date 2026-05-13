@@ -1,4 +1,8 @@
-import { ApiResourceDto, mapPublicResource, mapPublicResources } from '../../common/responses/public-response.mapper';
+import {
+  ApiResourceDto,
+  mapPublicResource,
+  mapPublicResources,
+} from '../../common/responses/public-response.mapper';
 
 export type GradeResponseDto = ApiResourceDto;
 

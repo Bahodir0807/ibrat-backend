@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Types } from 'mongoose';
 import { PaymentsService } from './payments.service';
 import { PaymentStatus } from './payment-status.enum';
@@ -21,12 +25,14 @@ function chain<T>(result: T) {
   return query;
 }
 
-function createService(overrides: {
-  paymentsRepository?: Record<string, jest.Mock>;
-  financialTransactionsRepository?: Record<string, jest.Mock>;
-  courseModel?: Record<string, jest.Mock>;
-  userModel?: Record<string, jest.Mock>;
-} = {}) {
+function createService(
+  overrides: {
+    paymentsRepository?: Record<string, jest.Mock>;
+    financialTransactionsRepository?: Record<string, jest.Mock>;
+    courseModel?: Record<string, jest.Mock>;
+    userModel?: Record<string, jest.Mock>;
+  } = {},
+) {
   const paymentsRepository = {
     findById: jest.fn(),
     findOneAndUpdate: jest.fn(),
@@ -72,19 +78,24 @@ function createService(overrides: {
 describe('PaymentsService financial integrity', () => {
   it('cannot confirm a payment twice', async () => {
     const paymentId = objectId();
-    const { service, paymentsRepository, financialTransactionsRepository } = createService({
-      paymentsRepository: {
-        findById: jest.fn(() => chain({
-          _id: paymentId,
-          student: objectId(),
-          amount: 100,
-          status: PaymentStatus.Confirmed,
-          isConfirmed: true,
-        })),
-      },
-    });
+    const { service, paymentsRepository, financialTransactionsRepository } =
+      createService({
+        paymentsRepository: {
+          findById: jest.fn(() =>
+            chain({
+              _id: paymentId,
+              student: objectId(),
+              amount: 100,
+              status: PaymentStatus.Confirmed,
+              isConfirmed: true,
+            }),
+          ),
+        },
+      });
 
-    await expect(service.confirmPayment(paymentId, objectId())).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.confirmPayment(paymentId, objectId()),
+    ).rejects.toBeInstanceOf(ConflictException);
     expect(paymentsRepository.findOneAndUpdate).not.toHaveBeenCalled();
     expect(financialTransactionsRepository.create).not.toHaveBeenCalled();
   });
@@ -93,37 +104,46 @@ describe('PaymentsService financial integrity', () => {
     const paymentId = objectId();
     const { service } = createService({
       paymentsRepository: {
-        findById: jest.fn(() => chain({
-          _id: paymentId,
-          student: objectId(),
-          amount: 100,
-          status: PaymentStatus.Cancelled,
-          isConfirmed: false,
-        })),
+        findById: jest.fn(() =>
+          chain({
+            _id: paymentId,
+            student: objectId(),
+            amount: 100,
+            status: PaymentStatus.Cancelled,
+            isConfirmed: false,
+          }),
+        ),
       },
     });
 
-    await expect(service.confirmPayment(paymentId, objectId())).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.confirmPayment(paymentId, objectId()),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('prevents duplicate confirmation effects when ledger already exists', async () => {
     const paymentId = objectId();
-    const { service, paymentsRepository, financialTransactionsRepository } = createService({
-      paymentsRepository: {
-        findById: jest.fn(() => chain({
-          _id: paymentId,
-          student: objectId(),
-          amount: 100,
-          status: PaymentStatus.Pending,
-          isConfirmed: false,
-        })),
-      },
-      financialTransactionsRepository: {
-        exists: jest.fn(() => chain({ _id: objectId() })),
-      },
-    });
+    const { service, paymentsRepository, financialTransactionsRepository } =
+      createService({
+        paymentsRepository: {
+          findById: jest.fn(() =>
+            chain({
+              _id: paymentId,
+              student: objectId(),
+              amount: 100,
+              status: PaymentStatus.Pending,
+              isConfirmed: false,
+            }),
+          ),
+        },
+        financialTransactionsRepository: {
+          exists: jest.fn(() => chain({ _id: objectId() })),
+        },
+      });
 
-    await expect(service.confirmPayment(paymentId, objectId())).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.confirmPayment(paymentId, objectId()),
+    ).rejects.toBeInstanceOf(ConflictException);
     expect(paymentsRepository.findOneAndUpdate).not.toHaveBeenCalled();
     expect(financialTransactionsRepository.create).not.toHaveBeenCalled();
   });
@@ -147,26 +167,29 @@ describe('PaymentsService financial integrity', () => {
     };
     const { service, financialTransactionsRepository } = createService({
       paymentsRepository: {
-        findById: jest.fn()
+        findById: jest
+          .fn()
           .mockReturnValueOnce(chain(pending))
           .mockReturnValueOnce(chain(confirmed)),
         findOneAndUpdate: jest.fn(() => chain(confirmed)),
       },
       financialTransactionsRepository: {
         exists: jest.fn(() => chain(null)),
-        create: jest.fn(async value => value),
+        create: jest.fn(async (value) => value),
       },
     });
 
     await service.confirmPayment(paymentId, actorId);
 
-    expect(financialTransactionsRepository.create).toHaveBeenCalledWith(expect.objectContaining({
-      studentId: expect.any(Types.ObjectId),
-      paymentId: expect.any(Types.ObjectId),
-      amount: 120,
-      type: FinancialTransactionType.PaymentConfirmed,
-      actorId: expect.any(Types.ObjectId),
-    }));
+    expect(financialTransactionsRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        studentId: expect.any(Types.ObjectId),
+        paymentId: expect.any(Types.ObjectId),
+        amount: 120,
+        type: FinancialTransactionType.PaymentConfirmed,
+        actorId: expect.any(Types.ObjectId),
+      }),
+    );
   });
 
   it('creates a ledger entry on cancel', async () => {
@@ -186,39 +209,47 @@ describe('PaymentsService financial integrity', () => {
     };
     const { service, financialTransactionsRepository } = createService({
       paymentsRepository: {
-        findById: jest.fn()
+        findById: jest
+          .fn()
           .mockReturnValueOnce(chain(pending))
           .mockReturnValueOnce(chain(cancelled)),
         findOneAndUpdate: jest.fn(() => chain(cancelled)),
       },
       financialTransactionsRepository: {
-        create: jest.fn(async value => value),
+        create: jest.fn(async (value) => value),
       },
     });
 
     await service.cancelPayment(paymentId, objectId());
 
-    expect(financialTransactionsRepository.create).toHaveBeenCalledWith(expect.objectContaining({
-      amount: 90,
-      type: FinancialTransactionType.PaymentCancelled,
-    }));
+    expect(financialTransactionsRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 90,
+        type: FinancialTransactionType.PaymentCancelled,
+      }),
+    );
   });
 
   it('does not silently delete confirmed payments', async () => {
     const paymentId = objectId();
-    const { service, paymentsRepository, financialTransactionsRepository } = createService({
-      paymentsRepository: {
-        findById: jest.fn(() => chain({
-          _id: paymentId,
-          student: objectId(),
-          amount: 100,
-          status: PaymentStatus.Confirmed,
-          isConfirmed: true,
-        })),
-      },
-    });
+    const { service, paymentsRepository, financialTransactionsRepository } =
+      createService({
+        paymentsRepository: {
+          findById: jest.fn(() =>
+            chain({
+              _id: paymentId,
+              student: objectId(),
+              amount: 100,
+              status: PaymentStatus.Confirmed,
+              isConfirmed: true,
+            }),
+          ),
+        },
+      });
 
-    await expect(service.delete(paymentId, objectId())).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.delete(paymentId, objectId())).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
     expect(paymentsRepository.findByIdAndDelete).not.toHaveBeenCalled();
     expect(financialTransactionsRepository.create).not.toHaveBeenCalled();
   });
@@ -227,27 +258,45 @@ describe('PaymentsService financial integrity', () => {
     const studentId = objectId();
     const courseId = objectId();
     const paymentId = objectId();
-    const { service, courseModel, userModel, paymentsRepository, financialTransactionsRepository } = createService({
+    const {
+      service,
+      courseModel,
+      userModel,
+      paymentsRepository,
+      financialTransactionsRepository,
+    } = createService({
       userModel: {
-        findById: jest.fn(() => chain({ _id: studentId, role: Role.Student, branchIds: ['branch-a'] })),
+        findById: jest.fn(() =>
+          chain({
+            _id: studentId,
+            role: Role.Student,
+            branchIds: ['branch-a'],
+          }),
+        ),
       },
       courseModel: {
-        findById: jest.fn(() => chain({ _id: courseId, price: 200, students: [studentId] })),
-        find: jest.fn(() => ({ lean: jest.fn(async () => [{ _id: courseId }]) })),
+        findById: jest.fn(() =>
+          chain({ _id: courseId, price: 200, students: [studentId] }),
+        ),
+        find: jest.fn(() => ({
+          lean: jest.fn(async () => [{ _id: courseId }]),
+        })),
       },
       paymentsRepository: {
         findOne: jest.fn(() => chain(null)),
-        create: jest.fn(async value => ({ _id: paymentId, ...value })),
-        findById: jest.fn(() => chain({
-          _id: paymentId,
-          student: studentId,
-          course: courseId,
-          amount: 200,
-          status: PaymentStatus.Pending,
-        })),
+        create: jest.fn(async (value) => ({ _id: paymentId, ...value })),
+        findById: jest.fn(() =>
+          chain({
+            _id: paymentId,
+            student: studentId,
+            course: courseId,
+            amount: 200,
+            status: PaymentStatus.Pending,
+          }),
+        ),
       },
       financialTransactionsRepository: {
-        create: jest.fn(async value => value),
+        create: jest.fn(async (value) => value),
       },
     });
 
@@ -255,33 +304,41 @@ describe('PaymentsService financial integrity', () => {
 
     expect(userModel.findById).toHaveBeenCalledWith(studentId);
     expect(courseModel.findById).toHaveBeenCalledWith(courseId);
-    expect(paymentsRepository.create).toHaveBeenCalledWith(expect.objectContaining({ amount: 200 }));
-    expect(financialTransactionsRepository.create).toHaveBeenCalledWith(expect.objectContaining({
-      amount: 200,
-      type: FinancialTransactionType.PaymentCreated,
-    }));
+    expect(paymentsRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 200 }),
+    );
+    expect(financialTransactionsRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 200,
+        type: FinancialTransactionType.PaymentCreated,
+      }),
+    );
   });
 
   it('admin can mutate payments without branch restrictions', async () => {
     const paymentId = objectId();
     const { service, paymentsRepository } = createService({
       paymentsRepository: {
-        findById: jest.fn(() => chain({
-          _id: paymentId,
-          student: {
-            _id: objectId(),
-            role: Role.Student,
-            branchIds: ['branch-b'],
-          },
-          amount: 100,
-          status: PaymentStatus.Pending,
-        })),
-        findOneAndUpdate: jest.fn(() => chain({
-          _id: paymentId,
-          student: objectId(),
-          amount: 100,
-          status: PaymentStatus.Confirmed,
-        })),
+        findById: jest.fn(() =>
+          chain({
+            _id: paymentId,
+            student: {
+              _id: objectId(),
+              role: Role.Student,
+              branchIds: ['branch-b'],
+            },
+            amount: 100,
+            status: PaymentStatus.Pending,
+          }),
+        ),
+        findOneAndUpdate: jest.fn(() =>
+          chain({
+            _id: paymentId,
+            student: objectId(),
+            amount: 100,
+            status: PaymentStatus.Confirmed,
+          }),
+        ),
       },
       financialTransactionsRepository: {
         exists: jest.fn(() => chain(null)),

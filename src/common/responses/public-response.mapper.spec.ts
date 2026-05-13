@@ -1,6 +1,10 @@
 import { Role } from '../../roles/roles.enum';
 import { UserStatus } from '../../users/user-status.enum';
-import { mapAdminUser, mapPublicResource, mapPublicUser } from './public-response.mapper';
+import {
+  mapAdminUser,
+  mapPublicResource,
+  mapPublicUser,
+} from './public-response.mapper';
 
 describe('public response mapper', () => {
   it('normalizes nested users and removes sensitive fields', () => {
@@ -101,13 +105,15 @@ describe('public response mapper', () => {
   });
 
   it('keeps nested user shape compact and consistent', () => {
-    expect(mapPublicUser({
-      _id: 'student-1',
-      username: 'fallback-name',
-      role: Role.Student,
-      avatarUrl: 'https://cdn/avatar.png',
-      branchIds: ['branch-1'],
-    })).toEqual({
+    expect(
+      mapPublicUser({
+        _id: 'student-1',
+        username: 'fallback-name',
+        role: Role.Student,
+        avatarUrl: 'https://cdn/avatar.png',
+        branchIds: ['branch-1'],
+      }),
+    ).toEqual({
       id: 'student-1',
       fullName: 'fallback-name',
       role: Role.Student,

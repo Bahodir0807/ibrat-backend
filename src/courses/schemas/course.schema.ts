@@ -15,6 +15,9 @@ export class Course {
   teacherId?: Types.ObjectId;
 
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
+  teacherIds!: Types.ObjectId[];
+
+  @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
   students?: Types.ObjectId[];
 
   @Prop({ required: true })
@@ -22,6 +25,6 @@ export class Course {
 }
 
 export const CourseSchema = SchemaFactory.createForClass(Course);
-CourseSchema.index({ teacherId: 1 });
+CourseSchema.index({ teacherIds: 1 });
 CourseSchema.index({ students: 1 });
 CourseSchema.index({ createdAt: -1 });

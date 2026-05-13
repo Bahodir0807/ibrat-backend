@@ -1,4 +1,12 @@
-import { BadRequestException, ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventEmitter } from 'events';
 import { TelegramService } from '../telegram/telegram.service';
 import { UsersService } from '../users/users.service';
@@ -28,18 +36,28 @@ export class NotificationsService {
     }
 
     const user = sender
-      ? await this.usersService.findNotificationRecipientForActor(dto.userId, sender)
+      ? await this.usersService.findNotificationRecipientForActor(
+          dto.userId,
+          sender,
+        )
       : await this.usersService.findById(dto.userId);
     if (!user || !user.telegramId) {
-      throw new NotFoundException('User not found or Telegram is not connected');
+      throw new NotFoundException(
+        'User not found or Telegram is not connected',
+      );
     }
 
     if (sender?.role === Role.Teacher && user.role !== Role.Student) {
-      throw new BadRequestException('Teachers can send notifications only to students');
+      throw new BadRequestException(
+        'Teachers can send notifications only to students',
+      );
     }
 
     const prefix = this.getNotificationPrefix(dto.type);
-    await this.telegramService.sendMessage(user.telegramId, `${prefix} ${dto.message}`);
+    await this.telegramService.sendMessage(
+      user.telegramId,
+      `${prefix} ${dto.message}`,
+    );
 
     this.logger.log(
       JSON.stringify({
@@ -64,18 +82,27 @@ export class NotificationsService {
     }
 
     if (sender.role === Role.Teacher && role !== Role.Student) {
-      throw new BadRequestException('Teachers can send role-based notifications only to students');
+      throw new BadRequestException(
+        'Teachers can send role-based notifications only to students',
+      );
     }
 
     const users = await this.usersService.findByRoleForActor(role, sender);
-    const telegramIds = users.filter(user => user.telegramId).map(user => user.telegramId!);
+    const telegramIds = users
+      .filter((user) => user.telegramId)
+      .map((user) => user.telegramId!);
 
     if (!telegramIds.length) {
-      return mapNotificationResponse({ success: false, reason: 'No users with Telegram were found for this role' });
+      return mapNotificationResponse({
+        success: false,
+        reason: 'No users with Telegram were found for this role',
+      });
     }
 
     const prefix = this.getNotificationPrefix(type);
-    telegramIds.forEach(id => this.telegramService.sendMessage(id, `${prefix} ${message}`));
+    telegramIds.forEach((id) =>
+      this.telegramService.sendMessage(id, `${prefix} ${message}`),
+    );
 
     this.logger.log(
       JSON.stringify({
@@ -107,7 +134,9 @@ export class NotificationsService {
     }
   }
 
-  onNotification(callback: (payload: { message: string; telegramIds: number[] }) => void) {
+  onNotification(
+    callback: (payload: { message: string; telegramIds: number[] }) => void,
+  ) {
     this.emitter.on('notify', callback);
   }
 

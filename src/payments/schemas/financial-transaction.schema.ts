@@ -25,8 +25,10 @@ export class FinancialTransaction {
   createdAt: Date;
 }
 
-export type FinancialTransactionDocument = HydratedDocument<FinancialTransaction>;
-export const FinancialTransactionSchema = SchemaFactory.createForClass(FinancialTransaction);
+export type FinancialTransactionDocument =
+  HydratedDocument<FinancialTransaction>;
+export const FinancialTransactionSchema =
+  SchemaFactory.createForClass(FinancialTransaction);
 FinancialTransactionSchema.index(
   { paymentId: 1, type: 1 },
   {

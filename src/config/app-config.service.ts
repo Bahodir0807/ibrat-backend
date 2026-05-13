@@ -3,7 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { MongooseModuleOptions } from '@nestjs/mongoose';
 import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import { setServers } from 'node:dns';
-import configuration, { AppEnvironment, RuntimeConfiguration, TenantMode } from './configuration';
+import configuration, {
+  AppEnvironment,
+  RuntimeConfiguration,
+  TenantMode,
+} from './configuration';
 
 type PublicRuntimeMetadata = {
   name: string;
@@ -41,7 +45,9 @@ export class AppConfigService {
   }
 
   get database(): RuntimeConfiguration['database'] {
-    return this.configService.getOrThrow<RuntimeConfiguration['database']>('database');
+    return this.configService.getOrThrow<RuntimeConfiguration['database']>(
+      'database',
+    );
   }
 
   get cors(): RuntimeConfiguration['cors'] {
@@ -49,15 +55,21 @@ export class AppConfigService {
   }
 
   get telegram(): RuntimeConfiguration['telegram'] {
-    return this.configService.getOrThrow<RuntimeConfiguration['telegram']>('telegram');
+    return this.configService.getOrThrow<RuntimeConfiguration['telegram']>(
+      'telegram',
+    );
   }
 
   get operational(): RuntimeConfiguration['operational'] {
-    return this.configService.getOrThrow<RuntimeConfiguration['operational']>('operational');
+    return this.configService.getOrThrow<RuntimeConfiguration['operational']>(
+      'operational',
+    );
   }
 
   get rateLimit(): RuntimeConfiguration['rateLimit'] {
-    return this.configService.getOrThrow<RuntimeConfiguration['rateLimit']>('rateLimit');
+    return this.configService.getOrThrow<RuntimeConfiguration['rateLimit']>(
+      'rateLimit',
+    );
   }
 
   get appName(): string {

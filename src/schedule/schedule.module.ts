@@ -8,7 +8,10 @@ import { Course, CourseSchema } from '../courses/schemas/course.schema';
 import { Room, RoomSchema } from '../rooms/schemas/room.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Group, GroupSchema } from '../groups/schemas/group.schema';
-import { Attendance, AttendanceSchema } from '../attendance/schemas/attendance.schema';
+import {
+  Attendance,
+  AttendanceSchema,
+} from '../attendance/schemas/attendance.schema';
 
 @Module({
   imports: [

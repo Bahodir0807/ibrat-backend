@@ -8,5 +8,9 @@ export class CoursesListQueryDto extends ListQueryDto {
 
   @IsOptional()
   @IsMongoId()
+  teacherIds?: string;
+
+  @IsOptional()
+  @IsMongoId()
   studentId?: string;
 }

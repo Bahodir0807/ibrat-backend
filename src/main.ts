@@ -30,7 +30,10 @@ async function bootstrap() {
   app.use(urlencoded({ extended: true, limit: appConfig.bodyLimit }));
 
   app.useGlobalFilters(new AllExceptionsFilter(appConfig.isProductionLike));
-  app.useGlobalInterceptors(new LoggingInterceptor(), new ResponseInterceptor());
+  app.useGlobalInterceptors(
+    new LoggingInterceptor(),
+    new ResponseInterceptor(),
+  );
   app.useGlobalPipes(new CustomValidationPipe());
 
   if (appConfig.globalPrefix) {
@@ -68,9 +71,13 @@ async function bootstrap() {
 
       if (webhookBaseUrl) {
         await bot.telegram.setWebhook(`${webhookBaseUrl}${webhookPath}`);
-        logger.log(`Telegram webhook configured at ${webhookBaseUrl}${webhookPath}`);
+        logger.log(
+          `Telegram webhook configured at ${webhookBaseUrl}${webhookPath}`,
+        );
       } else {
-        logger.warn('DOMAIN is not set, Telegram webhook configuration skipped');
+        logger.warn(
+          'DOMAIN is not set, Telegram webhook configuration skipped',
+        );
       }
     } catch (error) {
       logger.error(
@@ -79,7 +86,9 @@ async function bootstrap() {
       );
     }
   } else {
-    logger.warn('Telegram bot is disabled because TELEGRAM_BOT_TOKEN is not set');
+    logger.warn(
+      'Telegram bot is disabled because TELEGRAM_BOT_TOKEN is not set',
+    );
   }
 
   await app.listen(appConfig.port, appConfig.host);

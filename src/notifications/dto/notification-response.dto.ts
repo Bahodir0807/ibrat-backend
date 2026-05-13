@@ -7,7 +7,9 @@ export type NotificationResponseDto = {
   reason?: string;
 };
 
-export function mapNotificationResponse(value: NotificationResponseDto): NotificationResponseDto {
+export function mapNotificationResponse(
+  value: NotificationResponseDto,
+): NotificationResponseDto {
   return {
     sentTo: value.sentTo,
     type: value.type,

@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  ArrayUnique,
   Min,
 } from 'class-validator';
 
@@ -24,6 +25,13 @@ export class CreateCourseDto {
   @IsOptional()
   @IsMongoId()
   teacherId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsMongoId({ each: true })
+  @Type(() => String)
+  teacherIds?: string[];
 
   @IsOptional()
   @IsArray()

@@ -1,10 +1,20 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
-  constructor(private readonly isProductionLike = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') {}
+  constructor(
+    private readonly isProductionLike = process.env.NODE_ENV === 'production' ||
+      process.env.NODE_ENV === 'staging',
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -48,7 +58,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     const requestId = request.requestId ?? 'n/a';
-    const actor = request.user ? { id: request.user.userId, role: request.user.role } : undefined;
+    const actor = request.user
+      ? { id: request.user.userId, role: request.user.role }
+      : undefined;
     response.setHeader('X-Request-Id', requestId);
 
     this.logger.error(
@@ -62,7 +74,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message,
         actor,
       }),
-      !this.isProductionLike && exception instanceof Error ? exception.stack : undefined,
+      !this.isProductionLike && exception instanceof Error
+        ? exception.stack
+        : undefined,
     );
 
     response.status(status).json({

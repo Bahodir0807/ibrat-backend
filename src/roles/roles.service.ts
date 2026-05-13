@@ -1,19 +1,31 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Role, RoleDocument } from './schemas/role.schema';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
-import { serializeResource, serializeResources } from '../common/serializers/resource.serializer';
+import {
+  serializeResource,
+  serializeResources,
+} from '../common/serializers/resource.serializer';
 import { RolesListQueryDto } from './dto/roles-list-query.dto';
 import { createPaginatedResult } from '../common/responses/paginated-result';
 
 @Injectable()
 export class RolesService {
-  constructor(@InjectModel(Role.name) private readonly roleModel: Model<RoleDocument>) {}
+  constructor(
+    @InjectModel(Role.name) private readonly roleModel: Model<RoleDocument>,
+  ) {}
 
   async create(dto: CreateRoleDto) {
-    const exists = await this.roleModel.findOne({ name: dto.name }).lean().exec();
+    const exists = await this.roleModel
+      .findOne({ name: dto.name })
+      .lean()
+      .exec();
     if (exists) {
       throw new ConflictException(`Role '${dto.name}' already exists`);
     }
@@ -30,7 +42,12 @@ export class RolesService {
       : {};
 
     const [roles, total] = await Promise.all([
-      this.roleModel.find(filter).sort({ name: 1 }).skip((page - 1) * limit).limit(limit).exec(),
+      this.roleModel
+        .find(filter)
+        .sort({ name: 1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
       this.roleModel.countDocuments(filter).exec(),
     ]);
 
@@ -47,7 +64,9 @@ export class RolesService {
   }
 
   async update(name: string, dto: UpdateRoleDto) {
-    const role = await this.roleModel.findOneAndUpdate({ name }, dto, { new: true }).exec();
+    const role = await this.roleModel
+      .findOneAndUpdate({ name }, dto, { new: true })
+      .exec();
     if (!role) {
       throw new NotFoundException(`Role '${name}' not found`);
     }

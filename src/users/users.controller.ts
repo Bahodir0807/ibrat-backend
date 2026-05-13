@@ -36,7 +36,10 @@ export class UsersController {
 
   @Get('me')
   async getMe(@Request() req) {
-    return this.usersService.findByIdForActor(req.user.userId, req.user as AuthenticatedUser);
+    return this.usersService.findByIdForActor(
+      req.user.userId,
+      req.user as AuthenticatedUser,
+    );
   }
 
   @Patch('me/profile')
@@ -54,7 +57,10 @@ export class UsersController {
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Get()
   async getAll(@Query() query: UsersListQueryDto, @Request() req) {
-    return this.usersService.findAllForActor(query, req.user as AuthenticatedUser);
+    return this.usersService.findAllForActor(
+      query,
+      req.user as AuthenticatedUser,
+    );
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
@@ -70,10 +76,15 @@ export class UsersController {
     }
 
     if (providedSearchKeys.length > 1) {
-      throw new BadRequestException('Use exactly one search parameter at a time');
+      throw new BadRequestException(
+        'Use exactly one search parameter at a time',
+      );
     }
 
-    const user = await this.usersService.searchForActor(query, req.user as AuthenticatedUser);
+    const user = await this.usersService.searchForActor(
+      query,
+      req.user as AuthenticatedUser,
+    );
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -84,19 +95,28 @@ export class UsersController {
   @Roles(Role.Admin, Role.Extra, Role.Owner, Role.Teacher)
   @Get('students')
   async getStudents(@Query() query: UsersListQueryDto, @Request() req) {
-    return this.usersService.findStudentsForActor(query, req.user as AuthenticatedUser);
+    return this.usersService.findStudentsForActor(
+      query,
+      req.user as AuthenticatedUser,
+    );
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Get(':id')
   async getOne(@Param() params: IdParamDto, @Request() req) {
-    return this.usersService.findByIdForActor(params.id, req.user as AuthenticatedUser);
+    return this.usersService.findByIdForActor(
+      params.id,
+      req.user as AuthenticatedUser,
+    );
   }
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Post()
   async create(@Body() dto: CreateUserDto, @Request() req) {
-    const user = await this.usersService.createForActor(dto, req.user as AuthenticatedUser);
+    const user = await this.usersService.createForActor(
+      dto,
+      req.user as AuthenticatedUser,
+    );
     this.auditLogService.log({
       action: 'user.create',
       actor: { id: req.user.userId, role: req.user.role },
@@ -108,10 +128,18 @@ export class UsersController {
   }
 
   @Put(':id')
-  async update(@Param() params: IdParamDto, @Body() dto: UpdateUserDto, @Request() req) {
+  async update(
+    @Param() params: IdParamDto,
+    @Body() dto: UpdateUserDto,
+    @Request() req,
+  ) {
     const { id } = params;
     const requester = req.user as AuthenticatedUser;
-    const updatedUser = await this.usersService.updateForActor(id, dto, requester);
+    const updatedUser = await this.usersService.updateForActor(
+      id,
+      dto,
+      requester,
+    );
     this.auditLogService.log({
       action: requester.userId === id ? 'user.update.self' : 'user.update',
       actor: { id: requester.userId, role: requester.role },
@@ -123,7 +151,11 @@ export class UsersController {
 
   @Roles(Role.Admin, Role.Extra, Role.Owner)
   @Patch(':id/role')
-  async updateRole(@Param() params: IdParamDto, @Body() dto: UpdateUserRoleDto, @Request() req) {
+  async updateRole(
+    @Param() params: IdParamDto,
+    @Body() dto: UpdateUserRoleDto,
+    @Request() req,
+  ) {
     const { id } = params;
     const updatedUser = await this.usersService.updateRoleForActor(
       id,

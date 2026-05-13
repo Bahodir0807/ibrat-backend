@@ -3,34 +3,34 @@ import { Document } from 'mongoose';
 import { Role } from '../../roles/roles.enum';
 import { UserStatus } from '../user-status.enum';
 
-export type UserDocument = User & Document & { _id: string; };
+export type UserDocument = User & Document & { _id: string };
 
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true, unique: true })
   username!: string;
-  
+
   @Prop({ unique: true, sparse: true })
   telegramId?: string;
-  
+
   @Prop({ unique: true, sparse: true })
   email?: string;
-  
-  @Prop({ required: true }) 
+
+  @Prop({ required: true })
   password!: string;
-  
+
   @Prop({ default: '' })
   firstName!: string;
-  
+
   @Prop({ default: '' })
   lastName!: string;
-  
-  @Prop({ enum: Role, default: Role.Student }) 
+
+  @Prop({ enum: Role, default: Role.Student })
   role!: Role;
-  
+
   @Prop()
   phoneNumber?: string;
-  
+
   @Prop({ default: true })
   isActive!: boolean;
 
@@ -39,7 +39,7 @@ export class User {
 
   @Prop()
   passwordChangedAt?: Date;
-  
+
   @Prop()
   avatarUrl?: string;
 

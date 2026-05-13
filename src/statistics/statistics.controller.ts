@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Request,
+} from '@nestjs/common';
 import { StatisticsService } from './statistics.service';
 import { CreateStatisticDto } from './dto/create-statistic.dto';
 import { Roles } from '../roles/roles.decorator';
@@ -26,13 +36,25 @@ export class StatisticsController {
 
   @Get(':type')
   @Roles(Role.Admin, Role.Owner, Role.Extra)
-  findByType(@Param() params: TypeParamDto, @Query() query: StatisticsListQueryDto, @Request() req) {
-    return this.statisticsService.findByTypeForActor(params.type, query, req.user);
+  findByType(
+    @Param() params: TypeParamDto,
+    @Query() query: StatisticsListQueryDto,
+    @Request() req,
+  ) {
+    return this.statisticsService.findByTypeForActor(
+      params.type,
+      query,
+      req.user,
+    );
   }
 
   @Patch(':id')
   @Roles(Role.Admin, Role.Owner, Role.Extra)
-  update(@Param() params: IdParamDto, @Body() dto: UpdateStatisticDto, @Request() req) {
+  update(
+    @Param() params: IdParamDto,
+    @Body() dto: UpdateStatisticDto,
+    @Request() req,
+  ) {
     return this.statisticsService.updateForActor(params.id, dto, req.user);
   }
 

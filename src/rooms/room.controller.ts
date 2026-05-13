@@ -41,7 +41,11 @@ export class RoomController {
 
   @Patch(':id')
   @Roles(Role.Admin, Role.Owner, Role.Extra)
-  update(@Param() params: IdParamDto, @Body() dto: UpdateRoomDto, @Request() req) {
+  update(
+    @Param() params: IdParamDto,
+    @Body() dto: UpdateRoomDto,
+    @Request() req,
+  ) {
     return this.roomService.updateForActor(params.id, dto, req.user);
   }
 

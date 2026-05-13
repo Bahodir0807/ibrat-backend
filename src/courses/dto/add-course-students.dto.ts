@@ -1,4 +1,9 @@
-import { ArrayNotEmpty, ArrayUnique, IsArray, IsMongoId } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  ArrayUnique,
+  IsArray,
+  IsMongoId,
+} from 'class-validator';
 
 export class AddCourseStudentsDto {
   @IsArray()

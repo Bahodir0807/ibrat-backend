@@ -29,7 +29,10 @@ export class CoursesController {
   @Post()
   @Roles(Role.Admin, Role.Owner, Role.Extra)
   async create(@Body() createCourseDto: CreateCourseDto, @Request() req) {
-    const course = await this.coursesService.createForActor(createCourseDto, req.user);
+    const course = await this.coursesService.createForActor(
+      createCourseDto,
+      req.user,
+    );
     this.auditLogService.log({
       action: 'course.create',
       actor: { id: req.user.userId, role: req.user.role },
@@ -53,9 +56,17 @@ export class CoursesController {
 
   @Patch(':id')
   @Roles(Role.Admin, Role.Owner, Role.Extra)
-  async update(@Param() params: IdParamDto, @Body() updateCourseDto: UpdateCourseDto, @Request() req) {
+  async update(
+    @Param() params: IdParamDto,
+    @Body() updateCourseDto: UpdateCourseDto,
+    @Request() req,
+  ) {
     const { id } = params;
-    const course = await this.coursesService.updateForActor(id, updateCourseDto, req.user);
+    const course = await this.coursesService.updateForActor(
+      id,
+      updateCourseDto,
+      req.user,
+    );
     this.auditLogService.log({
       action: 'course.update',
       actor: { id: req.user.userId, role: req.user.role },
@@ -88,13 +99,19 @@ export class CoursesController {
   ) {
     const { id: courseId } = params;
     const { studentIds } = dto;
-    const course = await this.coursesService.addManyStudentsToCourseForActor(courseId, studentIds, req.user);
+    const course = await this.coursesService.addManyStudentsToCourseForActor(
+      courseId,
+      studentIds,
+      req.user,
+    );
     this.auditLogService.log({
       action: 'course.students.add',
       actor: { id: req.user.userId, role: req.user.role },
       target: { type: 'course', id: courseId },
       status: 'success',
-      metadata: { addedStudentsCount: Array.isArray(studentIds) ? studentIds.length : 0 },
+      metadata: {
+        addedStudentsCount: Array.isArray(studentIds) ? studentIds.length : 0,
+      },
     });
     return course;
   }

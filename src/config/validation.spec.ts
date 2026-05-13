@@ -44,14 +44,18 @@ describe('configuration validation', () => {
       RATE_LIMIT_PROVIDER: 'memory',
     });
 
-    expect(result.error?.message).toContain('RATE_LIMIT_PROVIDER=redis is required');
+    expect(result.error?.message).toContain(
+      'RATE_LIMIT_PROVIDER=redis is required',
+    );
   });
 
   it('rejects missing rate limit provider in production', () => {
     const { RATE_LIMIT_PROVIDER, ...config } = base;
     const result = configValidationSchema.validate(config);
 
-    expect(result.error?.message).toContain('RATE_LIMIT_PROVIDER=redis is required');
+    expect(result.error?.message).toContain(
+      'RATE_LIMIT_PROVIDER=redis is required',
+    );
   });
 
   it('rejects missing Redis URL when production rate limiting uses redis', () => {

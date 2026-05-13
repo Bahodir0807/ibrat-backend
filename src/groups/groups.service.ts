@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { CreateGroupDto } from './dto/create-group.dto';
@@ -11,7 +16,10 @@ import { createPaginatedResult } from '../common/responses/paginated-result';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Role } from '../roles/roles.enum';
-import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
+import {
+  Schedule,
+  ScheduleDocument,
+} from '../schedule/schemas/schedule.schema';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
 import {
   ensureActorBranchScope,
@@ -25,9 +33,11 @@ import {
 export class GroupsService {
   constructor(
     private readonly groupsRepository: GroupsRepository,
-    @InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>,
+    @InjectModel(Course.name)
+    private readonly courseModel: Model<CourseDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectModel(Schedule.name) private readonly scheduleModel: Model<ScheduleDocument>,
+    @InjectModel(Schedule.name)
+    private readonly scheduleModel: Model<ScheduleDocument>,
   ) {}
 
   private readonly groupPopulate = [
@@ -37,14 +47,21 @@ export class GroupsService {
   ];
 
   private extractReferenceId(value: unknown): string {
-    if (value && typeof value === 'object' && 'id' in (value as Record<string, unknown>)) {
+    if (
+      value &&
+      typeof value === 'object' &&
+      'id' in (value as Record<string, unknown>)
+    ) {
       return String((value as { id: unknown }).id);
     }
 
     return String(value ?? '');
   }
 
-  private assertTeacherCanManageGroup(group: { teacher?: unknown }, actor: AuthenticatedUser) {
+  private assertTeacherCanManageGroup(
+    group: { teacher?: unknown },
+    actor: AuthenticatedUser,
+  ) {
     if (actor.role !== Role.Teacher) {
       return;
     }
@@ -62,15 +79,20 @@ export class GroupsService {
     throw new ForbiddenException('Only admin roles can mutate groups');
   }
 
-  private async getBranchScopedUserIds(actor: AuthenticatedUser, roles?: Role[]): Promise<string[]> {
+  private async getBranchScopedUserIds(
+    actor: AuthenticatedUser,
+    roles?: Role[],
+  ): Promise<string[]> {
     const actorBranches = ensureActorBranchScope(actor);
-    const filter: FilterQuery<UserDocument> = { branchIds: { $in: actorBranches } };
+    const filter: FilterQuery<UserDocument> = {
+      branchIds: { $in: actorBranches },
+    };
     if (roles?.length) {
       filter.role = { $in: roles };
     }
 
     const users = await this.userModel.find(filter, { _id: 1 }).lean().exec();
-    return users.map(user => String(user._id));
+    return users.map((user) => String(user._id));
   }
 
   private async assertBranchAdminCanAccessGroup(
@@ -85,9 +107,9 @@ export class GroupsService {
     const relatedUserIds = [
       this.extractReferenceId(group.teacher),
       ...(Array.isArray(group.students)
-        ? group.students.map(student => this.extractReferenceId(student))
+        ? group.students.map((student) => this.extractReferenceId(student))
         : []),
-    ].filter(id => Types.ObjectId.isValid(id));
+    ].filter((id) => Types.ObjectId.isValid(id));
 
     if (relatedUserIds.length === 0) {
       throw new NotFoundException('Group not found');
@@ -99,8 +121,10 @@ export class GroupsService {
       .exec();
 
     if (
-      relatedUsers.length !== relatedUserIds.length
-      || relatedUsers.some(user => !hasBranchOverlap(actorBranches, user.branchIds))
+      relatedUsers.length !== relatedUserIds.length ||
+      relatedUsers.some(
+        (user) => !hasBranchOverlap(actorBranches, user.branchIds),
+      )
     ) {
       throw new NotFoundException('Group not found');
     }
@@ -114,13 +138,23 @@ export class GroupsService {
       return;
     }
 
-    const normalizedIds = [...new Set(studentIds.filter(studentId => Types.ObjectId.isValid(studentId)))];
+    const normalizedIds = [
+      ...new Set(
+        studentIds.filter((studentId) => Types.ObjectId.isValid(studentId)),
+      ),
+    ];
     if (normalizedIds.length === 0) {
       return;
     }
 
     const existingGroups = await this.groupsRepository
-      .find({ teacher: actor.userId, students: { $in: toObjectIds(normalizedIds) } }, { students: 1 })
+      .find(
+        {
+          teacher: actor.userId,
+          students: { $in: toObjectIds(normalizedIds) },
+        },
+        { students: 1 },
+      )
       .lean()
       .exec();
     const visibleStudentIds = new Set<string>();
@@ -130,8 +164,10 @@ export class GroupsService {
       }
     }
 
-    if (!normalizedIds.every(studentId => visibleStudentIds.has(studentId))) {
-      throw new ForbiddenException('Teachers can assign only existing students from their own groups');
+    if (!normalizedIds.every((studentId) => visibleStudentIds.has(studentId))) {
+      throw new ForbiddenException(
+        'Teachers can assign only existing students from their own groups',
+      );
     }
   }
 
@@ -147,23 +183,32 @@ export class GroupsService {
     const actorBranches = ensureActorBranchScope(actor);
     const userIds = [
       ...(payload.teacher ? [String(payload.teacher)] : []),
-      ...(Array.isArray(payload.students) ? payload.students.map(student => String(student)) : []),
-    ].filter(id => Types.ObjectId.isValid(id));
+      ...(Array.isArray(payload.students)
+        ? payload.students.map((student) => String(student))
+        : []),
+    ].filter((id) => Types.ObjectId.isValid(id));
 
     if (userIds.length === 0 && !requireRelatedUser) {
       return;
     }
 
     if (userIds.length === 0) {
-      throw new ForbiddenException('Group must be assigned to users inside your branch scope');
+      throw new ForbiddenException(
+        'Group must be assigned to users inside your branch scope',
+      );
     }
 
-    const users = await this.userModel.find({ _id: { $in: userIds } }, { branchIds: 1 }).lean().exec();
+    const users = await this.userModel
+      .find({ _id: { $in: userIds } }, { branchIds: 1 })
+      .lean()
+      .exec();
     if (users.length !== userIds.length) {
       throw new NotFoundException('One or more users were not found');
     }
 
-    if (users.some(user => !hasBranchOverlap(actorBranches, user.branchIds))) {
+    if (
+      users.some((user) => !hasBranchOverlap(actorBranches, user.branchIds))
+    ) {
       throw new ForbiddenException('Cannot manage group outside branch scope');
     }
   }
@@ -178,7 +223,9 @@ export class GroupsService {
 
     if (actor.role === Role.Teacher) {
       if (this.extractReferenceId(group.teacher) !== actor.userId) {
-        throw new ForbiddenException('Teachers can access only their own groups');
+        throw new ForbiddenException(
+          'Teachers can access only their own groups',
+        );
       }
 
       return;
@@ -186,9 +233,13 @@ export class GroupsService {
 
     if (actor.role === Role.Student) {
       const students = Array.isArray(group.students) ? group.students : [];
-      const isMember = students.some(student => this.extractReferenceId(student) === actor.userId);
+      const isMember = students.some(
+        (student) => this.extractReferenceId(student) === actor.userId,
+      );
       if (!isMember) {
-        throw new ForbiddenException('Students can access only their own groups');
+        throw new ForbiddenException(
+          'Students can access only their own groups',
+        );
       }
     }
   }
@@ -226,23 +277,30 @@ export class GroupsService {
 
     if ('students' in dto && dto.students !== undefined) {
       payload.students = Array.from(
-        new Set((dto.students ?? []).map(studentId => this.toObjectId(studentId)!.toString())),
-      ).map(studentId => new Types.ObjectId(studentId));
+        new Set(
+          (dto.students ?? []).map((studentId) =>
+            this.toObjectId(studentId)!.toString(),
+          ),
+        ),
+      ).map((studentId) => new Types.ObjectId(studentId));
     }
 
     return payload;
   }
 
   private getSort(query: GroupsListQueryDto) {
-    const sortBy = query.sortBy && ['name', 'createdAt'].includes(query.sortBy)
-      ? query.sortBy
-      : 'name';
+    const sortBy =
+      query.sortBy && ['name', 'createdAt'].includes(query.sortBy)
+        ? query.sortBy
+        : 'name';
     const sortOrder = query.sortOrder === 'desc' ? -1 : 1;
 
     return { [sortBy]: sortOrder as SortOrder };
   }
 
-  private buildFilter(query: GroupsListQueryDto = {}): FilterQuery<GroupDocument> {
+  private buildFilter(
+    query: GroupsListQueryDto = {},
+  ): FilterQuery<GroupDocument> {
     const filter: FilterQuery<GroupDocument> = {};
 
     if (query.teacherId) {
@@ -286,8 +344,20 @@ export class GroupsService {
         throw new NotFoundException('Course not found');
       }
 
-      if (teacherId && course.teacherId && String(course.teacherId) !== teacherId) {
-        throw new BadRequestException('Group teacher must match the related course teacher');
+      const courseTeacherIds = [
+        ...(Array.isArray(course.teacherIds)
+          ? course.teacherIds.map((id) => String(id))
+          : []),
+        ...(course.teacherId ? [String(course.teacherId)] : []),
+      ];
+      if (
+        teacherId &&
+        courseTeacherIds.length > 0 &&
+        !courseTeacherIds.includes(teacherId)
+      ) {
+        throw new BadRequestException(
+          'Group teacher must be one of the related course teachers',
+        );
       }
     }
 
@@ -298,19 +368,32 @@ export class GroupsService {
       }
 
       if (teacher.role !== Role.Teacher) {
-        throw new BadRequestException('Assigned teacher must have teacher role');
+        throw new BadRequestException(
+          'Assigned teacher must have teacher role',
+        );
       }
     }
 
-    if (payload.students && Array.isArray(payload.students) && payload.students.length > 0) {
-      const students = await this.userModel.find({ _id: { $in: payload.students } }).lean().exec();
+    if (
+      payload.students &&
+      Array.isArray(payload.students) &&
+      payload.students.length > 0
+    ) {
+      const students = await this.userModel
+        .find({ _id: { $in: payload.students } })
+        .lean()
+        .exec();
       if (students.length !== payload.students.length) {
         throw new NotFoundException('One or more students were not found');
       }
 
-      const invalidStudent = students.find(student => student.role !== Role.Student);
+      const invalidStudent = students.find(
+        (student) => student.role !== Role.Student,
+      );
       if (invalidStudent) {
-        throw new BadRequestException('Only users with student role can be assigned to a group');
+        throw new BadRequestException(
+          'Only users with student role can be assigned to a group',
+        );
       }
     }
   }
@@ -328,14 +411,20 @@ export class GroupsService {
 
     if (actor.role === Role.Teacher) {
       if (payload.teacher && payload.teacher !== actor.userId) {
-        throw new ForbiddenException('Teachers can create groups only for themselves');
+        throw new ForbiddenException(
+          'Teachers can create groups only for themselves',
+        );
       }
 
       payload.teacher = actor.userId;
       await this.assertTeacherGroupStudentsWithinScope(payload.students, actor);
     }
 
-    await this.assertGroupPayloadWithinActorScope(this.normalizePayload(payload), actor, true);
+    await this.assertGroupPayloadWithinActorScope(
+      this.normalizePayload(payload),
+      actor,
+      true,
+    );
 
     return this.create(payload);
   }
@@ -370,7 +459,10 @@ export class GroupsService {
     }
 
     if (isBranchAdminRole(actor.role)) {
-      const scopedUserIds = await this.getBranchScopedUserIds(actor, [Role.Teacher, Role.Student]);
+      const scopedUserIds = await this.getBranchScopedUserIds(actor, [
+        Role.Teacher,
+        Role.Student,
+      ]);
       if (scopedUserIds.length === 0) {
         return createPaginatedResult([], 0, query.page ?? 1, query.limit ?? 20);
       }
@@ -402,7 +494,12 @@ export class GroupsService {
         this.groupsRepository.countDocuments(filter).exec(),
       ]);
 
-      return createPaginatedResult(mapGroupResponses(groups), total, page, limit);
+      return createPaginatedResult(
+        mapGroupResponses(groups),
+        total,
+        page,
+        limit,
+      );
     }
 
     return this.findAll(query);
@@ -413,7 +510,10 @@ export class GroupsService {
       throw new BadRequestException('Invalid group ID');
     }
 
-    const group = await this.groupsRepository.findById(id).populate(this.groupPopulate).exec();
+    const group = await this.groupsRepository
+      .findById(id)
+      .populate(this.groupPopulate)
+      .exec();
     if (!group) {
       throw new NotFoundException('Group not found');
     }
@@ -423,8 +523,14 @@ export class GroupsService {
 
   async findOneForActor(id: string, actor: AuthenticatedUser) {
     const group = await this.findOne(id);
-    await this.assertBranchAdminCanAccessGroup(group as { teacher?: unknown; students?: unknown[] }, actor);
-    this.assertActorCanReadGroup(group as { teacher?: unknown; students?: unknown[] }, actor);
+    await this.assertBranchAdminCanAccessGroup(
+      group as { teacher?: unknown; students?: unknown[] },
+      actor,
+    );
+    this.assertActorCanReadGroup(
+      group as { teacher?: unknown; students?: unknown[] },
+      actor,
+    );
     return group;
   }
 
@@ -436,9 +542,7 @@ export class GroupsService {
     const payload = this.normalizePayload(dto);
     await this.validateRelations(payload);
 
-    const updated = await this.groupsRepository
-      .updateById(id, payload)
-      .exec();
+    const updated = await this.groupsRepository.updateById(id, payload).exec();
 
     if (!updated) {
       throw new NotFoundException('Group not found');
@@ -447,7 +551,11 @@ export class GroupsService {
     return this.findOne(id);
   }
 
-  async updateForActor(id: string, dto: UpdateGroupDto, actor: AuthenticatedUser) {
+  async updateForActor(
+    id: string,
+    dto: UpdateGroupDto,
+    actor: AuthenticatedUser,
+  ) {
     this.assertActorCanMutateGroups(actor);
     const payload = { ...dto };
     const group = await this.findDocumentById(id);
@@ -459,7 +567,9 @@ export class GroupsService {
       this.assertTeacherCanManageGroup(group, actor);
 
       if (payload.teacher && payload.teacher !== actor.userId) {
-        throw new ForbiddenException('Teachers cannot reassign groups to another teacher');
+        throw new ForbiddenException(
+          'Teachers cannot reassign groups to another teacher',
+        );
       }
 
       payload.teacher = actor.userId;
@@ -467,7 +577,10 @@ export class GroupsService {
     }
 
     await this.assertBranchAdminCanAccessGroup(group, actor);
-    await this.assertGroupPayloadWithinActorScope(this.normalizePayload(payload), actor);
+    await this.assertGroupPayloadWithinActorScope(
+      this.normalizePayload(payload),
+      actor,
+    );
 
     return this.update(id, payload);
   }
@@ -487,9 +600,13 @@ export class GroupsService {
       throw new BadRequestException('Invalid group ID');
     }
 
-    const scheduleExists = await this.scheduleModel.exists({ group: id }).exec();
+    const scheduleExists = await this.scheduleModel
+      .exists({ group: id })
+      .exec();
     if (scheduleExists) {
-      throw new BadRequestException('Group cannot be deleted while schedule entries reference it');
+      throw new BadRequestException(
+        'Group cannot be deleted while schedule entries reference it',
+      );
     }
 
     const deleted = await this.groupsRepository.deleteById(id).exec();

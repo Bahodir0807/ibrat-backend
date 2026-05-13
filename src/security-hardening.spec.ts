@@ -56,7 +56,9 @@ describe('security hardening', () => {
         {} as any,
       );
 
-      await expect(service.findOneForActor(courseId, actor)).resolves.toMatchObject({
+      await expect(
+        service.findOneForActor(courseId, actor),
+      ).resolves.toMatchObject({
         id: courseId,
         students: [],
       });
@@ -142,7 +144,9 @@ describe('security hardening', () => {
         {} as any,
       );
 
-      await expect(service.findOneForActor(groupId, actor)).resolves.toMatchObject({
+      await expect(
+        service.findOneForActor(groupId, actor),
+      ).resolves.toMatchObject({
         id: groupId,
         students: [],
       });

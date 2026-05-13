@@ -148,7 +148,9 @@ describe('pre-production role access rules', () => {
     expect(groupFindFilter).toMatchObject({
       students: expect.any(Types.ObjectId),
     });
-    expect(String((groupFindFilter as { students: Types.ObjectId }).students)).toBe(studentId);
+    expect(
+      String((groupFindFilter as { students: Types.ObjectId }).students),
+    ).toBe(studentId);
   });
 
   it('teacher group list is scoped to own teacher id', async () => {
@@ -176,7 +178,9 @@ describe('pre-production role access rules', () => {
     expect(groupFindFilter).toMatchObject({
       teacher: expect.any(Types.ObjectId),
     });
-    expect(String((groupFindFilter as { teacher: Types.ObjectId }).teacher)).toBe(teacherId);
+    expect(
+      String((groupFindFilter as { teacher: Types.ObjectId }).teacher),
+    ).toBe(teacherId);
   });
 
   it('student cannot read unrelated group by id', async () => {
@@ -185,12 +189,16 @@ describe('pre-production role access rules', () => {
     const teacherB = objectId();
     const groupId = objectId();
     const groupsRepository = {
-      findById: jest.fn(() => chain({
-        _id: groupId,
-        name: 'Teacher B group',
-        teacher: { _id: teacherB, username: 'teacher-b', role: Role.Teacher },
-        students: [{ _id: studentB, username: 'student-b', role: Role.Student }],
-      })),
+      findById: jest.fn(() =>
+        chain({
+          _id: groupId,
+          name: 'Teacher B group',
+          teacher: { _id: teacherB, username: 'teacher-b', role: Role.Teacher },
+          students: [
+            { _id: studentB, username: 'student-b', role: Role.Student },
+          ],
+        }),
+      ),
     };
     const service = new GroupsService(
       groupsRepository as any,
@@ -214,12 +222,16 @@ describe('pre-production role access rules', () => {
     const studentB = objectId();
     const groupId = objectId();
     const groupsRepository = {
-      findById: jest.fn(() => chain({
-        _id: groupId,
-        name: 'Teacher B group',
-        teacher: { _id: teacherB, username: 'teacher-b', role: Role.Teacher },
-        students: [{ _id: studentB, username: 'student-b', role: Role.Student }],
-      })),
+      findById: jest.fn(() =>
+        chain({
+          _id: groupId,
+          name: 'Teacher B group',
+          teacher: { _id: teacherB, username: 'teacher-b', role: Role.Teacher },
+          students: [
+            { _id: studentB, username: 'student-b', role: Role.Student },
+          ],
+        }),
+      ),
     };
     const service = new GroupsService(
       groupsRepository as any,
@@ -237,29 +249,32 @@ describe('pre-production role access rules', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it.each([Role.Admin, Role.Owner, Role.Extra])('%s can list all groups', async role => {
-    let groupFindFilter: unknown;
-    const groupsRepository = {
-      find: jest.fn((filter) => {
-        groupFindFilter = filter;
-        return chain([]);
-      }),
-      countDocuments: jest.fn(() => chain(0)),
-    };
-    const service = new GroupsService(
-      groupsRepository as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
+  it.each([Role.Admin, Role.Owner, Role.Extra])(
+    '%s can list all groups',
+    async (role) => {
+      let groupFindFilter: unknown;
+      const groupsRepository = {
+        find: jest.fn((filter) => {
+          groupFindFilter = filter;
+          return chain([]);
+        }),
+        countDocuments: jest.fn(() => chain(0)),
+      };
+      const service = new GroupsService(
+        groupsRepository as any,
+        {} as any,
+        {} as any,
+        {} as any,
+      );
 
-    await service.findAllForActor(
-      {},
-      { userId: objectId(), role, branchIds: ['branch-a'] },
-    );
+      await service.findAllForActor(
+        {},
+        { userId: objectId(), role, branchIds: ['branch-a'] },
+      );
 
-    expect(groupFindFilter).toEqual({});
-  });
+      expect(groupFindFilter).toEqual({});
+    },
+  );
 
   it('student course list is scoped to own enrollment', async () => {
     const studentId = objectId();
@@ -287,7 +302,9 @@ describe('pre-production role access rules', () => {
     expect(courseFindFilter).toMatchObject({
       students: expect.any(Types.ObjectId),
     });
-    expect(String((courseFindFilter as { students: Types.ObjectId }).students)).toBe(studentId);
+    expect(
+      String((courseFindFilter as { students: Types.ObjectId }).students),
+    ).toBe(studentId);
   });
 
   it('teacher course list is scoped to own teacher id', async () => {
@@ -314,8 +331,10 @@ describe('pre-production role access rules', () => {
     );
 
     expect(courseFindFilter).toMatchObject({
-      teacherId: expect.any(Types.ObjectId),
+      teacherIds: expect.any(Types.ObjectId),
     });
-    expect(String((courseFindFilter as { teacherId: Types.ObjectId }).teacherId)).toBe(teacherId);
+    expect(
+      String((courseFindFilter as { teacherIds: Types.ObjectId }).teacherIds),
+    ).toBe(teacherId);
   });
 });

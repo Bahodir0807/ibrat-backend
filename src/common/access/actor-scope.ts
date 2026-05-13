@@ -8,10 +8,14 @@ export type BranchScopedResource = {
 };
 
 export function normalizeBranchIds(branchIds?: string[]): string[] {
-  return [...new Set((branchIds ?? [])
-    .filter((branchId): branchId is string => typeof branchId === 'string')
-    .map(branchId => branchId.trim())
-    .filter(branchId => branchId.length > 0))];
+  return [
+    ...new Set(
+      (branchIds ?? [])
+        .filter((branchId): branchId is string => typeof branchId === 'string')
+        .map((branchId) => branchId.trim())
+        .filter((branchId) => branchId.length > 0),
+    ),
+  ];
 }
 
 export function isSystemWideRole(role?: Role): boolean {
@@ -31,9 +35,12 @@ export function ensureActorBranchScope(actor: AuthenticatedUser): string[] {
   return branchIds;
 }
 
-export function hasBranchOverlap(actorBranchIds: string[], targetBranchIds?: string[]): boolean {
+export function hasBranchOverlap(
+  actorBranchIds: string[],
+  targetBranchIds?: string[],
+): boolean {
   const normalizedTarget = normalizeBranchIds(targetBranchIds);
-  return normalizedTarget.some(branchId => actorBranchIds.includes(branchId));
+  return normalizedTarget.some((branchId) => actorBranchIds.includes(branchId));
 }
 
 export function assertBranchOverlapOrNotFound(
@@ -52,5 +59,7 @@ export function assertBranchOverlapOrNotFound(
 }
 
 export function toObjectIds(ids: string[]): Types.ObjectId[] {
-  return ids.filter(id => Types.ObjectId.isValid(id)).map(id => new Types.ObjectId(id));
+  return ids
+    .filter((id) => Types.ObjectId.isValid(id))
+    .map((id) => new Types.ObjectId(id));
 }

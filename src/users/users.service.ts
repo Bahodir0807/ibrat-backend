@@ -14,23 +14,55 @@ import { UsersRepository } from './users.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from '../roles/roles.enum';
-import { hashPassword, verifyPassword as comparePassword } from '../common/password';
+import {
+  hashPassword,
+  verifyPassword as comparePassword,
+} from '../common/password';
 import { PublicUser } from './types/public-user.type';
 import { UsersListQueryDto } from './dto/users-list-query.dto';
 import { createPaginatedResult } from '../common/responses/paginated-result';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
-import { Schedule, ScheduleDocument } from '../schedule/schemas/schedule.schema';
+import {
+  Schedule,
+  ScheduleDocument,
+} from '../schedule/schemas/schedule.schema';
 import { Payment, PaymentDocument } from '../payments/schemas/payment.schema';
-import { Attendance, AttendanceDocument } from '../attendance/schemas/attendance.schema';
-import { Homework, HomeworkDocument } from '../homework/schemas/homework.schema';
+import {
+  Attendance,
+  AttendanceDocument,
+} from '../attendance/schemas/attendance.schema';
+import {
+  Homework,
+  HomeworkDocument,
+} from '../homework/schemas/homework.schema';
 import { Grade, GradeDocument } from '../grades/schemas/grade.schema';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UserStatus } from './user-status.enum';
-import { canAuthenticateWithStatus, resolveUserStatus, statusToIsActive } from './user-status';
+import {
+  canAuthenticateWithStatus,
+  resolveUserStatus,
+  statusToIsActive,
+} from './user-status';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
-import { mapPublicUserResponse, mapUserResponse } from './dto/user-response.dto';
+import {
+  mapPublicUserResponse,
+  mapUserResponse,
+} from './dto/user-response.dto';
+
+type ContactAliasPayload = {
+  phoneNumber?: string | null;
+  phone?: string | null;
+  telephone?: string | null;
+};
+
+type NormalizedContactPayload<T extends object> = Omit<
+  T,
+  'phone' | 'telephone'
+> & {
+  phoneNumber?: string | null;
+};
 
 @Injectable()
 export class UsersService {
@@ -43,16 +75,23 @@ export class UsersService {
 
   constructor(
     private readonly usersRepository: UsersRepository,
-    @InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>,
+    @InjectModel(Course.name)
+    private readonly courseModel: Model<CourseDocument>,
     @InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>,
-    @InjectModel(Schedule.name) private readonly scheduleModel: Model<ScheduleDocument>,
-    @InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>,
-    @InjectModel(Attendance.name) private readonly attendanceModel: Model<AttendanceDocument>,
-    @InjectModel(Homework.name) private readonly homeworkModel: Model<HomeworkDocument>,
+    @InjectModel(Schedule.name)
+    private readonly scheduleModel: Model<ScheduleDocument>,
+    @InjectModel(Payment.name)
+    private readonly paymentModel: Model<PaymentDocument>,
+    @InjectModel(Attendance.name)
+    private readonly attendanceModel: Model<AttendanceDocument>,
+    @InjectModel(Homework.name)
+    private readonly homeworkModel: Model<HomeworkDocument>,
     @InjectModel(Grade.name) private readonly gradeModel: Model<GradeDocument>,
   ) {}
 
-  private getResolvedStatus(user: Pick<User, 'status' | 'isActive'>): UserStatus {
+  private getResolvedStatus(
+    user: Pick<User, 'status' | 'isActive'>,
+  ): UserStatus {
     return resolveUserStatus(user);
   }
 
@@ -81,24 +120,62 @@ export class UsersService {
   }
 
   private normalizeBranchIds(branchIds?: string[]): string[] {
-    return [...new Set((branchIds ?? [])
-      .filter((branchId): branchId is string => typeof branchId === 'string')
-      .map(branchId => branchId.trim())
-      .filter(branchId => branchId.length > 0))];
+    return [
+      ...new Set(
+        (branchIds ?? [])
+          .filter(
+            (branchId): branchId is string => typeof branchId === 'string',
+          )
+          .map((branchId) => branchId.trim())
+          .filter((branchId) => branchId.length > 0),
+      ),
+    ];
   }
 
   private isSystemWideRole(role?: Role): boolean {
     return role === Role.Owner || role === Role.Admin || role === Role.Extra;
   }
 
-  private removeEmptyOptionalProfileFields<T extends Partial<User>>(payload: T): T {
+  private removeEmptyOptionalProfileFields<T extends Partial<User>>(
+    payload: T,
+  ): T {
     const normalized = { ...payload };
 
     for (const field of this.clearableProfileFields) {
-      if (normalized[field] === null || normalized[field] === undefined || normalized[field] === '') {
+      if (
+        normalized[field] === null ||
+        normalized[field] === undefined ||
+        normalized[field] === ''
+      ) {
         delete normalized[field];
       }
     }
+
+    return normalized;
+  }
+
+  private normalizeContactAliases<T extends object>(
+    payload: T,
+  ): NormalizedContactPayload<T> {
+    const normalized = { ...payload } as T & ContactAliasPayload;
+    const hasPhoneNumber = Object.prototype.hasOwnProperty.call(
+      normalized,
+      'phoneNumber',
+    );
+    const hasPhone = Object.prototype.hasOwnProperty.call(normalized, 'phone');
+    const hasTelephone = Object.prototype.hasOwnProperty.call(
+      normalized,
+      'telephone',
+    );
+
+    if (!hasPhoneNumber && (hasPhone || hasTelephone)) {
+      normalized.phoneNumber = hasPhone
+        ? normalized.phone
+        : normalized.telephone;
+    }
+
+    delete normalized.phone;
+    delete normalized.telephone;
 
     return normalized;
   }
@@ -107,8 +184,13 @@ export class UsersService {
     const setPayload: Partial<User> = {};
     const unsetPayload: Record<string, ''> = {};
 
-    for (const [key, value] of Object.entries(payload) as Array<[keyof User, unknown]>) {
-      if (this.clearableProfileFields.has(key) && (value === null || value === undefined || value === '')) {
+    for (const [key, value] of Object.entries(payload) as Array<
+      [keyof User, unknown]
+    >) {
+      if (
+        this.clearableProfileFields.has(key) &&
+        (value === null || value === undefined || value === '')
+      ) {
         unsetPayload[key] = '';
         continue;
       }
@@ -131,15 +213,23 @@ export class UsersService {
     return Object.keys(update).length > 0 ? update : { $set: {} };
   }
 
-  private mapUserResponseForActor(user: UserDocument, actor: AuthenticatedUser) {
+  private mapUserResponseForActor(
+    user: UserDocument,
+    actor: AuthenticatedUser,
+  ) {
     const sanitized = this.sanitizeUser(user);
-    return (this.isSystemWideRole(actor.role)
-      ? mapUserResponse(sanitized)
-      : mapPublicUserResponse(sanitized)) as PublicUser;
+    return (
+      this.isSystemWideRole(actor.role)
+        ? mapUserResponse(sanitized)
+        : mapPublicUserResponse(sanitized)
+    ) as PublicUser;
   }
 
-  private mapUserResponsesForActor(users: UserDocument[], actor: AuthenticatedUser) {
-    return users.map(user => this.mapUserResponseForActor(user, actor)) as PublicUser[];
+  private mapUserResponsesForActor(
+    users: UserDocument[],
+    actor: AuthenticatedUser,
+  ) {
+    return users.map((user) => this.mapUserResponseForActor(user, actor));
   }
 
   private isBranchAdminRole(role?: Role): boolean {
@@ -159,9 +249,14 @@ export class UsersService {
     return branchIds;
   }
 
-  private hasBranchOverlap(actorBranchIds: string[], targetBranchIds?: string[]): boolean {
+  private hasBranchOverlap(
+    actorBranchIds: string[],
+    targetBranchIds?: string[],
+  ): boolean {
     const normalizedTarget = this.normalizeBranchIds(targetBranchIds);
-    return normalizedTarget.some(branchId => actorBranchIds.includes(branchId));
+    return normalizedTarget.some((branchId) =>
+      actorBranchIds.includes(branchId),
+    );
   }
 
   private assertActorCanReadUser(
@@ -207,7 +302,10 @@ export class UsersService {
     throw new ForbiddenException('You are not allowed to manage users');
   }
 
-  private assertActorCanAssignBranches(actor: AuthenticatedUser, branchIds: string[]): string[] {
+  private assertActorCanAssignBranches(
+    actor: AuthenticatedUser,
+    branchIds: string[],
+  ): string[] {
     const normalizedBranchIds = this.normalizeBranchIds(branchIds);
 
     if (!this.isBranchAdminRole(actor.role)) {
@@ -216,23 +314,32 @@ export class UsersService {
 
     const actorBranches = this.ensureScopedActorHasBranches(actor);
     if (normalizedBranchIds.length === 0) {
-      throw new BadRequestException('Branch-scoped users must remain assigned to at least one branch');
+      throw new BadRequestException(
+        'Branch-scoped users must remain assigned to at least one branch',
+      );
     }
 
-    if (!normalizedBranchIds.every(branchId => actorBranches.includes(branchId))) {
-      throw new ForbiddenException('Branch admin can assign only users within their branch scope');
+    if (
+      !normalizedBranchIds.every((branchId) => actorBranches.includes(branchId))
+    ) {
+      throw new ForbiddenException(
+        'Branch admin can assign only users within their branch scope',
+      );
     }
 
     return normalizedBranchIds;
   }
 
-  private resolveCreateBranchIds(dto: CreateUserDto, actor?: AuthenticatedUser): string[] {
+  private resolveCreateBranchIds(
+    dto: CreateUserDto,
+    actor?: AuthenticatedUser,
+  ): string[] {
     const inputBranchIds = this.normalizeBranchIds(dto.branchIds);
 
     if (actor && this.isBranchAdminRole(actor.role)) {
-        if (inputBranchIds.length === 0) {
+      if (inputBranchIds.length === 0) {
         return this.ensureScopedActorHasBranches(actor);
-        }
+      }
 
       return this.assertActorCanAssignBranches(actor, inputBranchIds);
     }
@@ -265,15 +372,32 @@ export class UsersService {
     return { ...filter, branchIds: { $in: actorBranches } };
   }
 
-  private assertRoleSpecificBranchRequirements(role: Role, branchIds: string[]): void {
+  private assertRoleSpecificBranchRequirements(
+    role: Role,
+    branchIds: string[],
+  ): void {
     return;
   }
 
-  private async getTeacherVisibleStudentIds(teacherId: string): Promise<string[]> {
+  private async getTeacherVisibleStudentIds(
+    teacherId: string,
+  ): Promise<string[]> {
     const [courses, groups, schedules] = await Promise.all([
-      this.courseModel.find({ teacherId }, { students: 1 }).lean().exec(),
-      this.groupModel.find({ teacher: teacherId }, { students: 1 }).lean().exec(),
-      this.scheduleModel.find({ teacher: teacherId }, { students: 1 }).lean().exec(),
+      this.courseModel
+        .find(
+          { $or: [{ teacherIds: teacherId }, { teacherId }] },
+          { students: 1 },
+        )
+        .lean()
+        .exec(),
+      this.groupModel
+        .find({ teacher: teacherId }, { students: 1 })
+        .lean()
+        .exec(),
+      this.scheduleModel
+        .find({ teacher: teacherId }, { students: 1 })
+        .lean()
+        .exec(),
     ]);
 
     const studentIds = new Set<string>();
@@ -291,13 +415,23 @@ export class UsersService {
 
   private getAssignableRoles(actorRole?: Role): Role[] {
     if ([Role.Owner, Role.Admin, Role.Extra].includes(actorRole as Role)) {
-      return [Role.Owner, Role.Admin, Role.Extra, Role.Teacher, Role.Student, Role.Guest];
+      return [
+        Role.Owner,
+        Role.Admin,
+        Role.Extra,
+        Role.Teacher,
+        Role.Student,
+        Role.Guest,
+      ];
     }
 
     return [Role.Student, Role.Guest];
   }
 
-  private assertRoleCanBeAssigned(actorRole: Role | undefined, desiredRole: Role) {
+  private assertRoleCanBeAssigned(
+    actorRole: Role | undefined,
+    desiredRole: Role,
+  ) {
     if (!this.getAssignableRoles(actorRole).includes(desiredRole)) {
       throw new ForbiddenException('You are not allowed to assign this role');
     }
@@ -310,7 +444,10 @@ export class UsersService {
     throw new ForbiddenException('You are not allowed to manage users');
   }
 
-  private async ensureUniqueFields(dto: Partial<CreateUserDto>, excludeId?: string): Promise<void> {
+  private async ensureUniqueFields(
+    dto: Partial<CreateUserDto>,
+    excludeId?: string,
+  ): Promise<void> {
     const checks: Array<[keyof CreateUserDto, unknown]> = [
       ['username', dto.username],
       ['email', dto.email],
@@ -337,8 +474,14 @@ export class UsersService {
     }
   }
 
-  private async ensureLastOwnerRoleIsProtected(targetUserId: string, nextRole?: Role): Promise<void> {
-    const existingUser = await this.usersRepository.findById(targetUserId).lean().exec();
+  private async ensureLastOwnerRoleIsProtected(
+    targetUserId: string,
+    nextRole?: Role,
+  ): Promise<void> {
+    const existingUser = await this.usersRepository
+      .findById(targetUserId)
+      .lean()
+      .exec();
 
     if (!existingUser || existingUser.role !== Role.Owner) {
       return;
@@ -348,16 +491,30 @@ export class UsersService {
       return;
     }
 
-    const ownersCount = await this.usersRepository.countDocuments({ role: Role.Owner }).exec();
+    const ownersCount = await this.usersRepository
+      .countDocuments({ role: Role.Owner })
+      .exec();
     if (ownersCount <= 1) {
-      throw new ConflictException('At least one owner must remain active in the system');
+      throw new ConflictException(
+        'At least one owner must remain active in the system',
+      );
     }
   }
 
-  private async ensureLastOwnerStatusIsProtected(targetUserId: string, nextStatus: UserStatus): Promise<void> {
-    const existingUser = await this.usersRepository.findById(targetUserId).lean().exec();
+  private async ensureLastOwnerStatusIsProtected(
+    targetUserId: string,
+    nextStatus: UserStatus,
+  ): Promise<void> {
+    const existingUser = await this.usersRepository
+      .findById(targetUserId)
+      .lean()
+      .exec();
 
-    if (!existingUser || existingUser.role !== Role.Owner || nextStatus === UserStatus.Active) {
+    if (
+      !existingUser ||
+      existingUser.role !== Role.Owner ||
+      nextStatus === UserStatus.Active
+    ) {
       return;
     }
 
@@ -372,7 +529,9 @@ export class UsersService {
       .exec();
 
     if (activeOwnersCount <= 1) {
-      throw new ConflictException('At least one active owner must remain in the system');
+      throw new ConflictException(
+        'At least one active owner must remain in the system',
+      );
     }
   }
 
@@ -389,7 +548,9 @@ export class UsersService {
       homework,
       grades,
     ] = await Promise.all([
-      this.courseModel.exists({ teacherId: userId }).exec(),
+      this.courseModel
+        .exists({ $or: [{ teacherIds: userId }, { teacherId: userId }] })
+        .exec(),
       this.courseModel.exists({ students: userId }).exec(),
       this.groupModel.exists({ teacher: userId }).exec(),
       this.groupModel.exists({ students: userId }).exec(),
@@ -402,16 +563,16 @@ export class UsersService {
     ]);
 
     if (
-      teachesCourses
-      || attendsCourses
-      || teachesGroups
-      || attendsGroups
-      || teachesSchedule
-      || attendsSchedule
-      || payments
-      || attendance
-      || homework
-      || grades
+      teachesCourses ||
+      attendsCourses ||
+      teachesGroups ||
+      attendsGroups ||
+      teachesSchedule ||
+      attendsSchedule ||
+      payments ||
+      attendance ||
+      homework ||
+      grades
     ) {
       throw new BadRequestException(
         'User cannot be deleted while related academic or financial records exist',
@@ -427,7 +588,9 @@ export class UsersService {
     return payload;
   }
 
-  private normalizeStatusFilter(status?: UserStatus): FilterQuery<UserDocument> | undefined {
+  private normalizeStatusFilter(
+    status?: UserStatus,
+  ): FilterQuery<UserDocument> | undefined {
     if (!status) {
       return undefined;
     }
@@ -458,18 +621,26 @@ export class UsersService {
   }
 
   async findByTelegramIdDoc(telegramId: number): Promise<UserDocument | null> {
-    return this.usersRepository.findOne({ telegramId: String(telegramId) }).exec();
+    return this.usersRepository
+      .findOne({ telegramId: String(telegramId) })
+      .exec();
   }
 
   async findByUsernameForAuth(username: string): Promise<UserDocument | null> {
     return this.usersRepository.findOne({ username }).exec();
   }
 
-  async verifyPassword(hashedPassword: string, plainPassword: string): Promise<boolean> {
+  async verifyPassword(
+    hashedPassword: string,
+    plainPassword: string,
+  ): Promise<boolean> {
     return comparePassword(plainPassword, hashedPassword);
   }
 
-  async assertPassword(userId: string, password: string): Promise<UserDocument> {
+  async assertPassword(
+    userId: string,
+    password: string,
+  ): Promise<UserDocument> {
     const user = await this.usersRepository.findById(userId).exec();
     if (!user) {
       throw new NotFoundException('User not found');
@@ -518,7 +689,10 @@ export class UsersService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const sortBy =
-      query.sortBy && ['username', 'firstName', 'createdAt', 'role', 'status'].includes(query.sortBy)
+      query.sortBy &&
+      ['username', 'firstName', 'createdAt', 'role', 'status'].includes(
+        query.sortBy,
+      )
         ? query.sortBy
         : 'createdAt';
     const sortOrder = query.sortOrder === 'desc' ? -1 : 1;
@@ -534,14 +708,17 @@ export class UsersService {
     ]);
 
     return createPaginatedResult(
-      users.map(user => mapUserResponse(this.sanitizeUser(user))),
+      users.map((user) => mapUserResponse(this.sanitizeUser(user))),
       total,
       page,
       limit,
     );
   }
 
-  async findAllForActor(query: UsersListQueryDto = {}, actor: AuthenticatedUser) {
+  async findAllForActor(
+    query: UsersListQueryDto = {},
+    actor: AuthenticatedUser,
+  ) {
     const filterParts: FilterQuery<UserDocument>[] = [];
 
     if (query.role) {
@@ -568,12 +745,19 @@ export class UsersService {
 
     const baseFilter: FilterQuery<UserDocument> =
       filterParts.length > 1 ? { $and: filterParts } : (filterParts[0] ?? {});
-    const filter = this.buildBranchScopedFilter(baseFilter, query.branchId, actor);
+    const filter = this.buildBranchScopedFilter(
+      baseFilter,
+      query.branchId,
+      actor,
+    );
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const sortBy =
-      query.sortBy && ['username', 'firstName', 'createdAt', 'role', 'status'].includes(query.sortBy)
+      query.sortBy &&
+      ['username', 'firstName', 'createdAt', 'role', 'status'].includes(
+        query.sortBy,
+      )
         ? query.sortBy
         : 'createdAt';
     const sortOrder = query.sortOrder === 'desc' ? -1 : 1;
@@ -605,7 +789,10 @@ export class UsersService {
     return mapUserResponse(this.sanitizeUser(user));
   }
 
-  async findByIdForActor(id: string, actor: AuthenticatedUser): Promise<PublicUser> {
+  async findByIdForActor(
+    id: string,
+    actor: AuthenticatedUser,
+  ): Promise<PublicUser> {
     const user = await this.usersRepository.findById(id).exec();
     if (!user) {
       throw new NotFoundException('User not found');
@@ -627,16 +814,24 @@ export class UsersService {
   }
 
   async findByTelegramId(telegramId: number): Promise<PublicUser | null> {
-    const user = await this.usersRepository.findOne({ telegramId: String(telegramId) }).exec();
+    const user = await this.usersRepository
+      .findOne({ telegramId: String(telegramId) })
+      .exec();
     return user ? mapUserResponse(this.sanitizeUser(user)) : null;
   }
 
   async findByRole(role: Role): Promise<PublicUser[]> {
-    const users = await this.usersRepository.find({ role }).sort({ createdAt: -1 }).exec();
-    return users.map(user => mapUserResponse(this.sanitizeUser(user)));
+    const users = await this.usersRepository
+      .find({ role })
+      .sort({ createdAt: -1 })
+      .exec();
+    return users.map((user) => mapUserResponse(this.sanitizeUser(user)));
   }
 
-  async findByRoleForActor(role: Role, actor: AuthenticatedUser): Promise<PublicUser[]> {
+  async findByRoleForActor(
+    role: Role,
+    actor: AuthenticatedUser,
+  ): Promise<PublicUser[]> {
     if (this.isSystemWideRole(actor.role)) {
       return this.findByRole(role);
     }
@@ -651,7 +846,9 @@ export class UsersService {
     }
 
     if (actor.role === Role.Teacher && role === Role.Student) {
-      const visibleStudentIds = await this.getTeacherVisibleStudentIds(actor.userId);
+      const visibleStudentIds = await this.getTeacherVisibleStudentIds(
+        actor.userId,
+      );
       if (visibleStudentIds.length === 0) {
         return [];
       }
@@ -668,17 +865,24 @@ export class UsersService {
       return user ? [this.mapUserResponseForActor(user, actor)] : [];
     }
 
-    throw new ForbiddenException('You are not allowed to access users with this role');
+    throw new ForbiddenException(
+      'You are not allowed to access users with this role',
+    );
   }
 
-  async findNotificationRecipientForActor(id: string, actor: AuthenticatedUser): Promise<PublicUser> {
+  async findNotificationRecipientForActor(
+    id: string,
+    actor: AuthenticatedUser,
+  ): Promise<PublicUser> {
     const user = await this.usersRepository.findById(id).exec();
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     if (actor.role === Role.Teacher && user.role === Role.Student) {
-      const visibleStudentIds = await this.getTeacherVisibleStudentIds(actor.userId);
+      const visibleStudentIds = await this.getTeacherVisibleStudentIds(
+        actor.userId,
+      );
       if (!visibleStudentIds.includes(String(user._id))) {
         throw new NotFoundException('User not found');
       }
@@ -691,12 +895,13 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto, actorRole?: Role): Promise<PublicUser> {
-    await this.ensureUniqueFields(dto);
+    const normalizedDto = this.normalizeContactAliases(dto);
+    await this.ensureUniqueFields(normalizedDto);
 
-    const desiredRole = dto.role ?? Role.Guest;
-    const desiredStatus = dto.status ?? UserStatus.Active;
-    const branchIds = this.normalizeBranchIds(dto.branchIds);
-    const userPayload = this.removeEmptyOptionalProfileFields(dto);
+    const desiredRole = normalizedDto.role ?? Role.Guest;
+    const desiredStatus = normalizedDto.status ?? UserStatus.Active;
+    const branchIds = this.normalizeBranchIds(normalizedDto.branchIds);
+    const userPayload = this.removeEmptyOptionalProfileFields(normalizedDto);
 
     this.assertRoleCanBeAssigned(actorRole, desiredRole);
     this.assertRoleSpecificBranchRequirements(desiredRole, branchIds);
@@ -704,7 +909,7 @@ export class UsersService {
     const createdUser = this.usersRepository.create(
       this.applyStatusFields({
         ...userPayload,
-        password: await hashPassword(dto.password),
+        password: await hashPassword(normalizedDto.password),
         role: desiredRole,
         status: desiredStatus,
         branchIds,
@@ -715,22 +920,26 @@ export class UsersService {
     return mapUserResponse(this.sanitizeUser(savedUser));
   }
 
-  async createForActor(dto: CreateUserDto, actor: AuthenticatedUser): Promise<PublicUser> {
-    await this.ensureUniqueFields(dto);
+  async createForActor(
+    dto: CreateUserDto,
+    actor: AuthenticatedUser,
+  ): Promise<PublicUser> {
+    const normalizedDto = this.normalizeContactAliases(dto);
+    await this.ensureUniqueFields(normalizedDto);
 
-    const desiredRole = dto.role ?? Role.Guest;
-    const desiredStatus = dto.status ?? UserStatus.Active;
-    const userPayload = this.removeEmptyOptionalProfileFields(dto);
+    const desiredRole = normalizedDto.role ?? Role.Guest;
+    const desiredStatus = normalizedDto.status ?? UserStatus.Active;
+    const userPayload = this.removeEmptyOptionalProfileFields(normalizedDto);
 
     this.assertRoleCanBeAssigned(actor.role, desiredRole);
 
-    const branchIds = this.resolveCreateBranchIds(dto, actor);
+    const branchIds = this.resolveCreateBranchIds(normalizedDto, actor);
     this.assertRoleSpecificBranchRequirements(desiredRole, branchIds);
 
     const createdUser = this.usersRepository.create(
       this.applyStatusFields({
         ...userPayload,
-        password: await hashPassword(dto.password),
+        password: await hashPassword(normalizedDto.password),
         role: desiredRole,
         status: desiredStatus,
         branchIds,
@@ -769,14 +978,16 @@ export class UsersService {
     return mapUserResponse(this.sanitizeUser(savedUser));
   }
 
-  async updateOwnProfile(id: string, dto: UpdateProfileDto): Promise<PublicUser> {
-    await this.ensureUniqueFields(dto, id);
+  async updateOwnProfile(
+    id: string,
+    dto: UpdateProfileDto,
+  ): Promise<PublicUser> {
+    const normalizedDto = this.normalizeContactAliases(dto);
+    await this.ensureUniqueFields(normalizedDto, id);
 
-    const updatedUser = await this.usersRepository.findByIdAndUpdate(
-      id,
-      this.buildUserUpdate(dto),
-      { new: true },
-    ).exec();
+    const updatedUser = await this.usersRepository
+      .findByIdAndUpdate(id, this.buildUserUpdate(normalizedDto), { new: true })
+      .exec();
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
@@ -791,11 +1002,17 @@ export class UsersService {
     let user: UserDocument | null = null;
 
     if (query.username) {
-      user = await this.usersRepository.findOne({ username: query.username }).exec();
+      user = await this.usersRepository
+        .findOne({ username: query.username })
+        .exec();
     } else if (query.phone) {
-      user = await this.usersRepository.findOne({ phoneNumber: query.phone }).exec();
+      user = await this.usersRepository
+        .findOne({ phoneNumber: query.phone })
+        .exec();
     } else if (query.telegramId) {
-      user = await this.usersRepository.findOne({ telegramId: String(query.telegramId) }).exec();
+      user = await this.usersRepository
+        .findOne({ telegramId: String(query.telegramId) })
+        .exec();
     }
 
     if (!user) {
@@ -807,18 +1024,26 @@ export class UsersService {
     return mapUserResponse(this.sanitizeUser(user));
   }
 
-  async findStudentsForActor(query: UsersListQueryDto = {}, actor: AuthenticatedUser) {
+  async findStudentsForActor(
+    query: UsersListQueryDto = {},
+    actor: AuthenticatedUser,
+  ) {
     const normalizedQuery: UsersListQueryDto = {
       ...query,
       role: Role.Student,
     };
 
-    if (this.isSystemWideRole(actor.role) || this.isBranchAdminRole(actor.role)) {
+    if (
+      this.isSystemWideRole(actor.role) ||
+      this.isBranchAdminRole(actor.role)
+    ) {
       return this.findAllForActor(normalizedQuery, actor);
     }
 
     if (actor.role === Role.Teacher) {
-      const visibleStudentIds = await this.getTeacherVisibleStudentIds(actor.userId);
+      const visibleStudentIds = await this.getTeacherVisibleStudentIds(
+        actor.userId,
+      );
       if (visibleStudentIds.length === 0) {
         return createPaginatedResult([], 0, query.page ?? 1, query.limit ?? 20);
       }
@@ -846,11 +1071,18 @@ export class UsersService {
 
       const baseFilter: FilterQuery<UserDocument> =
         filterParts.length > 1 ? { $and: filterParts } : filterParts[0];
-      const filter = this.buildBranchScopedFilter(baseFilter, query.branchId, actor);
+      const filter = this.buildBranchScopedFilter(
+        baseFilter,
+        query.branchId,
+        actor,
+      );
       const page = query.page ?? 1;
       const limit = query.limit ?? 20;
       const sortBy =
-        query.sortBy && ['username', 'firstName', 'createdAt', 'role', 'status'].includes(query.sortBy)
+        query.sortBy &&
+        ['username', 'firstName', 'createdAt', 'role', 'status'].includes(
+          query.sortBy,
+        )
           ? query.sortBy
           : 'createdAt';
       const sortOrder = query.sortOrder === 'desc' ? -1 : 1;
@@ -875,7 +1107,11 @@ export class UsersService {
     throw new ForbiddenException('You are not allowed to access students');
   }
 
-  async updateManagedUser(id: string, dto: UpdateUserDto, actorRole: Role): Promise<PublicUser> {
+  async updateManagedUser(
+    id: string,
+    dto: UpdateUserDto,
+    actorRole: Role,
+  ): Promise<PublicUser> {
     const targetUser = await this.usersRepository.findById(id).exec();
     if (!targetUser) {
       throw new NotFoundException('User not found');
@@ -883,14 +1119,25 @@ export class UsersService {
 
     this.assertCanManageTarget(actorRole, targetUser.role);
 
-    const { roleKey, isActive, branchIds, password, ...updatePayload } = dto as UpdateUserDto & { isActive?: boolean };
+    const normalizedDto = this.normalizeContactAliases(
+      dto as UpdateUserDto & { isActive?: boolean },
+    );
+    const { roleKey, isActive, branchIds, password, ...updatePayload } =
+      normalizedDto;
     await this.ensureUniqueFields(updatePayload, id);
-    const nextBranchIds = this.normalizeBranchIds(branchIds ?? targetUser.branchIds);
+    const nextBranchIds = this.normalizeBranchIds(
+      branchIds ?? targetUser.branchIds,
+    );
     const nextRole = updatePayload.role ?? targetUser.role;
     this.assertRoleSpecificBranchRequirements(nextRole, nextBranchIds);
     const nextPayload = this.buildUserUpdate({
       ...updatePayload,
-      ...(password ? { password: await hashPassword(password), passwordChangedAt: new Date() } : {}),
+      ...(password
+        ? {
+            password: await hashPassword(password),
+            passwordChangedAt: new Date(),
+          }
+        : {}),
       branchIds: nextBranchIds,
     });
 
@@ -905,13 +1152,30 @@ export class UsersService {
     return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
-  async updateForActor(id: string, dto: UpdateUserDto, actor: AuthenticatedUser): Promise<PublicUser> {
+  async updateForActor(
+    id: string,
+    dto: UpdateUserDto,
+    actor: AuthenticatedUser,
+  ): Promise<PublicUser> {
+    const normalizedDto = this.normalizeContactAliases(
+      dto as UpdateUserDto & { isActive?: boolean },
+    );
     const actorHasFullUserAccess = this.isSystemWideRole(actor.role);
     if (actor.userId === id && !actorHasFullUserAccess) {
-      const { role, telegramId, roleKey, status, password, branchIds, ...selfPayload } = dto;
+      const {
+        role,
+        telegramId,
+        roleKey,
+        status,
+        password,
+        branchIds,
+        ...selfPayload
+      } = normalizedDto;
 
       if (role || telegramId || roleKey || status || password || branchIds) {
-        throw new ForbiddenException('Self-update is limited to profile fields only');
+        throw new ForbiddenException(
+          'Self-update is limited to profile fields only',
+        );
       }
 
       return this.updateOwnProfile(id, selfPayload);
@@ -924,25 +1188,35 @@ export class UsersService {
 
     this.assertActorCanManageTarget(actor, targetUser);
 
-    if (!actorHasFullUserAccess && (dto.role || dto.status || dto.password)) {
+    if (
+      !actorHasFullUserAccess &&
+      (normalizedDto.role || normalizedDto.status || normalizedDto.password)
+    ) {
       throw new BadRequestException(
         'Use dedicated endpoints to change role, status, or password',
       );
     }
 
-    const { roleKey, isActive, branchIds, password, ...updatePayload } = dto as UpdateUserDto & { isActive?: boolean };
+    const { roleKey, isActive, branchIds, password, ...updatePayload } =
+      normalizedDto;
     await this.ensureUniqueFields(updatePayload, id);
 
-    const nextBranchIds = branchIds === undefined
-      ? this.normalizeBranchIds(targetUser.branchIds)
-      : (this.isBranchAdminRole(actor.role)
-        ? this.assertActorCanAssignBranches(actor, branchIds)
-        : this.normalizeBranchIds(branchIds));
+    const nextBranchIds =
+      branchIds === undefined
+        ? this.normalizeBranchIds(targetUser.branchIds)
+        : this.isBranchAdminRole(actor.role)
+          ? this.assertActorCanAssignBranches(actor, branchIds)
+          : this.normalizeBranchIds(branchIds);
     const nextRole = updatePayload.role ?? targetUser.role;
     this.assertRoleSpecificBranchRequirements(nextRole, nextBranchIds);
     const nextPayload = this.buildUserUpdate({
       ...updatePayload,
-      ...(password ? { password: await hashPassword(password), passwordChangedAt: new Date() } : {}),
+      ...(password
+        ? {
+            password: await hashPassword(password),
+            passwordChangedAt: new Date(),
+          }
+        : {}),
       branchIds: nextBranchIds,
     });
 
@@ -957,7 +1231,11 @@ export class UsersService {
     return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
-  async updateRole(id: string, role: Role, actorRole: Role): Promise<PublicUser> {
+  async updateRole(
+    id: string,
+    role: Role,
+    actorRole: Role,
+  ): Promise<PublicUser> {
     if (!Object.values(Role).includes(role)) {
       throw new ConflictException('Invalid role');
     }
@@ -970,14 +1248,20 @@ export class UsersService {
     this.assertCanManageTarget(actorRole, targetUser.role);
     this.assertRoleCanBeAssigned(actorRole, role);
     await this.ensureLastOwnerRoleIsProtected(id, role);
-    this.assertRoleSpecificBranchRequirements(role, this.normalizeBranchIds(targetUser.branchIds));
+    this.assertRoleSpecificBranchRequirements(
+      role,
+      this.normalizeBranchIds(targetUser.branchIds),
+    );
 
     if (role !== Role.Teacher) {
-      const [teachesCourses, teachesGroups, teachesSchedule] = await Promise.all([
-        this.courseModel.exists({ teacherId: id }).exec(),
-        this.groupModel.exists({ teacher: id }).exec(),
-        this.scheduleModel.exists({ teacher: id }).exec(),
-      ]);
+      const [teachesCourses, teachesGroups, teachesSchedule] =
+        await Promise.all([
+          this.courseModel
+            .exists({ $or: [{ teacherIds: id }, { teacherId: id }] })
+            .exec(),
+          this.groupModel.exists({ teacher: id }).exec(),
+          this.scheduleModel.exists({ teacher: id }).exec(),
+        ]);
 
       if (teachesCourses || teachesGroups || teachesSchedule) {
         throw new BadRequestException(
@@ -986,7 +1270,9 @@ export class UsersService {
       }
     }
 
-    const updatedUser = await this.usersRepository.findByIdAndUpdate(id, { role }, { new: true }).exec();
+    const updatedUser = await this.usersRepository
+      .findByIdAndUpdate(id, { role }, { new: true })
+      .exec();
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
@@ -994,7 +1280,11 @@ export class UsersService {
     return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
-  async updateRoleForActor(id: string, role: Role, actor: AuthenticatedUser): Promise<PublicUser> {
+  async updateRoleForActor(
+    id: string,
+    role: Role,
+    actor: AuthenticatedUser,
+  ): Promise<PublicUser> {
     if (!Object.values(Role).includes(role)) {
       throw new ConflictException('Invalid role');
     }
@@ -1007,14 +1297,20 @@ export class UsersService {
     this.assertActorCanManageTarget(actor, targetUser);
     this.assertRoleCanBeAssigned(actor.role, role);
     await this.ensureLastOwnerRoleIsProtected(id, role);
-    this.assertRoleSpecificBranchRequirements(role, this.normalizeBranchIds(targetUser.branchIds));
+    this.assertRoleSpecificBranchRequirements(
+      role,
+      this.normalizeBranchIds(targetUser.branchIds),
+    );
 
     if (role !== Role.Teacher) {
-      const [teachesCourses, teachesGroups, teachesSchedule] = await Promise.all([
-        this.courseModel.exists({ teacherId: id }).exec(),
-        this.groupModel.exists({ teacher: id }).exec(),
-        this.scheduleModel.exists({ teacher: id }).exec(),
-      ]);
+      const [teachesCourses, teachesGroups, teachesSchedule] =
+        await Promise.all([
+          this.courseModel
+            .exists({ $or: [{ teacherIds: id }, { teacherId: id }] })
+            .exec(),
+          this.groupModel.exists({ teacher: id }).exec(),
+          this.scheduleModel.exists({ teacher: id }).exec(),
+        ]);
 
       if (teachesCourses || teachesGroups || teachesSchedule) {
         throw new BadRequestException(
@@ -1023,7 +1319,9 @@ export class UsersService {
       }
     }
 
-    const updatedUser = await this.usersRepository.findByIdAndUpdate(id, { role }, { new: true }).exec();
+    const updatedUser = await this.usersRepository
+      .findByIdAndUpdate(id, { role }, { new: true })
+      .exec();
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
@@ -1031,7 +1329,11 @@ export class UsersService {
     return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
-  async updateStatus(id: string, dto: UpdateUserStatusDto, actorRole: Role): Promise<PublicUser> {
+  async updateStatus(
+    id: string,
+    dto: UpdateUserStatusDto,
+    actorRole: Role,
+  ): Promise<PublicUser> {
     const targetUser = await this.usersRepository.findById(id).exec();
     if (!targetUser) {
       throw new NotFoundException('User not found');
@@ -1041,11 +1343,9 @@ export class UsersService {
     await this.ensureLastOwnerStatusIsProtected(id, dto.status);
 
     const updatedUser = await this.usersRepository
-      .findByIdAndUpdate(
-        id,
-        this.applyStatusFields({ status: dto.status }),
-        { new: true },
-      )
+      .findByIdAndUpdate(id, this.applyStatusFields({ status: dto.status }), {
+        new: true,
+      })
       .exec();
 
     if (!updatedUser) {
@@ -1069,11 +1369,9 @@ export class UsersService {
     await this.ensureLastOwnerStatusIsProtected(id, dto.status);
 
     const updatedUser = await this.usersRepository
-      .findByIdAndUpdate(
-        id,
-        this.applyStatusFields({ status: dto.status }),
-        { new: true },
-      )
+      .findByIdAndUpdate(id, this.applyStatusFields({ status: dto.status }), {
+        new: true,
+      })
       .exec();
 
     if (!updatedUser) {
@@ -1083,9 +1381,15 @@ export class UsersService {
     return mapUserResponse(this.sanitizeUser(updatedUser));
   }
 
-  async changePassword(id: string, currentPassword: string, newPassword: string): Promise<void> {
+  async changePassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
     if (currentPassword === newPassword) {
-      throw new BadRequestException('New password must differ from the current password');
+      throw new BadRequestException(
+        'New password must differ from the current password',
+      );
     }
 
     const user = await this.assertPassword(id, currentPassword);
@@ -1096,15 +1400,26 @@ export class UsersService {
 
   async update(
     id: string,
-    dto: Partial<Pick<User, 'email' | 'firstName' | 'lastName' | 'phoneNumber' | 'avatarUrl' | 'telegramId'>>,
+    dto: Partial<
+      Pick<
+        User,
+        | 'email'
+        | 'firstName'
+        | 'lastName'
+        | 'phoneNumber'
+        | 'avatarUrl'
+        | 'telegramId'
+      >
+    >,
   ): Promise<PublicUser> {
-    await this.ensureUniqueFields(dto as Partial<CreateUserDto>, id);
+    const normalizedDto = this.normalizeContactAliases(
+      dto as Partial<CreateUserDto>,
+    );
+    await this.ensureUniqueFields(normalizedDto, id);
 
-    const updatedUser = await this.usersRepository.findByIdAndUpdate(
-      id,
-      this.buildUserUpdate(dto),
-      { new: true },
-    ).exec();
+    const updatedUser = await this.usersRepository
+      .findByIdAndUpdate(id, this.buildUserUpdate(normalizedDto), { new: true })
+      .exec();
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }

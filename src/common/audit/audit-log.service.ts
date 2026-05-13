@@ -27,12 +27,14 @@ export class AuditLogService {
   }
 
   logFailure(entry: AuditEntry) {
-    this.logger.warn(JSON.stringify(this.sanitize({ ...entry, status: 'failure' })));
+    this.logger.warn(
+      JSON.stringify(this.sanitize({ ...entry, status: 'failure' })),
+    );
   }
 
   private sanitize(value: unknown): unknown {
     if (Array.isArray(value)) {
-      return value.map(item => this.sanitize(item));
+      return value.map((item) => this.sanitize(item));
     }
 
     if (!value || typeof value !== 'object') {

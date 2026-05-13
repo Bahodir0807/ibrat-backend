@@ -58,6 +58,7 @@ const courseSchema = new Schema(
     name: String,
     description: String,
     teacherId: { type: Types.ObjectId, ref: 'User' },
+    teacherIds: [{ type: Types.ObjectId, ref: 'User' }],
     students: [{ type: Types.ObjectId, ref: 'User' }],
     price: Number,
   },
@@ -203,11 +204,12 @@ async function main() {
   });
 
   const course = await CourseModel.findOneAndUpdate(
-    { name: 'Sample Course', teacherId: teacher._id },
+    { name: 'Sample Course', teacherIds: teacher._id },
     {
       name: 'Sample Course',
       description: 'Seed course for initial verification',
       teacherId: teacher._id,
+      teacherIds: [teacher._id],
       students: [student._id],
       price: 100,
     },

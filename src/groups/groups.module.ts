@@ -9,12 +9,14 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 import { Schedule, ScheduleSchema } from '../schedule/schemas/schedule.schema';
 
 @Module({
-  imports: [MongooseModule.forFeature([
-    { name: Group.name, schema: GroupSchema },
-    { name: Course.name, schema: CourseSchema },
-    { name: User.name, schema: UserSchema },
-    { name: Schedule.name, schema: ScheduleSchema },
-  ])],
+  imports: [
+    MongooseModule.forFeature([
+      { name: Group.name, schema: GroupSchema },
+      { name: Course.name, schema: CourseSchema },
+      { name: User.name, schema: UserSchema },
+      { name: Schedule.name, schema: ScheduleSchema },
+    ]),
+  ],
   controllers: [GroupsController],
   providers: [GroupsService, GroupsRepository],
   exports: [GroupsService, GroupsRepository],

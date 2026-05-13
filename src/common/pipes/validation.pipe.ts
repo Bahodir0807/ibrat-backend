@@ -9,10 +9,12 @@ export class CustomValidationPipe extends ValidationPipe {
       transformOptions: {
         enableImplicitConversion: true,
       },
-      exceptionFactory: errors => {
-        const messages = errors.flatMap(error => {
-          const directConstraints = error.constraints ? Object.values(error.constraints) : [];
-          const childConstraints = (error.children ?? []).flatMap(child =>
+      exceptionFactory: (errors) => {
+        const messages = errors.flatMap((error) => {
+          const directConstraints = error.constraints
+            ? Object.values(error.constraints)
+            : [];
+          const childConstraints = (error.children ?? []).flatMap((child) =>
             child.constraints ? Object.values(child.constraints) : [],
           );
 
@@ -21,7 +23,7 @@ export class CustomValidationPipe extends ValidationPipe {
             return [`${error.property} is invalid`];
           }
 
-          return constraints.map(message => `${error.property} - ${message}`);
+          return constraints.map((message) => `${error.property} - ${message}`);
         });
 
         return new BadRequestException(messages);
