@@ -124,6 +124,7 @@ export const configValidationSchema = Joi.object({
     .optional(),
   DOMAIN: Joi.string().uri().optional(),
   SELF_PING_URL: Joi.string().uri().optional(),
+  SELF_PING_REQUIRED: booleanEnvSchema.default(false),
   TELEGRAM_WEBHOOK_PATH: Joi.string()
     .trim()
     .pattern(/^\/[^\s]*$/)

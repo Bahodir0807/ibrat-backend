@@ -68,6 +68,12 @@ export class HealthService {
       .replace(/\/+$/, '');
   }
 
+  private isSelfPingRequired(): boolean {
+    return ['true', '1', 'yes', 'on'].includes(
+      (process.env.SELF_PING_REQUIRED ?? '').trim().toLowerCase(),
+    );
+  }
+
   private async getSelfPingStatus(): Promise<HealthPayload['checks']['self']> {
     const baseUrl = this.getSelfPingBaseUrl();
     if (!baseUrl) {
@@ -107,7 +113,10 @@ export class HealthService {
     const database = this.getDatabaseStatus();
     const self = await this.getSelfPingStatus();
     const status =
-      database.status === 'up' && self.status !== 'down' ? 'ok' : 'error';
+      database.status === 'up' &&
+      (!this.isSelfPingRequired() || self.status !== 'down')
+        ? 'ok'
+        : 'error';
 
     return {
       status,
