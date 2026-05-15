@@ -21,6 +21,13 @@ type HealthPayload = {
       status: DatabaseStatus;
       readyState: number;
     };
+    self: {
+      status: 'up' | 'down' | 'skipped';
+      url?: string;
+      statusCode?: number;
+      latencyMs?: number;
+      error?: string;
+    };
   };
 };
 
@@ -55,9 +62,52 @@ export class HealthService {
     };
   }
 
-  private buildPayload(): HealthPayload {
+  private getSelfPingBaseUrl(): string | undefined {
+    return (process.env.SELF_PING_URL || process.env.DOMAIN)
+      ?.trim()
+      .replace(/\/+$/, '');
+  }
+
+  private async getSelfPingStatus(): Promise<HealthPayload['checks']['self']> {
+    const baseUrl = this.getSelfPingBaseUrl();
+    if (!baseUrl) {
+      return { status: 'skipped' };
+    }
+
+    const url = `${baseUrl}/ping`;
+    const startedAt = Date.now();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+
+      return {
+        status: response.ok ? 'up' : 'down',
+        url,
+        statusCode: response.status,
+        latencyMs: Date.now() - startedAt,
+      };
+    } catch (error) {
+      return {
+        status: 'down',
+        url,
+        latencyMs: Date.now() - startedAt,
+        error: error instanceof Error ? error.message : 'Self ping failed',
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private async buildPayload(): Promise<HealthPayload> {
     const database = this.getDatabaseStatus();
-    const status = database.status === 'up' ? 'ok' : 'error';
+    const self = await this.getSelfPingStatus();
+    const status =
+      database.status === 'up' && self.status !== 'down' ? 'ok' : 'error';
 
     return {
       status,
@@ -67,6 +117,7 @@ export class HealthService {
       operational: this.appConfig.getOperationalMetadata(),
       checks: {
         database,
+        self,
       },
     };
   }
@@ -81,11 +132,11 @@ export class HealthService {
     };
   }
 
-  getReadiness(): HealthPayload {
+  getReadiness(): Promise<HealthPayload> {
     return this.buildPayload();
   }
 
-  getHealth(): HealthPayload {
+  getHealth(): Promise<HealthPayload> {
     return this.buildPayload();
   }
 

@@ -22,8 +22,8 @@ export class HealthController {
   @Public()
   @Version(VERSION_NEUTRAL)
   @Get('health/ready')
-  getReadiness() {
-    const readiness = this.healthService.getReadiness();
+  async getReadiness() {
+    const readiness = await this.healthService.getReadiness();
 
     if (readiness.status !== 'ok') {
       throw new ServiceUnavailableException(readiness);
@@ -35,8 +35,8 @@ export class HealthController {
   @Public()
   @Version(VERSION_NEUTRAL)
   @Get('health')
-  getHealth() {
-    const health = this.healthService.getHealth();
+  async getHealth() {
+    const health = await this.healthService.getHealth();
 
     if (health.status !== 'ok') {
       throw new ServiceUnavailableException(health);
