@@ -128,6 +128,7 @@ export class UsersController {
   }
 
   @Put(':id')
+  @Patch(':id')
   async update(
     @Param() params: IdParamDto,
     @Body() dto: UpdateUserDto,

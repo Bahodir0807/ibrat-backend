@@ -120,9 +120,11 @@ export class UsersService {
       id: String(user._id),
       username: obj.username,
       telegramId: obj.telegramId,
+      email: obj.email,
       firstName: obj.firstName ?? '',
       lastName: obj.lastName ?? '',
       role: obj.role,
+      phoneNumber: obj.phoneNumber,
       status,
       isActive: statusToIsActive(status),
       studentYear: obj.studentYear,
@@ -470,16 +472,25 @@ export class UsersService {
   private async getTeacherVisibleStudentIds(
     teacherId: string,
   ): Promise<string[]> {
-    const [courses, groups, schedules] = await Promise.all([
-      this.courseModel
+    const courses = await this.courseModel
+      .find({ $or: [{ teacherIds: teacherId }, { teacherId }] }, { students: 1 })
+      .lean()
+      .exec();
+    const courseIds = courses.map((course) => String(course._id));
+
+    const [groups, schedules] = await Promise.all([
+      this.groupModel
         .find(
-          { $or: [{ teacherIds: teacherId }, { teacherId }] },
+          {
+            $or: [
+              { teacher: teacherId },
+              ...(courseIds.length > 0
+                ? [{ course: { $in: courseIds } }]
+                : []),
+            ],
+          },
           { students: 1 },
         )
-        .lean()
-        .exec(),
-      this.groupModel
-        .find({ teacher: teacherId }, { students: 1 })
         .lean()
         .exec(),
       this.scheduleModel

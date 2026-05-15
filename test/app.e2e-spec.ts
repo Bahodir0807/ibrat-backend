@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { afterAll, beforeAll, describe, it } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
-import * as request from 'supertest';
+import request = require('supertest');
 import { AppController } from '../src/app.controller';
 import { AppService } from '../src/app.service';
 import { HealthController } from '../src/health/health.controller';

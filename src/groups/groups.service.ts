@@ -41,7 +41,14 @@ export class GroupsService {
   ) {}
 
   private readonly groupPopulate = [
-    { path: 'course', select: 'name description price' },
+    {
+      path: 'course',
+      select: 'name description price teacherId teacherIds',
+      populate: [
+        { path: 'teacherId', select: 'username firstName lastName role' },
+        { path: 'teacherIds', select: 'username firstName lastName role' },
+      ],
+    },
     { path: 'teacher', select: 'username firstName lastName role' },
     { path: 'students', select: 'username firstName lastName role' },
   ];

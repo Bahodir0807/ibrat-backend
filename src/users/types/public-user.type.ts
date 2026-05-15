@@ -6,9 +6,11 @@ export interface PublicUser {
   id: string;
   username: string;
   telegramId?: string;
+  email?: string;
   firstName: string;
   lastName: string;
   role: Role;
+  phoneNumber?: string;
   status: UserStatus;
   isActive: boolean;
   studentYear?: string;

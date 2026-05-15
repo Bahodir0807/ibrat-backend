@@ -73,7 +73,7 @@ describe('public response mapper', () => {
     expect(JSON.stringify(response)).not.toContain('resetToken');
   });
 
-  it('maps top-level users without internal or contact fields', () => {
+  it('maps top-level admin users with contact fields and without internal fields', () => {
     const response = mapAdminUser({
       _id: 'user-1',
       username: 'admin',
@@ -107,10 +107,10 @@ describe('public response mapper', () => {
       contactOwner: 'ona',
       contactOwnerFullName: 'Aliyeva Dilnoza',
       contactOwnerRelation: 'onasi',
+      email: 'admin@example.com',
+      phoneNumber: '+3000000',
     });
     expect(response).not.toHaveProperty('_id');
-    expect(response).not.toHaveProperty('email');
-    expect(response).not.toHaveProperty('phoneNumber');
     expect(response).not.toHaveProperty('password');
     expect(response).not.toHaveProperty('tokenHash');
   });

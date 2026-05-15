@@ -49,9 +49,11 @@ export type PublicUserDto = {
 export type AdminUserDto = PublicUserDto & {
   username: string;
   telegramId?: string;
+  email?: string;
   firstName: string;
   lastName: string;
   role: Role;
+  phoneNumber?: string;
   status: UserStatus;
   isActive: boolean;
   studentYear?: string;
@@ -191,6 +193,8 @@ export function mapAdminUser(value: unknown): AdminUserDto {
 
   for (const key of [
     'telegramId',
+    'email',
+    'phoneNumber',
     'role',
     'studentYear',
     'paymentMethod',

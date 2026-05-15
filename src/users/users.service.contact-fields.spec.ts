@@ -51,6 +51,9 @@ function userDoc(overrides: Record<string, unknown> = {}) {
 }
 
 function createService() {
+  const courseModel = { find: jest.fn(), exists: jest.fn() };
+  const groupModel = { find: jest.fn(), exists: jest.fn() };
+  const scheduleModel = { find: jest.fn(), exists: jest.fn() };
   const usersRepository = {
     create: jest.fn((payload: Record<string, unknown>) => {
       const doc = userDoc(payload);
@@ -69,16 +72,16 @@ function createService() {
 
   const service = new UsersService(
     usersRepository as never,
-    { find: jest.fn(), exists: jest.fn() } as never,
-    { find: jest.fn(), exists: jest.fn() } as never,
-    { find: jest.fn(), exists: jest.fn() } as never,
+    courseModel as never,
+    groupModel as never,
+    scheduleModel as never,
     { exists: jest.fn() } as never,
     { exists: jest.fn() } as never,
     { exists: jest.fn() } as never,
     { exists: jest.fn() } as never,
   );
 
-  return { service, usersRepository };
+  return { service, usersRepository, courseModel, groupModel, scheduleModel };
 }
 
 describe('UsersService contact fields', () => {
@@ -100,6 +103,20 @@ describe('UsersService contact fields', () => {
         phoneNumber: '+100000000',
       }),
     );
+
+    const response = await service.create({
+      username: 'student02',
+      password: 'password123',
+      firstName: 'Student',
+      lastName: 'Two',
+      email: 'student2@example.com',
+      phoneNumber: '+100000001',
+    });
+
+    expect(response).toMatchObject({
+      email: 'student2@example.com',
+      phoneNumber: '+100000001',
+    });
   });
 
   it('telephone and phone aliases map to canonical phoneNumber', async () => {
@@ -143,6 +160,56 @@ describe('UsersService contact fields', () => {
     );
   });
 
+  it('update user returns contact and student fields', async () => {
+    const { service, usersRepository } = createService();
+
+    usersRepository.findByIdAndUpdate.mockImplementationOnce(
+      (
+        _id: string,
+        update: { $set?: Record<string, unknown> },
+        _options: Record<string, unknown>,
+      ) => chain(userDoc(update.$set)),
+    );
+
+    const response = await service.update('user-id', {
+      email: 'updated@example.com',
+      phoneNumber: '+500000000',
+      telegramId: '123456789',
+      studentYear: '11-sinf',
+      paymentMethod: StudentPaymentMethod.Card,
+      contactOwner: 'ona',
+      contactOwnerFullName: 'Aliyeva Dilnoza',
+      contactOwnerRelation: 'onasi',
+    });
+
+    expect(usersRepository.findByIdAndUpdate).toHaveBeenCalledWith(
+      'user-id',
+      {
+        $set: {
+          email: 'updated@example.com',
+          phoneNumber: '+500000000',
+          telegramId: '123456789',
+          studentYear: '11-sinf',
+          paymentMethod: StudentPaymentMethod.Card,
+          contactOwner: 'ona',
+          contactOwnerFullName: 'Aliyeva Dilnoza',
+          contactOwnerRelation: 'onasi',
+        },
+      },
+      { new: true },
+    );
+    expect(response).toMatchObject({
+      email: 'updated@example.com',
+      phoneNumber: '+500000000',
+      telegramId: '123456789',
+      studentYear: '11-sinf',
+      paymentMethod: StudentPaymentMethod.Card,
+      contactOwner: 'ona',
+      contactOwnerFullName: 'Aliyeva Dilnoza',
+      contactOwnerRelation: 'onasi',
+    });
+  });
+
   it('create user saves optional student payment and contact owner fields', async () => {
     const { service, usersRepository } = createService();
 
@@ -168,6 +235,29 @@ describe('UsersService contact fields', () => {
         contactOwnerRelation: 'otasi',
       }),
     );
+
+    const response = await service.create({
+      username: 'student02',
+      password: 'password123',
+      firstName: 'Student',
+      lastName: 'Two',
+      role: Role.Student,
+      studentYear: '10-sinf',
+      paymentMethod: 'card',
+      contactOwner: 'ona',
+      contactOwnerFullName: 'Aliyeva Dilnoza',
+      contactOwnerRelation: 'onasi',
+      telegramId: '123456789',
+    } as never);
+
+    expect(response).toMatchObject({
+      studentYear: '10-sinf',
+      paymentMethod: StudentPaymentMethod.Card,
+      contactOwner: 'ona',
+      contactOwnerFullName: 'Aliyeva Dilnoza',
+      contactOwnerRelation: 'onasi',
+      telegramId: '123456789',
+    });
   });
 
   it('update user clears optional student profile fields with empty values', async () => {
@@ -237,6 +327,48 @@ describe('UsersService contact fields', () => {
       'user-id',
       { $unset: { email: '', phoneNumber: '' } },
       { new: true },
+    );
+  });
+
+  it('teacher student visibility includes groups from multi-teacher courses', async () => {
+    const { service, courseModel, groupModel, scheduleModel } = createService();
+    const teacherId = new Types.ObjectId().toHexString();
+    const courseId = new Types.ObjectId().toHexString();
+    const courseStudentId = new Types.ObjectId().toHexString();
+    const groupStudentId = new Types.ObjectId().toHexString();
+    const scheduleStudentId = new Types.ObjectId().toHexString();
+
+    courseModel.find.mockReturnValueOnce(
+      chain([{ _id: courseId, students: [courseStudentId] }]),
+    );
+    groupModel.find.mockReturnValueOnce(
+      chain([{ students: [groupStudentId] }]),
+    );
+    scheduleModel.find.mockReturnValueOnce(
+      chain([{ students: [scheduleStudentId] }]),
+    );
+
+    const visibleStudentIds = await (
+      service as unknown as {
+        getTeacherVisibleStudentIds: (id: string) => Promise<string[]>;
+      }
+    ).getTeacherVisibleStudentIds(teacherId);
+
+    expect(groupModel.find).toHaveBeenCalledWith(
+      {
+        $or: [
+          { teacher: teacherId },
+          { course: { $in: [courseId] } },
+        ],
+      },
+      { students: 1 },
+    );
+    expect(visibleStudentIds).toEqual(
+      expect.arrayContaining([
+        courseStudentId,
+        groupStudentId,
+        scheduleStudentId,
+      ]),
     );
   });
 });
