@@ -4,7 +4,7 @@ import { FinancialTransactionType } from '../financial-transaction-type.enum';
 
 @Schema({ timestamps: { createdAt: true, updatedAt: false } })
 export class FinancialTransaction {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: 'Student', required: true, index: true })
   studentId: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Payment', index: true })

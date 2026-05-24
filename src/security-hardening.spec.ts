@@ -279,7 +279,7 @@ describe('security hardening', () => {
   });
 
   describe('public user sanitizer', () => {
-    it('excludes email and phoneNumber from public user responses', async () => {
+    it('keeps admin user reads free of student-specific profile fields', async () => {
       const userId = objectId();
       const userModel = {
         findById: jest.fn(() =>
@@ -294,6 +294,9 @@ describe('security hardening', () => {
               status: UserStatus.Active,
               isActive: true,
               branchIds: ['branch-a'],
+              studentYear: 'legacy',
+              paymentMethod: 'cash',
+              contactOwner: 'parent',
             }),
           }),
         ),
@@ -311,8 +314,11 @@ describe('security hardening', () => {
 
       const result = await service.findById(userId);
 
-      expect(result).not.toHaveProperty('email');
-      expect(result).not.toHaveProperty('phoneNumber');
+      expect(result).toHaveProperty('email', 'student@example.com');
+      expect(result).toHaveProperty('phoneNumber', '+100000000');
+      expect(result).not.toHaveProperty('studentYear');
+      expect(result).not.toHaveProperty('paymentMethod');
+      expect(result).not.toHaveProperty('contactOwner');
       expect(result).toMatchObject({
         id: userId,
         username: 'student',

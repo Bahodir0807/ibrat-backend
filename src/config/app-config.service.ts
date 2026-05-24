@@ -156,6 +156,10 @@ export class AppConfigService {
     return this.telegram.adminChatId;
   }
 
+  get telegramNotificationsEnabled(): boolean {
+    return this.telegram.notificationsEnabled;
+  }
+
   get telegramWebhookBaseUrl(): string | undefined {
     return this.telegram.domain;
   }

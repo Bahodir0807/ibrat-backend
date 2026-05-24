@@ -12,6 +12,7 @@ import {
   Attendance,
   AttendanceSchema,
 } from '../attendance/schemas/attendance.schema';
+import { Student, StudentSchema } from '../students/schemas/student.schema';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import {
       { name: User.name, schema: UserSchema },
       { name: Group.name, schema: GroupSchema },
       { name: Attendance.name, schema: AttendanceSchema },
+      { name: Student.name, schema: StudentSchema },
     ]),
   ],
   controllers: [ScheduleController],

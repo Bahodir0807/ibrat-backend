@@ -17,6 +17,7 @@ import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { Room, RoomDocument } from '../rooms/schemas/room.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
+import { Student, StudentDocument } from '../students/schemas/student.schema';
 import {
   Attendance,
   AttendanceDocument,
@@ -38,12 +39,14 @@ export class ScheduleService {
     @InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>,
     @InjectModel(Attendance.name)
     private readonly attendanceModel: Model<AttendanceDocument>,
+    @InjectModel(Student.name)
+    private readonly studentModel: Model<StudentDocument> = {} as Model<StudentDocument>,
   ) {}
 
   private readonly schedulePopulate = [
     { path: 'course', select: 'name description price' },
     { path: 'teacher', select: 'username firstName lastName role' },
-    { path: 'students', select: 'username firstName lastName role' },
+    { path: 'students', select: 'firstName lastName phoneNumber branchIds' },
     { path: 'room', select: 'name capacity type isAvailable description' },
     { path: 'group', select: 'name course' },
   ];
@@ -60,14 +63,12 @@ export class ScheduleService {
     return String(value ?? '');
   }
 
-  private normalizeBranchIds(branchIds?: string[]): string[] {
+  private normalizeBranchIds(branchIds?: unknown[]): string[] {
     return [
       ...new Set(
         (branchIds ?? [])
-          .filter(
-            (branchId): branchId is string => typeof branchId === 'string',
-          )
-          .map((branchId) => branchId.trim())
+          .filter((branchId) => branchId !== null && branchId !== undefined)
+          .map((branchId) => String(branchId).trim())
           .filter((branchId) => branchId.length > 0),
       ),
     ];
@@ -132,7 +133,7 @@ export class ScheduleService {
       return;
     }
 
-    const students = await this.userModel
+    const students = await this.studentModel
       .find({ _id: { $in: scheduleStudentIds } }, { branchIds: 1 })
       .lean()
       .exec();
@@ -162,17 +163,22 @@ export class ScheduleService {
       throw new NotFoundException('Group not found');
     }
 
-    const relatedUserIds = [
-      String(group.teacher),
-      ...(group.students ?? []).map((student) => String(student)),
-    ];
-    const users = await this.userModel
-      .find({ _id: { $in: relatedUserIds } }, { branchIds: 1 })
-      .lean()
-      .exec();
+    const teacherId = String(group.teacher);
+    const studentIds = (group.students ?? []).map((student) => String(student));
+    const [users, students] = await Promise.all([
+      this.userModel
+        .find({ _id: teacherId }, { branchIds: 1 })
+        .lean()
+        .exec(),
+      this.studentModel
+        .find({ _id: { $in: studentIds } }, { branchIds: 1 })
+        .lean()
+        .exec(),
+    ]);
+    const relatedResources = [...users, ...students];
     const allUsersScoped =
-      users.length === relatedUserIds.length &&
-      users.every((user) =>
+      relatedResources.length === 1 + studentIds.length &&
+      relatedResources.every((user) =>
         this.normalizeBranchIds(user.branchIds).some((branchId) =>
           actorBranches.includes(branchId),
         ),
@@ -191,7 +197,7 @@ export class ScheduleService {
       return;
     }
 
-    if (false && actor.role === Role.Admin) {
+    if (actor.role === Role.BranchAdmin) {
       await this.assertBranchAdminCanAccessSchedule(schedule, actor);
       return;
     }
@@ -436,21 +442,12 @@ export class ScheduleService {
     }
 
     if (state.students && state.students.length > 0) {
-      const students = await this.userModel
+      const students = await this.studentModel
         .find({ _id: { $in: state.students } })
         .lean()
         .exec();
       if (students.length !== state.students.length) {
         throw new NotFoundException('One or more students were not found');
-      }
-
-      const invalidStudent = students.find(
-        (student) => student.role !== Role.Student,
-      );
-      if (invalidStudent) {
-        throw new BadRequestException(
-          'Only users with student role can be assigned to schedule',
-        );
       }
 
       const notEnrolled = state.students.find(
@@ -559,7 +556,7 @@ export class ScheduleService {
       });
     }
 
-    if ([Role.Admin, Role.Owner, Role.Extra].includes(role as Role)) {
+    if ([Role.Admin, Role.Owner, Role.Extra, Role.BranchAdmin].includes(role as Role)) {
       return this.findAll({ sortBy: 'date', sortOrder: 'asc', limit: 100 });
     }
 
@@ -577,7 +574,7 @@ export class ScheduleService {
       return this.getScheduleByUserId(userId);
     }
 
-    if (actor.role === Role.Admin) {
+    if (actor.role === Role.BranchAdmin) {
       const user = await this.userModel.findById(userId).lean().exec();
       if (!user) {
         throw new NotFoundException('User not found');
@@ -654,7 +651,7 @@ export class ScheduleService {
       return this.findAll({ ...query, teacherId: actor.userId });
     }
 
-    if (false && actor.role === Role.Admin) {
+    if (actor.role === Role.BranchAdmin) {
       const actorBranches = this.normalizeBranchIds(actor.branchIds);
       if (actorBranches.length === 0) {
         throw new ForbiddenException('User has no assigned branch scope');
@@ -681,11 +678,11 @@ export class ScheduleService {
       }
 
       if (query.studentId) {
-        const student = await this.userModel
-          .findById(query.studentId, { branchIds: 1, role: 1 })
+        const student = await this.studentModel
+          .findById(query.studentId, { branchIds: 1 })
           .lean()
           .exec();
-        if (!student || student!.role !== Role.Student) {
+        if (!student) {
           throw new NotFoundException('Student not found');
         }
 
@@ -705,9 +702,9 @@ export class ScheduleService {
           )
           .lean()
           .exec(),
-        this.userModel
+        this.studentModel
           .find(
-            { role: Role.Student, branchIds: { $in: actorBranches } },
+            { branchIds: { $in: actorBranches } },
             { _id: 1 },
           )
           .lean()
@@ -798,7 +795,7 @@ export class ScheduleService {
       payload.teacher = actor.userId;
     }
 
-    if (false && actor.role === Role.Admin) {
+    if (actor.role === Role.BranchAdmin) {
       const actorBranches = this.normalizeBranchIds(actor.branchIds);
       if (actorBranches.length === 0) {
         throw new ForbiddenException('User has no assigned branch scope');
@@ -822,8 +819,8 @@ export class ScheduleService {
       }
 
       if (payload.students?.length) {
-        const students = await this.userModel
-          .find({ _id: { $in: payload.students } }, { branchIds: 1, role: 1 })
+        const students = await this.studentModel
+          .find({ _id: { $in: payload.students } }, { branchIds: 1 })
           .lean()
           .exec();
 
@@ -832,10 +829,6 @@ export class ScheduleService {
         }
 
         const outOfScopeStudent = students.find((student) => {
-          if (student.role !== Role.Student) {
-            return true;
-          }
-
           const studentBranches = this.normalizeBranchIds(student.branchIds);
           return !studentBranches.some((branchId) =>
             actorBranches.includes(branchId),
@@ -917,7 +910,7 @@ export class ScheduleService {
       payload.teacher = actor.userId;
     }
 
-    if (false && actor.role === Role.Admin) {
+    if (actor.role === Role.BranchAdmin) {
       const actorBranches = this.normalizeBranchIds(actor.branchIds);
       if (actorBranches.length === 0) {
         throw new ForbiddenException('User has no assigned branch scope');
@@ -949,8 +942,8 @@ export class ScheduleService {
       }
 
       if (payload.students?.length) {
-        const students = await this.userModel
-          .find({ _id: { $in: payload.students } }, { branchIds: 1, role: 1 })
+        const students = await this.studentModel
+          .find({ _id: { $in: payload.students } }, { branchIds: 1 })
           .lean()
           .exec();
 
@@ -959,10 +952,6 @@ export class ScheduleService {
         }
 
         const outOfScopeStudent = students.find((student) => {
-          if (student.role !== Role.Student) {
-            return true;
-          }
-
           const studentBranches = this.normalizeBranchIds(student.branchIds);
           return !studentBranches.some((branchId) =>
             actorBranches.includes(branchId),
@@ -983,7 +972,7 @@ export class ScheduleService {
   }
 
   async removeForActor(id: string, actor: AuthenticatedUser) {
-    if (actor.role === Role.Admin) {
+    if (actor.role === Role.BranchAdmin) {
       const existing = await this.findOne(id);
       await this.assertBranchAdminCanAccessSchedule(
         existing as { teacher?: unknown; students?: unknown[] },

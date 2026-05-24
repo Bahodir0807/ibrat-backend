@@ -11,7 +11,6 @@ import {
 } from 'class-validator';
 import { Role } from '../../roles/roles.enum';
 import { UserStatus } from '../user-status.enum';
-import { StudentPaymentMethod } from '../student-payment-method.enum';
 
 const optionalTrimmedString = (value: unknown) => {
   if (value === null || value === undefined) {
@@ -24,24 +23,6 @@ const optionalTrimmedString = (value: unknown) => {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
-};
-
-const normalizePaymentMethod = (value: unknown) => {
-  const normalized = optionalTrimmedString(value);
-  if (typeof normalized !== 'string') {
-    return normalized;
-  }
-
-  const lower = normalized.toLowerCase();
-  if (lower === 'naqd') {
-    return StudentPaymentMethod.Cash;
-  }
-
-  if (lower === 'karta') {
-    return StudentPaymentMethod.Card;
-  }
-
-  return lower;
 };
 
 export class CreateUserDto {
@@ -59,7 +40,7 @@ export class CreateUserDto {
   @IsOptional()
   @IsEnum(Role, {
     message:
-      'Role must be one of: admin, teacher, student, owner, panda, guest',
+      'Role must be one of: owner, admin, branch_admin, teacher, manager, panda, staff, guest',
   })
   role?: Role;
 
@@ -106,37 +87,6 @@ export class CreateUserDto {
   @Transform(({ value }) => optionalTrimmedString(value))
   @MaxLength(30)
   telephone?: string;
-
-  @IsOptional()
-  @IsString()
-  @Transform(({ value }) => optionalTrimmedString(value))
-  @MaxLength(50)
-  studentYear?: string;
-
-  @IsOptional()
-  @Transform(({ value }) => normalizePaymentMethod(value))
-  @IsEnum(StudentPaymentMethod, {
-    message: 'Payment method must be one of: cash, card, naqd, karta',
-  })
-  paymentMethod?: StudentPaymentMethod;
-
-  @IsOptional()
-  @IsString()
-  @Transform(({ value }) => optionalTrimmedString(value))
-  @MaxLength(50)
-  contactOwner?: string;
-
-  @IsOptional()
-  @IsString()
-  @Transform(({ value }) => optionalTrimmedString(value))
-  @MaxLength(100)
-  contactOwnerFullName?: string;
-
-  @IsOptional()
-  @IsString()
-  @Transform(({ value }) => optionalTrimmedString(value))
-  @MaxLength(100)
-  contactOwnerRelation?: string;
 
   @IsOptional()
   @IsString()

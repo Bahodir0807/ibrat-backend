@@ -2,7 +2,6 @@ import { Types } from 'mongoose';
 import { UsersService } from './users.service';
 import { Role } from '../roles/roles.enum';
 import { UserStatus } from './user-status.enum';
-import { StudentPaymentMethod } from './student-payment-method.enum';
 
 jest.mock('../common/password', () => ({
   hashPassword: jest.fn(async () => 'hashed-password'),
@@ -26,11 +25,6 @@ function userDoc(overrides: Record<string, unknown> = {}) {
     status: UserStatus.Active,
     isActive: true,
     branchIds: [],
-    studentYear: undefined,
-    paymentMethod: undefined,
-    contactOwner: undefined,
-    contactOwnerFullName: undefined,
-    contactOwnerRelation: undefined,
     ...overrides,
   };
 
@@ -38,11 +32,6 @@ function userDoc(overrides: Record<string, unknown> = {}) {
     _id: data._id,
     email: data.email,
     phoneNumber: data.phoneNumber,
-    studentYear: data.studentYear,
-    paymentMethod: data.paymentMethod,
-    contactOwner: data.contactOwner,
-    contactOwnerFullName: data.contactOwnerFullName,
-    contactOwnerRelation: data.contactOwnerRelation,
     branchIds: data.branchIds,
     role: data.role,
     save: jest.fn().mockResolvedValue(undefined),
@@ -88,14 +77,14 @@ describe('UsersService contact fields', () => {
   it('create user saves email and phoneNumber', async () => {
     const { service, usersRepository } = createService();
 
-    await service.create({
-      username: 'student01',
+    await service.createForActor({
+      username: 'staff01',
       password: 'password123',
-      firstName: 'Student',
+      firstName: 'Staff',
       lastName: 'One',
       email: 'student@example.com',
       phoneNumber: '+100000000',
-    });
+    }, { userId: 'admin-id', role: Role.Admin, branchIds: [] });
 
     expect(usersRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -104,14 +93,14 @@ describe('UsersService contact fields', () => {
       }),
     );
 
-    const response = await service.create({
-      username: 'student02',
+    const response = await service.createForActor({
+      username: 'staff02',
       password: 'password123',
-      firstName: 'Student',
+      firstName: 'Staff',
       lastName: 'Two',
       email: 'student2@example.com',
       phoneNumber: '+100000001',
-    });
+    }, { userId: 'admin-id', role: Role.Admin, branchIds: [] });
 
     expect(response).toMatchObject({
       email: 'student2@example.com',
@@ -122,13 +111,13 @@ describe('UsersService contact fields', () => {
   it('telephone and phone aliases map to canonical phoneNumber', async () => {
     const { service, usersRepository } = createService();
 
-    await service.create({
-      username: 'student01',
+    await service.createForActor({
+      username: 'staff01',
       password: 'password123',
-      firstName: 'Student',
+      firstName: 'Staff',
       lastName: 'One',
       telephone: '+200000000',
-    });
+    }, { userId: 'admin-id', role: Role.Admin, branchIds: [] });
 
     expect(usersRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ phoneNumber: '+200000000' }),
@@ -160,7 +149,7 @@ describe('UsersService contact fields', () => {
     );
   });
 
-  it('update user returns contact and student fields', async () => {
+  it('update user returns staff contact fields without student profile fields', async () => {
     const { service, usersRepository } = createService();
 
     usersRepository.findByIdAndUpdate.mockImplementationOnce(
@@ -175,11 +164,6 @@ describe('UsersService contact fields', () => {
       email: 'updated@example.com',
       phoneNumber: '+500000000',
       telegramId: '123456789',
-      studentYear: '11-sinf',
-      paymentMethod: StudentPaymentMethod.Card,
-      contactOwner: 'ona',
-      contactOwnerFullName: 'Aliyeva Dilnoza',
-      contactOwnerRelation: 'onasi',
     });
 
     expect(usersRepository.findByIdAndUpdate).toHaveBeenCalledWith(
@@ -189,11 +173,6 @@ describe('UsersService contact fields', () => {
           email: 'updated@example.com',
           phoneNumber: '+500000000',
           telegramId: '123456789',
-          studentYear: '11-sinf',
-          paymentMethod: StudentPaymentMethod.Card,
-          contactOwner: 'ona',
-          contactOwnerFullName: 'Aliyeva Dilnoza',
-          contactOwnerRelation: 'onasi',
         },
       },
       { new: true },
@@ -202,65 +181,32 @@ describe('UsersService contact fields', () => {
       email: 'updated@example.com',
       phoneNumber: '+500000000',
       telegramId: '123456789',
-      studentYear: '11-sinf',
-      paymentMethod: StudentPaymentMethod.Card,
-      contactOwner: 'ona',
-      contactOwnerFullName: 'Aliyeva Dilnoza',
-      contactOwnerRelation: 'onasi',
     });
+    expect(response).not.toHaveProperty('studentYear');
+    expect(response).not.toHaveProperty('paymentMethod');
+    expect(response).not.toHaveProperty('contactOwner');
   });
 
-  it('create user saves optional student payment and contact owner fields', async () => {
+  it('admin user flow rejects legacy student role before persistence', async () => {
     const { service, usersRepository } = createService();
 
-    await service.create({
-      username: 'student01',
-      password: 'password123',
-      firstName: 'Student',
-      lastName: 'One',
-      role: Role.Student,
-      studentYear: '9-sinf',
-      paymentMethod: 'naqd',
-      contactOwner: 'ota',
-      contactOwnerFullName: 'Aliyev Sardor',
-      contactOwnerRelation: 'otasi',
-    } as never);
+    await expect(
+      service.createForActor(
+        {
+          username: 'student01',
+          password: 'password123',
+          firstName: 'Student',
+          lastName: 'One',
+          role: Role.Student,
+        },
+        { userId: 'admin-id', role: Role.Admin, branchIds: [] },
+      ),
+    ).rejects.toThrow('You are not allowed to assign this role');
 
-    expect(usersRepository.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        studentYear: '9-sinf',
-        paymentMethod: StudentPaymentMethod.Cash,
-        contactOwner: 'ota',
-        contactOwnerFullName: 'Aliyev Sardor',
-        contactOwnerRelation: 'otasi',
-      }),
-    );
-
-    const response = await service.create({
-      username: 'student02',
-      password: 'password123',
-      firstName: 'Student',
-      lastName: 'Two',
-      role: Role.Student,
-      studentYear: '10-sinf',
-      paymentMethod: 'card',
-      contactOwner: 'ona',
-      contactOwnerFullName: 'Aliyeva Dilnoza',
-      contactOwnerRelation: 'onasi',
-      telegramId: '123456789',
-    } as never);
-
-    expect(response).toMatchObject({
-      studentYear: '10-sinf',
-      paymentMethod: StudentPaymentMethod.Card,
-      contactOwner: 'ona',
-      contactOwnerFullName: 'Aliyeva Dilnoza',
-      contactOwnerRelation: 'onasi',
-      telegramId: '123456789',
-    });
+    expect(usersRepository.create).not.toHaveBeenCalled();
   });
 
-  it('update user clears optional student profile fields with empty values', async () => {
+  it('update user ignores removed student profile fields from legacy payloads', async () => {
     const { service, usersRepository } = createService();
 
     await service.updateOwnProfile('user-id', {
@@ -273,34 +219,32 @@ describe('UsersService contact fields', () => {
 
     expect(usersRepository.findByIdAndUpdate).toHaveBeenCalledWith(
       'user-id',
-      {
-        $unset: {
-          studentYear: '',
-          paymentMethod: '',
-          contactOwner: '',
-          contactOwnerFullName: '',
-          contactOwnerRelation: '',
-        },
-      },
+      { $set: {} },
       { new: true },
     );
   });
 
-  it('rejects unsupported student payment methods before persistence', async () => {
+  it('legacy auth create does not persist student-only profile fields', async () => {
     const { service, usersRepository } = createService();
 
-    await expect(
-      service.create({
+    await service.create({
         username: 'student01',
         password: 'password123',
         firstName: 'Student',
         lastName: 'One',
         role: Role.Student,
         paymentMethod: 'transfer',
-      } as never),
-    ).rejects.toThrow('Payment method must be one of');
+        studentYear: '9-sinf',
+        contactOwner: 'ota',
+      } as never);
 
-    expect(usersRepository.create).not.toHaveBeenCalled();
+    expect(usersRepository.create).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        paymentMethod: 'transfer',
+        studentYear: '9-sinf',
+        contactOwner: 'ota',
+      }),
+    );
   });
 
   it('update user does not delete contact fields when omitted', async () => {

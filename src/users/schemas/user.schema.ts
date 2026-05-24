@@ -26,7 +26,7 @@ export class User {
   @Prop({ default: '' })
   lastName!: string;
 
-  @Prop({ enum: Role, default: Role.Student })
+  @Prop({ enum: Role, default: Role.Staff })
   role!: Role;
 
   @Prop()

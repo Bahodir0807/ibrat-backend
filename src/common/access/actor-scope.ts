@@ -4,15 +4,15 @@ import { AuthenticatedUser } from '../types/authenticated-user.type';
 import { Role } from '../../roles/roles.enum';
 
 export type BranchScopedResource = {
-  branchIds?: string[];
+  branchIds?: unknown[];
 };
 
-export function normalizeBranchIds(branchIds?: string[]): string[] {
+export function normalizeBranchIds(branchIds?: unknown[]): string[] {
   return [
     ...new Set(
       (branchIds ?? [])
-        .filter((branchId): branchId is string => typeof branchId === 'string')
-        .map((branchId) => branchId.trim())
+        .filter((branchId) => branchId !== null && branchId !== undefined)
+        .map((branchId) => String(branchId).trim())
         .filter((branchId) => branchId.length > 0),
     ),
   ];
@@ -23,7 +23,7 @@ export function isSystemWideRole(role?: Role): boolean {
 }
 
 export function isBranchAdminRole(role?: Role): boolean {
-  return false;
+  return role === Role.BranchAdmin;
 }
 
 export function ensureActorBranchScope(actor: AuthenticatedUser): string[] {
@@ -37,7 +37,7 @@ export function ensureActorBranchScope(actor: AuthenticatedUser): string[] {
 
 export function hasBranchOverlap(
   actorBranchIds: string[],
-  targetBranchIds?: string[],
+  targetBranchIds?: unknown[],
 ): boolean {
   const normalizedTarget = normalizeBranchIds(targetBranchIds);
   return normalizedTarget.some((branchId) => actorBranchIds.includes(branchId));

@@ -7,6 +7,7 @@ import { GradesModule } from '../grades/grades.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { SchedulesModule } from '../schedule/schedule.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { StudentsModule } from '../students/students.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     UsersModule,
     HomeworkModule,
     SchedulesModule,
+    StudentsModule,
   ],
   providers: [TelegramService],
   exports: [TelegramService],

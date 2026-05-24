@@ -8,7 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Attendance, AttendanceDocument } from './schemas/attendance.schema';
 import { MarkAttendanceDto } from './dto/mark-attendance.dto';
-import { User, UserDocument } from '../users/schemas/user.schema';
+import { Student, StudentDocument } from '../students/schemas/student.schema';
 import {
   Schedule,
   ScheduleDocument,
@@ -26,22 +26,20 @@ export class AttendanceService {
   constructor(
     @InjectModel(Attendance.name)
     private readonly attendanceModel: Model<AttendanceDocument>,
-    @InjectModel(User.name)
-    private readonly userModel: Model<UserDocument>,
+    @InjectModel(Student.name)
+    private readonly studentModel: Model<StudentDocument>,
     @InjectModel(Schedule.name)
     private readonly scheduleModel: Model<ScheduleDocument>,
     @InjectModel(Group.name)
     private readonly groupModel: Model<GroupDocument>,
   ) {}
 
-  private normalizeBranchIds(branchIds?: string[]): string[] {
+  private normalizeBranchIds(branchIds?: unknown[]): string[] {
     return [
       ...new Set(
         (branchIds ?? [])
-          .filter(
-            (branchId): branchId is string => typeof branchId === 'string',
-          )
-          .map((branchId) => branchId.trim())
+          .filter((branchId) => branchId !== null && branchId !== undefined)
+          .map((branchId) => String(branchId).trim())
           .filter((branchId) => branchId.length > 0),
       ),
     ];
@@ -52,7 +50,7 @@ export class AttendanceService {
   }
 
   private isBranchAdminRole(role?: Role): boolean {
-    return false;
+    return role === Role.BranchAdmin;
   }
 
   private ensureScopedActorHasBranches(actor: AuthenticatedUser): string[] {
@@ -94,16 +92,14 @@ export class AttendanceService {
   private async assertActorCanAccessStudent(
     actor: AuthenticatedUser,
     userId: string,
-  ): Promise<UserDocument> {
-    const student = await this.userModel.findById(userId).exec();
+  ): Promise<StudentDocument> {
+    const student = await this.studentModel.findById(userId).exec();
     if (!student) {
       throw new NotFoundException('Student not found');
     }
 
-    if (student.role !== Role.Student) {
-      throw new BadRequestException(
-        'Attendance can only be accessed for students',
-      );
+    if (student.isActive === false) {
+      throw new BadRequestException('Attendance cannot be changed for archived students');
     }
 
     if (this.isSystemWideRole(actor.role)) {

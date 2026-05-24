@@ -8,6 +8,7 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 import { Group, GroupSchema } from '../groups/schemas/group.schema';
 import { Schedule, ScheduleSchema } from '../schedule/schemas/schedule.schema';
 import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
+import { Student, StudentSchema } from '../students/schemas/student.schema';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
       { name: Group.name, schema: GroupSchema },
       { name: Schedule.name, schema: ScheduleSchema },
       { name: Payment.name, schema: PaymentSchema },
+      { name: Student.name, schema: StudentSchema },
     ]),
   ],
   controllers: [CoursesController],

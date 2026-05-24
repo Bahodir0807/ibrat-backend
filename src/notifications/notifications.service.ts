@@ -10,6 +10,7 @@ import {
 import { EventEmitter } from 'events';
 import { TelegramService } from '../telegram/telegram.service';
 import { UsersService } from '../users/users.service';
+import { StudentsService } from '../students/students.service';
 import { CreateNotificationDto } from './dto/create-notify.dto';
 import { Role } from '../roles/roles.enum';
 import { NotificationType } from './notification-type.enum';
@@ -25,6 +26,7 @@ export class NotificationsService {
     private readonly usersService: UsersService,
     @Inject(forwardRef(() => TelegramService))
     private readonly telegramService: TelegramService,
+    private readonly studentsService: StudentsService = {} as StudentsService,
   ) {}
 
   async sendManualNotification(
@@ -44,12 +46,6 @@ export class NotificationsService {
     if (!user || !user.telegramId) {
       throw new NotFoundException(
         'User not found or Telegram is not connected',
-      );
-    }
-
-    if (sender?.role === Role.Teacher && user.role !== Role.Student) {
-      throw new BadRequestException(
-        'Teachers can send notifications only to students',
       );
     }
 
@@ -81,16 +77,22 @@ export class NotificationsService {
       throw new ForbiddenException('Only admin roles can send notifications');
     }
 
+    // TODO(student-portal): Role.Student remains a legacy auth role for
+    // student self-service. Role-targeted notifications still accept it as a
+    // compatibility selector, but recipients now come from StudentsService.
     if (sender.role === Role.Teacher && role !== Role.Student) {
       throw new BadRequestException(
         'Teachers can send role-based notifications only to students',
       );
     }
 
-    const users = await this.usersService.findByRoleForActor(role, sender);
-    const telegramIds = users
-      .filter((user) => user.telegramId)
-      .map((user) => user.telegramId!);
+    const recipients =
+      role === Role.Student && typeof this.studentsService.findAll === 'function'
+        ? (await this.studentsService.findAll({ limit: 100 }, sender)).items
+        : await this.usersService.findByRoleForActor(role, sender);
+    const telegramIds = recipients
+      .filter((recipient) => recipient.telegramId)
+      .map((recipient) => recipient.telegramId!);
 
     if (!telegramIds.length) {
       return mapNotificationResponse({

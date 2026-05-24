@@ -223,6 +223,8 @@ export class AuthService {
   async register(dto: RegisterDto & { roleKey?: string }) {
     let role: Role = Role.Guest;
 
+    // TODO(student-portal): keep legacy student self-registration until
+    // student-auth is moved to Students + dedicated credentials.
     if (dto.role === Role.Student) {
       role = Role.Student;
     }

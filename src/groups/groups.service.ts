@@ -15,6 +15,7 @@ import { mapGroupResponse, mapGroupResponses } from './dto/group-response.dto';
 import { createPaginatedResult } from '../common/responses/paginated-result';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
+import { Student, StudentDocument } from '../students/schemas/student.schema';
 import { Role } from '../roles/roles.enum';
 import {
   Schedule,
@@ -38,6 +39,8 @@ export class GroupsService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Schedule.name)
     private readonly scheduleModel: Model<ScheduleDocument>,
+    @InjectModel(Student.name)
+    private readonly studentModel: Model<StudentDocument> = {} as Model<StudentDocument>,
   ) {}
 
   private readonly groupPopulate = [
@@ -50,7 +53,7 @@ export class GroupsService {
       ],
     },
     { path: 'teacher', select: 'username firstName lastName role' },
-    { path: 'students', select: 'username firstName lastName role' },
+    { path: 'students', select: 'firstName lastName phoneNumber branchIds' },
   ];
 
   private extractReferenceId(value: unknown): string {
@@ -91,6 +94,14 @@ export class GroupsService {
     roles?: Role[],
   ): Promise<string[]> {
     const actorBranches = ensureActorBranchScope(actor);
+    if (roles?.length === 1 && roles[0] === Role.Student) {
+      const students = await this.studentModel
+        .find({ branchIds: { $in: actorBranches } }, { _id: 1 })
+        .lean()
+        .exec();
+      return students.map((student) => String(student._id));
+    }
+
     const filter: FilterQuery<UserDocument> = {
       branchIds: { $in: actorBranches },
     };
@@ -123,13 +134,27 @@ export class GroupsService {
     }
 
     const relatedUsers = await this.userModel
-      .find({ _id: { $in: relatedUserIds } }, { branchIds: 1 })
+      .find({ _id: this.extractReferenceId(group.teacher) }, { branchIds: 1 })
       .lean()
       .exec();
+    const relatedStudents = await this.studentModel
+      .find(
+        {
+          _id: {
+            $in: relatedUserIds.filter(
+              (id) => id !== this.extractReferenceId(group.teacher),
+            ),
+          },
+        },
+        { branchIds: 1 },
+      )
+      .lean()
+      .exec();
+    const relatedResources = [...relatedUsers, ...relatedStudents];
 
     if (
-      relatedUsers.length !== relatedUserIds.length ||
-      relatedUsers.some(
+      relatedResources.length !== relatedUserIds.length ||
+      relatedResources.some(
         (user) => !hasBranchOverlap(actorBranches, user.branchIds),
       )
     ) {
@@ -188,12 +213,14 @@ export class GroupsService {
     }
 
     const actorBranches = ensureActorBranchScope(actor);
-    const userIds = [
-      ...(payload.teacher ? [String(payload.teacher)] : []),
-      ...(Array.isArray(payload.students)
-        ? payload.students.map((student) => String(student))
-        : []),
-    ].filter((id) => Types.ObjectId.isValid(id));
+    const teacherIds = (payload.teacher ? [String(payload.teacher)] : []).filter(
+      (id) => Types.ObjectId.isValid(id),
+    );
+    const studentIds = (Array.isArray(payload.students)
+      ? payload.students.map((student) => String(student))
+      : []
+    ).filter((id) => Types.ObjectId.isValid(id));
+    const userIds = [...teacherIds, ...studentIds];
 
     if (userIds.length === 0 && !requireRelatedUser) {
       return;
@@ -205,16 +232,23 @@ export class GroupsService {
       );
     }
 
-    const users = await this.userModel
-      .find({ _id: { $in: userIds } }, { branchIds: 1 })
-      .lean()
-      .exec();
-    if (users.length !== userIds.length) {
+    const [users, students] = await Promise.all([
+      this.userModel
+        .find({ _id: { $in: teacherIds } }, { branchIds: 1 })
+        .lean()
+        .exec(),
+      this.studentModel
+        .find({ _id: { $in: studentIds } }, { branchIds: 1 })
+        .lean()
+        .exec(),
+    ]);
+    const resources = [...users, ...students];
+    if (resources.length !== userIds.length) {
       throw new NotFoundException('One or more users were not found');
     }
 
     if (
-      users.some((user) => !hasBranchOverlap(actorBranches, user.branchIds))
+      resources.some((user) => !hasBranchOverlap(actorBranches, user.branchIds))
     ) {
       throw new ForbiddenException('Cannot manage group outside branch scope');
     }
@@ -386,7 +420,12 @@ export class GroupsService {
       Array.isArray(payload.students) &&
       payload.students.length > 0
     ) {
-      const students = await this.userModel
+      const studentModel = (
+        typeof this.studentModel.find === 'function'
+          ? this.studentModel
+          : this.userModel
+      ) as { find: (...args: unknown[]) => { lean: () => { exec: () => Promise<unknown[]> } } };
+      const students = await studentModel
         .find({ _id: { $in: payload.students } })
         .lean()
         .exec();
@@ -394,14 +433,6 @@ export class GroupsService {
         throw new NotFoundException('One or more students were not found');
       }
 
-      const invalidStudent = students.find(
-        (student) => student.role !== Role.Student,
-      );
-      if (invalidStudent) {
-        throw new BadRequestException(
-          'Only users with student role can be assigned to a group',
-        );
-      }
     }
   }
 

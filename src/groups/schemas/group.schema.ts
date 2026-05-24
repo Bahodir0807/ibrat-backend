@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { Course } from '../../courses/schemas/course.schema';
 import { User } from '../../users/schemas/user.schema';
+import { Student } from '../../students/schemas/student.schema';
 
 export type GroupDocument = Group & Document;
 
@@ -16,7 +17,7 @@ export class Group {
   @Prop({ required: true, type: Types.ObjectId, ref: User.name })
   teacher: Types.ObjectId;
 
-  @Prop({ type: [Types.ObjectId], ref: User.name, default: [] })
+  @Prop({ type: [Types.ObjectId], ref: Student.name, default: [] })
   students: Types.ObjectId[];
 }
 

@@ -11,6 +11,14 @@ export class PaymentsListQueryDto extends ListQueryDto {
   courseId?: string;
 
   @IsOptional()
-  @IsIn(['confirmed', 'pending', 'cancelled'])
-  status?: 'confirmed' | 'pending' | 'cancelled';
+  @IsMongoId()
+  groupId?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  branchId?: string;
+
+  @IsOptional()
+  @IsIn(['pending', 'partial', 'paid', 'debt', 'frozen', 'overpaid'])
+  status?: 'pending' | 'partial' | 'paid' | 'debt' | 'frozen' | 'overpaid';
 }

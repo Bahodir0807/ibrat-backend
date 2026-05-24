@@ -17,6 +17,7 @@ import {
 } from './dto/course-response.dto';
 import { createPaginatedResult } from '../common/responses/paginated-result';
 import { User, UserDocument } from '../users/schemas/user.schema';
+import { Student, StudentDocument } from '../students/schemas/student.schema';
 import { Role } from '../roles/roles.enum';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
 import {
@@ -43,11 +44,13 @@ export class CoursesService {
     private readonly scheduleModel: Model<ScheduleDocument>,
     @InjectModel(Payment.name)
     private readonly paymentModel: Model<PaymentDocument>,
+    @InjectModel(Student.name)
+    private readonly studentModel: Model<StudentDocument> = {} as Model<StudentDocument>,
   ) {}
 
   private readonly coursePopulate = [
     { path: 'teacherIds', select: 'username firstName lastName role' },
-    { path: 'students', select: 'username firstName lastName role' },
+    { path: 'students', select: 'firstName lastName phoneNumber branchIds' },
   ];
 
   private extractReferenceId(value: unknown): string {
@@ -104,6 +107,14 @@ export class CoursesService {
     roles?: Role[],
   ): Promise<string[]> {
     const actorBranches = ensureActorBranchScope(actor);
+    if (roles?.length === 1 && roles[0] === Role.Student) {
+      const students = await this.studentModel
+        .find({ branchIds: { $in: actorBranches } }, { _id: 1 })
+        .lean()
+        .exec();
+      return students.map((student) => String(student._id));
+    }
+
     const filter: FilterQuery<UserDocument> = {
       branchIds: { $in: actorBranches },
     };
@@ -128,25 +139,34 @@ export class CoursesService {
     }
 
     const actorBranches = ensureActorBranchScope(actor);
-    const relatedUserIds = [
-      ...this.getCourseTeacherIds(course),
-      ...(Array.isArray(course.students)
-        ? course.students.map((student) => this.extractReferenceId(student))
-        : []),
-    ].filter((id) => Types.ObjectId.isValid(id));
+    const teacherIds = this.getCourseTeacherIds(course);
+    const studentIds = (Array.isArray(course.students)
+      ? course.students.map((student) => this.extractReferenceId(student))
+      : []
+    ).filter((id) => Types.ObjectId.isValid(id));
+    const relatedUserIds = [...teacherIds, ...studentIds].filter((id) =>
+      Types.ObjectId.isValid(id),
+    );
 
     if (relatedUserIds.length === 0) {
       throw new NotFoundException('Course not found');
     }
 
-    const relatedUsers = await this.userModel
-      .find({ _id: { $in: relatedUserIds } }, { branchIds: 1 })
-      .lean()
-      .exec();
+    const [relatedUsers, relatedStudents] = await Promise.all([
+      this.userModel
+        .find({ _id: { $in: teacherIds } }, { branchIds: 1 })
+        .lean()
+        .exec(),
+      this.studentModel
+        .find({ _id: { $in: studentIds } }, { branchIds: 1 })
+        .lean()
+        .exec(),
+    ]);
+    const relatedResources = [...relatedUsers, ...relatedStudents];
 
     if (
-      relatedUsers.length !== relatedUserIds.length ||
-      relatedUsers.some(
+      relatedResources.length !== relatedUserIds.length ||
+      relatedResources.some(
         (user) => !hasBranchOverlap(actorBranches, user.branchIds),
       )
     ) {
@@ -205,15 +225,17 @@ export class CoursesService {
     }
 
     const actorBranches = ensureActorBranchScope(actor);
-    const userIds = [
+    const teacherIds = [
       ...(Array.isArray(payload.teacherIds)
         ? payload.teacherIds.map((teacherId) => String(teacherId))
         : []),
       ...(payload.teacherId ? [String(payload.teacherId)] : []),
-      ...(Array.isArray(payload.students)
-        ? payload.students.map((student) => String(student))
-        : []),
     ].filter((id) => Types.ObjectId.isValid(id));
+    const studentIds = (Array.isArray(payload.students)
+      ? payload.students.map((student) => String(student))
+      : []
+    ).filter((id) => Types.ObjectId.isValid(id));
+    const userIds = [...teacherIds, ...studentIds];
 
     if (userIds.length === 0 && !requireRelatedUser) {
       return;
@@ -225,16 +247,23 @@ export class CoursesService {
       );
     }
 
-    const users = await this.userModel
-      .find({ _id: { $in: userIds } }, { branchIds: 1 })
-      .lean()
-      .exec();
-    if (users.length !== userIds.length) {
+    const [users, students] = await Promise.all([
+      this.userModel
+        .find({ _id: { $in: teacherIds } }, { branchIds: 1 })
+        .lean()
+        .exec(),
+      this.studentModel
+        .find({ _id: { $in: studentIds } }, { branchIds: 1 })
+        .lean()
+        .exec(),
+    ]);
+    const resources = [...users, ...students];
+    if (resources.length !== userIds.length) {
       throw new NotFoundException('One or more users were not found');
     }
 
     if (
-      users.some((user) => !hasBranchOverlap(actorBranches, user.branchIds))
+      resources.some((user) => !hasBranchOverlap(actorBranches, user.branchIds))
     ) {
       throw new ForbiddenException('Cannot manage course outside branch scope');
     }
@@ -393,7 +422,7 @@ export class CoursesService {
       Array.isArray(payload.students) &&
       payload.students.length > 0
     ) {
-      const students = await this.userModel
+      const students = await this.studentModel
         .find({ _id: { $in: payload.students } })
         .lean()
         .exec();
@@ -401,14 +430,6 @@ export class CoursesService {
         throw new NotFoundException('One or more students were not found');
       }
 
-      const invalidStudent = students.find(
-        (student) => student.role !== Role.Student,
-      );
-      if (invalidStudent) {
-        throw new BadRequestException(
-          'Only users with student role can be assigned to a course',
-        );
-      }
     }
   }
 
@@ -430,21 +451,12 @@ export class CoursesService {
       return this.findOne(courseId);
     }
 
-    const students = await this.userModel
+    const students = await this.studentModel
       .find({ _id: { $in: normalizedIds } })
       .lean()
       .exec();
     if (students.length !== normalizedIds.length) {
       throw new NotFoundException('One or more students were not found');
-    }
-
-    const invalidStudent = students.find(
-      (student) => student.role !== Role.Student,
-    );
-    if (invalidStudent) {
-      throw new BadRequestException(
-        'Only users with student role can be assigned to a course',
-      );
     }
 
     const currentIds = (course.students ?? []).map((studentId) =>

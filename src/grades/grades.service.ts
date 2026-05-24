@@ -8,7 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Grade, GradeDocument } from './schemas/grade.schema';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
-import { User, UserDocument } from '../users/schemas/user.schema';
+import { Student, StudentDocument } from '../students/schemas/student.schema';
 import { Role } from '../roles/roles.enum';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
@@ -22,7 +22,8 @@ import { mapGradeResponse, mapGradeResponses } from './dto/grade-response.dto';
 export class GradesService {
   constructor(
     @InjectModel(Grade.name) private readonly gradeModel: Model<GradeDocument>,
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(Student.name)
+    private readonly studentModel: Model<StudentDocument>,
     @InjectModel(Course.name)
     private readonly courseModel: Model<CourseDocument>,
     @InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>,
@@ -30,14 +31,12 @@ export class GradesService {
     private readonly scheduleModel: Model<ScheduleDocument>,
   ) {}
 
-  private normalizeBranchIds(branchIds?: string[]): string[] {
+  private normalizeBranchIds(branchIds?: unknown[]): string[] {
     return [
       ...new Set(
         (branchIds ?? [])
-          .filter(
-            (branchId): branchId is string => typeof branchId === 'string',
-          )
-          .map((branchId) => branchId.trim())
+          .filter((branchId) => branchId !== null && branchId !== undefined)
+          .map((branchId) => String(branchId).trim())
           .filter((branchId) => branchId.length > 0),
       ),
     ];
@@ -48,7 +47,7 @@ export class GradesService {
   }
 
   private isBranchAdminRole(role?: Role): boolean {
-    return false;
+    return role === Role.BranchAdmin;
   }
 
   private ensureScopedActorHasBranches(actor: AuthenticatedUser): string[] {
@@ -97,14 +96,14 @@ export class GradesService {
   private async assertActorCanAccessStudent(
     actor: AuthenticatedUser,
     userId: string,
-  ): Promise<UserDocument> {
-    const user = await this.userModel.findById(userId).exec();
+  ): Promise<StudentDocument> {
+    const user = await this.studentModel.findById(userId).exec();
     if (!user) {
       throw new NotFoundException('Student not found');
     }
 
-    if (user.role !== Role.Student) {
-      throw new BadRequestException('Grades can only be accessed for students');
+    if (user.isActive === false) {
+      throw new BadRequestException('Grades cannot be changed for archived students');
     }
 
     if (this.isSystemWideRole(actor.role)) {

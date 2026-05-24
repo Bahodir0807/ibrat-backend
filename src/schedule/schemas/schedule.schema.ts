@@ -4,6 +4,7 @@ import { Course } from '../../courses/schemas/course.schema';
 import { Room } from '../../rooms/schemas/room.schema';
 import { User } from '../../users/schemas/user.schema';
 import { Group } from '../../groups/schemas/group.schema';
+import { Student } from '../../students/schemas/student.schema';
 
 export type ScheduleDocument = Schedule & Document;
 
@@ -24,7 +25,7 @@ export class Schedule {
   @Prop({ required: true })
   timeEnd: Date;
 
-  @Prop({ type: [Types.ObjectId], ref: User.name, default: [] })
+  @Prop({ type: [Types.ObjectId], ref: Student.name, default: [] })
   students: Types.ObjectId[];
 
   @Prop({ type: Types.ObjectId, ref: Group.name })

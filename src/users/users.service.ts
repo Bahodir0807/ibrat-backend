@@ -40,7 +40,6 @@ import { Grade, GradeDocument } from '../grades/schemas/grade.schema';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UserStatus } from './user-status.enum';
-import { StudentPaymentMethod } from './student-payment-method.enum';
 import {
   canAuthenticateWithStatus,
   resolveUserStatus,
@@ -65,26 +64,20 @@ type NormalizedContactPayload<T extends object> = Omit<
   phoneNumber?: string | null;
 };
 
-type StudentProfilePayload = {
-  studentYear?: string | null;
-  paymentMethod?: StudentPaymentMethod | 'naqd' | 'karta' | string | null;
-  contactOwner?: string | null;
-  contactOwnerFullName?: string | null;
-  contactOwnerRelation?: string | null;
-};
-
 @Injectable()
 export class UsersService {
   private readonly clearableProfileFields = new Set<keyof User>([
     'email',
     'phoneNumber',
     'telegramId',
+  ]);
+  private readonly studentOnlyProfileFields = [
     'studentYear',
     'paymentMethod',
     'contactOwner',
     'contactOwnerFullName',
     'contactOwnerRelation',
-  ]);
+  ] as const;
 
   constructor(
     private readonly usersRepository: UsersRepository,
@@ -127,11 +120,6 @@ export class UsersService {
       phoneNumber: obj.phoneNumber,
       status,
       isActive: statusToIsActive(status),
-      studentYear: obj.studentYear,
-      paymentMethod: obj.paymentMethod,
-      contactOwner: obj.contactOwner,
-      contactOwnerFullName: obj.contactOwnerFullName,
-      contactOwnerRelation: obj.contactOwnerRelation,
       branchIds: this.normalizeBranchIds(obj.branchIds),
       createdAt: obj.createdAt,
       updatedAt: obj.updatedAt,
@@ -208,66 +196,19 @@ export class UsersService {
     return trimmed.length > 0 ? trimmed : '';
   }
 
-  private normalizeStudentPaymentMethod(value: unknown): unknown {
-    const normalized = this.normalizeOptionalString(value);
-    if (typeof normalized !== 'string' || normalized === '') {
-      return normalized;
-    }
-
-    const lower = normalized.toLowerCase();
-    if (lower === 'naqd') {
-      return StudentPaymentMethod.Cash;
-    }
-
-    if (lower === 'karta') {
-      return StudentPaymentMethod.Card;
-    }
-
-    if (
-      lower === StudentPaymentMethod.Cash ||
-      lower === StudentPaymentMethod.Card
-    ) {
-      return lower;
-    }
-
-    throw new BadRequestException(
-      'Payment method must be one of: cash, card, naqd, karta',
-    );
-  }
-
-  private normalizeStudentProfileFields<T extends object>(
-    payload: T,
-  ): T & StudentProfilePayload {
-    const normalized = { ...payload } as T & StudentProfilePayload;
-
-    for (const field of [
-      'studentYear',
-      'contactOwner',
-      'contactOwnerFullName',
-      'contactOwnerRelation',
-    ] as const) {
-      if (Object.prototype.hasOwnProperty.call(normalized, field)) {
-        normalized[field] = this.normalizeOptionalString(
-          normalized[field],
-        ) as string;
-      }
-    }
-
-    if (Object.prototype.hasOwnProperty.call(normalized, 'paymentMethod')) {
-      normalized.paymentMethod = this.normalizeStudentPaymentMethod(
-        normalized.paymentMethod,
-      ) as StudentProfilePayload['paymentMethod'];
-    }
-
-    return normalized;
-  }
-
   private normalizeUserPayload<T extends object>(
     payload: T,
-  ): NormalizedContactPayload<T> & StudentProfilePayload {
-    return this.normalizeStudentProfileFields(
-      this.normalizeContactAliases(payload),
-    );
+  ): NormalizedContactPayload<T> {
+    const normalized = this.normalizeContactAliases(payload) as Record<
+      string,
+      unknown
+    >;
+
+    for (const field of this.studentOnlyProfileFields) {
+      delete normalized[field];
+    }
+
+    return normalized as NormalizedContactPayload<T>;
   }
 
   private buildUserUpdate(payload: Partial<User>): UpdateQuery<UserDocument> {
@@ -323,7 +264,7 @@ export class UsersService {
   }
 
   private isBranchAdminRole(role?: Role): boolean {
-    return false;
+    return role === Role.BranchAdmin;
   }
 
   private getActorBranchScope(actor?: AuthenticatedUser): string[] {
@@ -517,13 +458,18 @@ export class UsersService {
       return [
         Role.Owner,
         Role.Admin,
+        Role.BranchAdmin,
         Role.Extra,
         Role.Teacher,
-        Role.Student,
+        Role.Manager,
+        Role.Staff,
         Role.Guest,
       ];
     }
 
+    // TODO(student-portal): unauthenticated auth.register still creates legacy
+    // student users. Admin/staff users go through createForActor and cannot
+    // assign Role.Student.
     return [Role.Student, Role.Guest];
   }
 
@@ -758,7 +704,9 @@ export class UsersService {
   }
 
   async findAll(query: UsersListQueryDto = {}) {
-    const filterParts: FilterQuery<UserDocument>[] = [];
+    const filterParts: FilterQuery<UserDocument>[] = [
+      { role: { $ne: Role.Student } },
+    ];
 
     if (query.role) {
       filterParts.push({ role: query.role });
@@ -818,7 +766,9 @@ export class UsersService {
     query: UsersListQueryDto = {},
     actor: AuthenticatedUser,
   ) {
-    const filterParts: FilterQuery<UserDocument>[] = [];
+    const filterParts: FilterQuery<UserDocument>[] = [
+      { role: { $ne: Role.Student } },
+    ];
 
     if (query.role) {
       filterParts.push({ role: query.role });
@@ -997,7 +947,7 @@ export class UsersService {
     const normalizedDto = this.normalizeUserPayload(dto);
     await this.ensureUniqueFields(normalizedDto);
 
-    const desiredRole = normalizedDto.role ?? Role.Guest;
+    const desiredRole = normalizedDto.role ?? Role.Staff;
     const desiredStatus = normalizedDto.status ?? UserStatus.Active;
     const branchIds = this.normalizeBranchIds(normalizedDto.branchIds);
     const userPayload = this.removeEmptyOptionalProfileFields(normalizedDto);
@@ -1026,7 +976,7 @@ export class UsersService {
     const normalizedDto = this.normalizeUserPayload(dto);
     await this.ensureUniqueFields(normalizedDto);
 
-    const desiredRole = normalizedDto.role ?? Role.Guest;
+    const desiredRole = normalizedDto.role ?? Role.Staff;
     const desiredStatus = normalizedDto.status ?? UserStatus.Active;
     const userPayload = this.removeEmptyOptionalProfileFields(normalizedDto);
 
@@ -1507,11 +1457,6 @@ export class UsersService {
         | 'lastName'
         | 'phoneNumber'
         | 'telegramId'
-        | 'studentYear'
-        | 'paymentMethod'
-        | 'contactOwner'
-        | 'contactOwnerFullName'
-        | 'contactOwnerRelation'
       >
     >,
   ): Promise<PublicUser> {

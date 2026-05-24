@@ -1,6 +1,5 @@
 import { Role } from '../../roles/roles.enum';
 import { UserStatus } from '../../users/user-status.enum';
-import { StudentPaymentMethod } from '../../users/student-payment-method.enum';
 
 type PlainObject = Record<string, unknown>;
 export type ApiResourceDto = { id?: string; [key: string]: any };
@@ -56,11 +55,6 @@ export type AdminUserDto = PublicUserDto & {
   phoneNumber?: string;
   status: UserStatus;
   isActive: boolean;
-  studentYear?: string;
-  paymentMethod?: StudentPaymentMethod;
-  contactOwner?: string;
-  contactOwnerFullName?: string;
-  contactOwnerRelation?: string;
   branchIds: string[];
   createdAt?: Date;
   updatedAt?: Date;
@@ -196,11 +190,6 @@ export function mapAdminUser(value: unknown): AdminUserDto {
     'email',
     'phoneNumber',
     'role',
-    'studentYear',
-    'paymentMethod',
-    'contactOwner',
-    'contactOwnerFullName',
-    'contactOwnerRelation',
     'createdAt',
     'updatedAt',
   ]) {

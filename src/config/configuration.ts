@@ -217,9 +217,15 @@ const configuration = () => {
     },
     telegram: {
       botToken: normalizeString(process.env.TELEGRAM_BOT_TOKEN),
-      adminChatId: process.env.ADMIN_CHAT_ID
-        ? Number(process.env.ADMIN_CHAT_ID)
-        : undefined,
+      adminChatId: process.env.TELEGRAM_ADMIN_CHAT_ID
+        ? Number(process.env.TELEGRAM_ADMIN_CHAT_ID)
+        : process.env.ADMIN_CHAT_ID
+          ? Number(process.env.ADMIN_CHAT_ID)
+          : undefined,
+      notificationsEnabled: normalizeBoolean(
+        process.env.TELEGRAM_NOTIFICATIONS_ENABLED,
+        true,
+      ),
       domain: normalizeString(process.env.DOMAIN),
       webhookPath: normalizeWebhookPath(process.env.TELEGRAM_WEBHOOK_PATH),
     },

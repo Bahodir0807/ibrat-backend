@@ -7,6 +7,7 @@ import {
   QueryOptions,
   SaveOptions,
   UpdateQuery,
+  SortOrder,
 } from 'mongoose';
 import { Payment, PaymentDocument } from './schemas/payment.schema';
 
@@ -19,9 +20,26 @@ export class PaymentsRepository {
 
   find(
     filter: FilterQuery<PaymentDocument> = {},
+    sort?: Record<string, SortOrder>,
+    limit?: number,
+    skip?: number,
     projection?: ProjectionType<PaymentDocument>,
   ) {
-    return this.paymentModel.find(filter, projection);
+    let query = this.paymentModel.find(filter, projection);
+    
+    if (sort) {
+      query = query.sort(sort);
+    }
+    
+    if (skip) {
+      query = query.skip(skip);
+    }
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return query.exec();
   }
 
   findById(id: unknown, projection?: ProjectionType<PaymentDocument>) {
@@ -30,6 +48,10 @@ export class PaymentsRepository {
 
   findOne(filter: FilterQuery<PaymentDocument>) {
     return this.paymentModel.findOne(filter);
+  }
+
+  count(filter: FilterQuery<PaymentDocument>) {
+    return this.paymentModel.countDocuments(filter);
   }
 
   countDocuments(filter: FilterQuery<PaymentDocument>) {
@@ -43,6 +65,10 @@ export class PaymentsRepository {
     }
 
     return this.paymentModel.create(payload);
+  }
+
+  updateOne(id: string, payload: UpdateQuery<PaymentDocument>) {
+    return this.paymentModel.findByIdAndUpdate(id, payload, { new: true });
   }
 
   updateById(id: string, payload: UpdateQuery<PaymentDocument>) {
@@ -66,6 +92,10 @@ export class PaymentsRepository {
   }
 
   deleteById(id: string) {
+    return this.paymentModel.findByIdAndDelete(id);
+  }
+
+  deleteOne(id: string) {
     return this.paymentModel.findByIdAndDelete(id);
   }
 

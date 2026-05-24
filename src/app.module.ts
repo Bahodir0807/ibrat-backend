@@ -5,6 +5,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
+import { StudentsModule } from './students/students.module';
 import { CoursesModule } from './courses/courses.module';
 import { SchedulesModule } from './schedule/schedule.module';
 import { AuthModule } from './auth/auth.module';
@@ -51,6 +52,7 @@ import { RateLimitModule } from './common/rate-limit/rate-limit.module';
     AuthModule,
     AuditModule,
     UsersModule,
+    StudentsModule,
     CoursesModule,
     RolesModule,
     GroupsModule,

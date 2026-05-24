@@ -19,6 +19,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/notification-type.enum';
 import { PublicUser } from '../users/types/public-user.type';
 import { AppConfigService } from '../config/app-config.service';
+import { StudentsService } from '../students/students.service';
 
 interface SessionData {
   step?: string;
@@ -45,6 +46,7 @@ export class TelegramService implements OnModuleInit {
   constructor(
     private readonly appConfig: AppConfigService,
     private readonly users: UsersService,
+    private readonly students: StudentsService,
     private readonly phoneReq: PhoneRequestService,
     private readonly hw: HomeworkService,
     private readonly grades: GradesService,
@@ -77,6 +79,14 @@ export class TelegramService implements OnModuleInit {
 
   getBot() {
     return this.bot;
+  }
+
+  async sendChatMessage(chatId: string | number, message: string) {
+    if (!this.bot) {
+      throw new Error('Telegram bot is not configured');
+    }
+
+    await this.bot.telegram.sendMessage(Number(chatId), message);
   }
 
   onModuleInit() {
@@ -351,11 +361,10 @@ export class TelegramService implements OnModuleInit {
       if (!req) return ctx.answerCbQuery('❌ Заявка не найдена');
 
       if (action === 'approve') {
-        await this.users.createWithPhone({
+        await this.students.createFromTelegramRequest({
           name: req.name,
           phone: req.phone,
           telegramId: Number(req.telegramId),
-          role: Role.Student,
         });
         await this.phoneReq.handle({
           requestId: req.id ?? req._id,
@@ -544,8 +553,14 @@ export class TelegramService implements OnModuleInit {
         // teacher: send to their students (we'll assume that teachers have groups or relationships; fallback: broadcast to students)
         const user = await this.ensureUser(ctx);
         // send to students (simple approach: all students)
-        const students = await this.users.findByRole(Role.Student);
-        const telegramIds = students
+        const students = await this.students.findAll(
+          { limit: 100 },
+          { userId: user.id, role: Role.Teacher, branchIds: user.branchIds ?? [] },
+        );
+        const studentItems = Array.isArray((students as any).items)
+          ? (students as any).items
+          : [];
+        const telegramIds = studentItems
           .filter((s) => (s as any).telegramId)
           .map((s) => (s as any).telegramId as number);
         telegramIds.forEach((id) => {
@@ -575,11 +590,10 @@ export class TelegramService implements OnModuleInit {
     if (!req) throw new NotFoundException('Заявка не найдена');
 
     await this.phoneReq.updateName(req.id ?? req._id, name);
-    await this.users.createWithPhone({
+    await this.students.createFromTelegramRequest({
       name,
       phone,
       telegramId: Number(telegramId),
-      role: Role.Student,
     });
     await this.phoneReq.handle({
       requestId: req.id ?? req._id,
@@ -734,7 +748,15 @@ export class TelegramService implements OnModuleInit {
       if (!msg)
         return ctx.reply('❌ Нет сообщения в сессии. Начните /notify заново.');
 
-      const targets = await this.users.findByRole(role);
+      // TODO(student-portal): Role.Student is kept as a legacy selector for
+      // Telegram UX, but recipients are loaded from students collection.
+      const targets =
+        role === Role.Student
+          ? (await this.students.findAll(
+              { limit: 100 },
+              { userId: String(ctx.from?.id ?? ''), role: Role.Admin, branchIds: [] },
+            )).items
+          : await this.users.findByRole(role);
       const telegramIds = targets
         .filter((t) => (t as any).telegramId)
         .map((t) => (t as any).telegramId as number);

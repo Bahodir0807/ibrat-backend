@@ -119,6 +119,10 @@ export const configValidationSchema = Joi.object({
   TENANT_KEY_HEADER: Joi.string().trim().default('x-tenant-id'),
   BRANCH_KEY_HEADER: Joi.string().trim().default('x-branch-id'),
   TELEGRAM_BOT_TOKEN: Joi.string().min(10).optional(),
+  TELEGRAM_NOTIFICATIONS_ENABLED: booleanEnvSchema.default(true),
+  TELEGRAM_ADMIN_CHAT_ID: Joi.alternatives()
+    .try(Joi.number(), Joi.string().pattern(/^\d+$/))
+    .optional(),
   ADMIN_CHAT_ID: Joi.alternatives()
     .try(Joi.number(), Joi.string().pattern(/^\d+$/))
     .optional(),
