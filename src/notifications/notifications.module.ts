@@ -1,32 +1,30 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-
+import { NotificationsController } from './notifications.controller';
+import { NotificationsService } from './notifications.service';
 import { UsersModule } from '../users/users.module';
 import { TelegramModule } from '../telegram/telegram.module';
 import { StudentsModule } from '../students/students.module';
 import { PaymentsModule } from '../payments/payments.module';
-import { Branch, BranchSchema } from '../branches/schemas/branch.schema';
-import { Course, CourseSchema } from '../courses/schemas/course.schema';
-import { Student, StudentSchema } from '../students/schemas/student.schema';
-
-import { NotificationsController } from './notifications.controller';
-import { NotificationsService } from './notifications.service';
-import { DebtRemindersService } from './debt-reminders.service';
-import { NotificationDeliveryRepository } from './notification-delivery.repository';
 import {
   NotificationDelivery,
   NotificationDeliverySchema,
 } from './schemas/notification-delivery.schema';
-import { MockSmsProvider } from './sms/mock-sms.provider';
-import { SMS_PROVIDER } from './sms/sms-provider.interface';
+import { Student, StudentSchema } from '../students/schemas/student.schema';
+import { Course, CourseSchema } from '../courses/schemas/course.schema';
+import { Branch, BranchSchema } from '../branches/schemas/branch.schema';
+import { NotificationDeliveryRepository } from './notification-delivery.repository';
 import { SmsService } from './sms/sms.service';
 import { SmsTemplateService } from './sms/sms-template.service';
+import { MockSmsProvider } from './sms/mock-sms.provider';
+import { SMS_PROVIDER } from './sms/sms-provider.interface';
+import { DebtRemindersService } from './debt-reminders.service';
 
 @Module({
   imports: [
     UsersModule,
     StudentsModule,
-    forwardRef(() => PaymentsModule),
+    PaymentsModule,
     forwardRef(() => TelegramModule),
     MongooseModule.forFeature([
       { name: NotificationDelivery.name, schema: NotificationDeliverySchema },
