@@ -71,10 +71,14 @@ describe('GroupsService student roster updates', () => {
       chain([{ _id: studentId, role: Role.Student }]),
     );
     groupsRepository.updateById.mockReturnValueOnce(
-      chain(groupDoc({ _id: groupId, students: [new Types.ObjectId(studentId)] })),
+      chain(
+        groupDoc({ _id: groupId, students: [new Types.ObjectId(studentId)] }),
+      ),
     );
     groupsRepository.findById.mockReturnValueOnce(
-      groupQuery(groupDoc({ _id: groupId, students: [new Types.ObjectId(studentId)] })),
+      groupQuery(
+        groupDoc({ _id: groupId, students: [new Types.ObjectId(studentId)] }),
+      ),
     );
 
     await service.update(groupId, {

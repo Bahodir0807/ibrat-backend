@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+﻿import { BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { verifyPassword } from '../common/password';
 import { Role } from '../roles/roles.enum';
@@ -45,46 +45,16 @@ describe('AuthService', () => {
     );
   });
 
-  it('registers guest/student users without double hashing', async () => {
-    usersService.create.mockResolvedValue({
-      id: '1',
-      _id: '1',
-      username: 'demo',
-      firstName: 'Demo',
-      lastName: 'User',
-      role: Role.Student,
-      status: UserStatus.Active,
-      branchIds: [],
-    });
-
-    await service.register({
-      username: 'demo',
-      password: 'secret123',
-      firstName: 'Demo',
-      lastName: 'User',
-      role: Role.Student,
-    });
-
-    expect(usersService.create).toHaveBeenCalledWith({
-      username: 'demo',
-      password: 'secret123',
-      firstName: 'Demo',
-      lastName: 'User',
-      role: Role.Student,
-      status: UserStatus.Active,
-    });
-  });
-
-  it('rejects privileged self-registration roles', async () => {
+  it('disables self-registration flow', async () => {
     await expect(
       service.register({
-        username: 'owner',
+        username: 'demo',
         password: 'secret123',
-        firstName: 'Owner',
+        firstName: 'Demo',
         lastName: 'User',
-        role: Role.Owner,
-      } as any),
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(usersService.create).not.toHaveBeenCalled();
   });
 
   it('validates user passwords against hashed values', async () => {

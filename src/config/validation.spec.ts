@@ -86,4 +86,31 @@ describe('configuration validation', () => {
 
     expect(result.error?.message).toContain('REDIS_URL is required');
   });
+
+  it('allows mock SMS provider without provider credentials', () => {
+    const result = configValidationSchema.validate({
+      NODE_ENV: 'development',
+      JWT_SECRET: 'dev_secret_key',
+      MONGO_URI: 'mongodb://127.0.0.1:27017/ibrat',
+      SMS_PROVIDER: 'mock',
+      SMS_ENABLED: false,
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.value.SMS_PROVIDER).toBe('mock');
+    expect(result.value.SMS_DEFAULT_LOCALE).toBe('ru');
+  });
+
+  it('rejects unsupported SMS providers safely', () => {
+    const result = configValidationSchema.validate({
+      NODE_ENV: 'development',
+      JWT_SECRET: 'dev_secret_key',
+      MONGO_URI: 'mongodb://127.0.0.1:27017/ibrat',
+      SMS_PROVIDER: 'real-provider',
+      SMS_API_URL: 'https://sms.example.com',
+      SMS_API_KEY: 'secret',
+    });
+
+    expect(result.error?.message).toContain('SMS_PROVIDER');
+  });
 });

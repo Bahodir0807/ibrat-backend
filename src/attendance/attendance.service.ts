@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -46,11 +46,11 @@ export class AttendanceService {
   }
 
   private isSystemWideRole(role?: Role): boolean {
-    return role === Role.Owner || role === Role.Admin || role === Role.Extra;
+    return role === Role.Owner || role === Role.Extra;
   }
 
   private isBranchAdminRole(role?: Role): boolean {
-    return role === Role.BranchAdmin;
+    return role === Role.Admin;
   }
 
   private ensureScopedActorHasBranches(actor: AuthenticatedUser): string[] {
@@ -99,7 +99,9 @@ export class AttendanceService {
     }
 
     if (student.isActive === false) {
-      throw new BadRequestException('Attendance cannot be changed for archived students');
+      throw new BadRequestException(
+        'Attendance cannot be changed for archived students',
+      );
     }
 
     if (this.isSystemWideRole(actor.role)) {

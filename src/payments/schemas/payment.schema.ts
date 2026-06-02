@@ -51,6 +51,9 @@ export class Payment {
   @Prop({ required: true, index: true }) // e.g. "2026-05"
   paymentPeriod: string;
 
+  @Prop({ required: false, index: true })
+  dueDate?: Date;
+
   @Prop({ required: true, min: 0 })
   expectedAmount: number;
 
@@ -89,12 +92,18 @@ export type PaymentDocument = HydratedDocument<Payment>;
 export const PaymentSchema = SchemaFactory.createForClass(Payment);
 
 // Indexes
-PaymentSchema.index({ studentId: 1, courseId: 1, year: 1, month: 1 }, { unique: true });
+PaymentSchema.index(
+  { studentId: 1, courseId: 1, year: 1, month: 1 },
+  { unique: true },
+);
 PaymentSchema.index({ studentId: 1, status: 1 });
 PaymentSchema.index({ courseId: 1, status: 1 });
 PaymentSchema.index({ groupId: 1, status: 1 });
 PaymentSchema.index({ branchId: 1, status: 1 });
-PaymentSchema.index({ paymentPeriod: 1 });
+PaymentSchema.index({ dueDate: 1, status: 1 });
 PaymentSchema.index({ status: 1, isFrozen: 1 });
 PaymentSchema.index({ status: 1, createdAt: -1 });
 PaymentSchema.index({ createdAt: -1 });
+PaymentSchema.index({ branchId: 1, year: 1, month: 1, status: 1, courseId: 1 });
+PaymentSchema.index({ branchId: 1, status: 1, dueDate: 1 });
+PaymentSchema.index({ studentId: 1, year: 1, month: 1 });

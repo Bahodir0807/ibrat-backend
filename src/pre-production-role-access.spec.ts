@@ -249,32 +249,60 @@ describe('pre-production role access rules', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it.each([Role.Admin, Role.Owner, Role.Extra])(
-    '%s can list all groups',
-    async (role) => {
-      let groupFindFilter: unknown;
-      const groupsRepository = {
-        find: jest.fn((filter) => {
-          groupFindFilter = filter;
-          return chain([]);
-        }),
-        countDocuments: jest.fn(() => chain(0)),
-      };
-      const service = new GroupsService(
-        groupsRepository as any,
-        {} as any,
-        {} as any,
-        {} as any,
-      );
+  it.each([Role.Owner, Role.Extra])('%s can list all groups', async (role) => {
+    let groupFindFilter: unknown;
+    const groupsRepository = {
+      find: jest.fn((filter) => {
+        groupFindFilter = filter;
+        return chain([]);
+      }),
+      countDocuments: jest.fn(() => chain(0)),
+    };
+    const service = new GroupsService(
+      groupsRepository as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
 
-      await service.findAllForActor(
-        {},
-        { userId: objectId(), role, branchIds: ['branch-a'] },
-      );
+    await service.findAllForActor(
+      {},
+      { userId: objectId(), role, branchIds: ['branch-a'] },
+    );
 
-      expect(groupFindFilter).toEqual({});
-    },
-  );
+    expect(groupFindFilter).toEqual({});
+  });
+
+  it('admin group list is branch-scoped', async () => {
+    let groupFindFilter: unknown;
+    const groupsRepository = {
+      find: jest.fn((filter) => {
+        groupFindFilter = filter;
+        return chain([]);
+      }),
+      countDocuments: jest.fn(() => chain(0)),
+    };
+    const userModel = {
+      find: jest.fn(() => chain([{ _id: objectId() }])),
+    };
+    const studentModel = {
+      find: jest.fn(() => chain([{ _id: objectId() }])),
+    };
+    const service = new GroupsService(
+      groupsRepository as any,
+      {} as any,
+      userModel as any,
+      {} as any,
+      studentModel as any,
+    );
+
+    await service.findAllForActor(
+      {},
+      { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] },
+    );
+
+    expect(groupFindFilter).toHaveProperty('$and');
+  });
 
   it('student course list is scoped to own enrollment', async () => {
     const studentId = objectId();

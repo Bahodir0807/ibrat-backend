@@ -27,7 +27,7 @@ function objectId() {
 
 describe('security hardening', () => {
   describe('courses', () => {
-    it('allows admin to read courses without branch restrictions', async () => {
+    it('allows admin to read courses only within branch scope', async () => {
       const courseId = objectId();
       const teacherId = objectId();
       const studentId = objectId();
@@ -37,16 +37,17 @@ describe('security hardening', () => {
         branchIds: ['branch-a'],
       };
       const course = { _id: courseId, teacherId, students: [studentId] };
-      const outsideUsers = [
-        { _id: teacherId, branchIds: ['branch-a'] },
-        { _id: studentId, branchIds: ['branch-b'] },
-      ];
+      const relatedUsers = [{ _id: teacherId, branchIds: ['branch-a'] }];
+      const relatedStudents = [{ _id: studentId, branchIds: ['branch-a'] }];
 
       const courseModel = {
         findById: jest.fn(() => chain(course)),
       };
       const userModel = {
-        find: jest.fn(() => chain(outsideUsers)),
+        find: jest.fn(() => chain(relatedUsers)),
+      };
+      const studentModel = {
+        find: jest.fn(() => chain(relatedStudents)),
       };
       const service = new CoursesService(
         courseModel as any,
@@ -54,6 +55,7 @@ describe('security hardening', () => {
         {} as any,
         {} as any,
         {} as any,
+        studentModel as any,
       );
 
       await expect(
@@ -64,7 +66,7 @@ describe('security hardening', () => {
       });
     });
 
-    it('does not apply branch filters for admin course lists', async () => {
+    it('applies branch filters for admin course lists', async () => {
       const scopedUserId = objectId();
       let courseFindFilter: unknown;
       const userModel = {
@@ -83,6 +85,7 @@ describe('security hardening', () => {
         {} as any,
         {} as any,
         {} as any,
+        { find: jest.fn(() => chain([{ _id: scopedUserId }])) } as any,
       );
 
       await service.findAllForActor(
@@ -90,7 +93,7 @@ describe('security hardening', () => {
         { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] },
       );
 
-      expect(courseFindFilter).toEqual({});
+      expect(courseFindFilter).toHaveProperty('$and');
     });
 
     it('rejects teacher assignment of students outside their own groups', async () => {
@@ -117,7 +120,7 @@ describe('security hardening', () => {
   });
 
   describe('groups', () => {
-    it('allows admin to read groups without branch restrictions', async () => {
+    it('rejects admin group reads outside branch scope', async () => {
       const groupId = objectId();
       const teacherId = objectId();
       const studentId = objectId();
@@ -127,32 +130,31 @@ describe('security hardening', () => {
         branchIds: ['branch-a'],
       };
       const group = { _id: groupId, teacher: teacherId, students: [studentId] };
-      const outsideUsers = [
-        { _id: teacherId, branchIds: ['branch-a'] },
-        { _id: studentId, branchIds: ['branch-b'] },
-      ];
+      const relatedUsers = [{ _id: teacherId, branchIds: ['branch-a'] }];
+      const relatedStudents = [{ _id: studentId, branchIds: ['branch-b'] }];
       const groupModel = {
         findById: jest.fn(() => chain(group)),
       };
       const userModel = {
-        find: jest.fn(() => chain(outsideUsers)),
+        find: jest.fn(() => chain(relatedUsers)),
+      };
+      const studentModel = {
+        find: jest.fn(() => chain(relatedStudents)),
       };
       const service = new GroupsService(
         groupModel as any,
         {} as any,
         userModel as any,
         {} as any,
+        studentModel as any,
       );
 
       await expect(
         service.findOneForActor(groupId, actor),
-      ).resolves.toMatchObject({
-        id: groupId,
-        students: [],
-      });
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('does not apply branch filters for admin group lists', async () => {
+    it('applies branch filters for admin group lists', async () => {
       const scopedUserId = objectId();
       let groupFindFilter: unknown;
       const userModel = {
@@ -170,6 +172,7 @@ describe('security hardening', () => {
         {} as any,
         userModel as any,
         {} as any,
+        { find: jest.fn(() => chain([{ _id: scopedUserId }])) } as any,
       );
 
       await service.findAllForActor(
@@ -177,7 +180,7 @@ describe('security hardening', () => {
         { userId: objectId(), role: Role.Admin, branchIds: ['branch-a'] },
       );
 
-      expect(groupFindFilter).toEqual({});
+      expect(groupFindFilter).toHaveProperty('$and');
     });
 
     it('rejects teacher assignment of students outside their own groups on create', async () => {

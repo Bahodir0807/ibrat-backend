@@ -36,6 +36,12 @@ const DEFAULT_ALLOWED_HEADERS = [
 ];
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_PUBLIC_AUTH_RATE_LIMIT = 10;
+const DEFAULT_PAYMENT_GENERATION_HOUR = 1;
+const DEFAULT_DEBT_AGING_HOUR = 2;
+const DEFAULT_DEBT_REMINDERS_HOUR = 10;
+const DEFAULT_SMS_MAX_DEBT_REMINDERS_PER_DAY = 3;
+const DEFAULT_SMS_DEFAULT_LOCALE = 'ru';
+const DEFAULT_SMS_CENTER_NAME = 'Inter Talim';
 const RATE_LIMIT_PROVIDERS = ['memory', 'redis'] as const;
 
 export type RateLimitProvider = (typeof RATE_LIMIT_PROVIDERS)[number];
@@ -251,6 +257,51 @@ const configuration = () => {
       ),
       provider: normalizeRateLimitProvider(process.env.RATE_LIMIT_PROVIDER),
       redisUrl: normalizeString(process.env.REDIS_URL),
+    },
+    scheduler: {
+      enabled: normalizeBoolean(process.env.ENABLE_SCHEDULER, false),
+      dryRun: normalizeBoolean(process.env.SCHEDULER_DRY_RUN, false),
+      paymentGenerationEnabled: normalizeBoolean(
+        process.env.PAYMENT_GENERATION_ENABLED,
+        false,
+      ),
+      debtAgingEnabled: normalizeBoolean(process.env.DEBT_AGING_ENABLED, false),
+      paymentGenerationHour: normalizeNumber(
+        process.env.PAYMENT_GENERATION_HOUR,
+        DEFAULT_PAYMENT_GENERATION_HOUR,
+      ),
+      debtAgingHour: normalizeNumber(
+        process.env.DEBT_AGING_HOUR,
+        DEFAULT_DEBT_AGING_HOUR,
+      ),
+      debtRemindersEnabled: normalizeBoolean(
+        process.env.DEBT_REMINDERS_ENABLED,
+        false,
+      ),
+      debtRemindersHour: normalizeNumber(
+        process.env.DEBT_REMINDERS_HOUR,
+        DEFAULT_DEBT_REMINDERS_HOUR,
+      ),
+    },
+    sms: {
+      enabled: normalizeBoolean(process.env.SMS_ENABLED, false),
+      provider: normalizeString(process.env.SMS_PROVIDER) ?? 'mock',
+      dryRun: normalizeBoolean(process.env.SMS_DRY_RUN, true),
+      defaultLocale:
+        normalizeString(process.env.SMS_DEFAULT_LOCALE) ??
+        DEFAULT_SMS_DEFAULT_LOCALE,
+      centerName:
+        normalizeString(process.env.SMS_CENTER_NAME) ??
+        normalizeString(process.env.CENTER_NAME) ??
+        normalizeString(process.env.APP_NAME) ??
+        DEFAULT_SMS_CENTER_NAME,
+      apiUrl: normalizeString(process.env.SMS_API_URL),
+      apiKey: normalizeString(process.env.SMS_API_KEY),
+      sender: normalizeString(process.env.SMS_SENDER),
+      maxDebtRemindersPerDay: normalizeNumber(
+        process.env.SMS_MAX_DEBT_REMINDERS_PER_DAY,
+        DEFAULT_SMS_MAX_DEBT_REMINDERS_PER_DAY,
+      ),
     },
   };
 };

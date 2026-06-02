@@ -17,6 +17,7 @@ export interface PaymentResponseDto {
   month: number;
   year: number;
   paymentPeriod: string;
+  dueDate?: string;
   expectedAmount: number;
   paidAmount: number;
   remainingAmount: number;
@@ -34,7 +35,15 @@ export interface PaymentResponseDto {
 
 export function mapPaymentResponse(value: any): PaymentResponseDto | null {
   if (!value) return null;
-  
+
+  const dueDateValue = value.dueDate;
+  const dueDate =
+    dueDateValue instanceof Date
+      ? dueDateValue.toISOString()
+      : typeof dueDateValue === 'string'
+        ? new Date(dueDateValue).toISOString()
+        : undefined;
+
   return {
     id: value._id?.toString() || value.id,
     studentId: value.studentId?.toString() || value.studentId,
@@ -44,6 +53,7 @@ export function mapPaymentResponse(value: any): PaymentResponseDto | null {
     month: value.month,
     year: value.year,
     paymentPeriod: value.paymentPeriod,
+    dueDate,
     expectedAmount: value.expectedAmount,
     paidAmount: value.paidAmount,
     remainingAmount: value.remainingAmount,
@@ -67,5 +77,7 @@ export function mapPaymentResponse(value: any): PaymentResponseDto | null {
 }
 
 export function mapPaymentResponses(values: any[]): PaymentResponseDto[] {
-  return values.map(value => mapPaymentResponse(value)).filter((v): v is PaymentResponseDto => v !== null);
+  return values
+    .map((value) => mapPaymentResponse(value))
+    .filter((v): v is PaymentResponseDto => v !== null);
 }

@@ -221,25 +221,10 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto & { roleKey?: string }) {
-    let role: Role = Role.Guest;
-
-    // TODO(student-portal): keep legacy student self-registration until
-    // student-auth is moved to Students + dedicated credentials.
-    if (dto.role === Role.Student) {
-      role = Role.Student;
-    }
-
-    if (dto.role && dto.role !== Role.Student && dto.role !== Role.Guest) {
-      throw new BadRequestException(
-        'Only "student" and "guest" roles are available during self-registration',
-      );
-    }
-
-    return this.usersService.create({
-      ...dto,
-      role,
-      status: UserStatus.Active,
-    });
+    void dto;
+    throw new BadRequestException(
+      'Self-registration is disabled for this environment',
+    );
   }
 
   async validateUser(

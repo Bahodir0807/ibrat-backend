@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+﻿import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { AuthenticatedUser } from '../types/authenticated-user.type';
 import { Role } from '../../roles/roles.enum';
@@ -19,11 +19,11 @@ export function normalizeBranchIds(branchIds?: unknown[]): string[] {
 }
 
 export function isSystemWideRole(role?: Role): boolean {
-  return role === Role.Owner || role === Role.Admin || role === Role.Extra;
+  return role === Role.Owner || role === Role.Extra;
 }
 
 export function isBranchAdminRole(role?: Role): boolean {
-  return role === Role.BranchAdmin;
+  return role === Role.Admin;
 }
 
 export function ensureActorBranchScope(actor: AuthenticatedUser): string[] {

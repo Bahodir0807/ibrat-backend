@@ -78,7 +78,7 @@ describe('academic domain consistency', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('admin can access grades without branch restrictions', async () => {
+  it('admin cannot access grades outside branch scope', async () => {
     const studentId = objectId();
     const service = new GradesService(
       { find: jest.fn(() => chain([])) } as any,
@@ -102,10 +102,10 @@ describe('academic domain consistency', () => {
         role: Role.Admin,
         branchIds: ['branch-a'],
       }),
-    ).resolves.toEqual([]);
+    ).rejects.toThrow('Student not found');
   });
 
-  it('admin can read schedule without branch restrictions', async () => {
+  it('admin cannot read schedule outside branch scope', async () => {
     const scheduleId = objectId();
     const teacherId = objectId();
     const studentId = objectId();
@@ -139,7 +139,7 @@ describe('academic domain consistency', () => {
         role: Role.Admin,
         branchIds: ['branch-a'],
       }),
-    ).resolves.toMatchObject({ id: scheduleId });
+    ).rejects.toThrow('Schedule not found');
   });
 
   it('schedule rejects teacher assignment to another teacher', async () => {

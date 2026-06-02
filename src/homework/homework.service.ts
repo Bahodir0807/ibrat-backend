@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -48,11 +48,11 @@ export class HomeworkService {
   }
 
   private isSystemWideRole(role?: Role): boolean {
-    return role === Role.Owner || role === Role.Admin || role === Role.Extra;
+    return role === Role.Owner || role === Role.Extra;
   }
 
   private isBranchAdminRole(role?: Role): boolean {
-    return role === Role.BranchAdmin;
+    return role === Role.Admin;
   }
 
   private ensureScopedActorHasBranches(actor: AuthenticatedUser): string[] {
@@ -108,7 +108,9 @@ export class HomeworkService {
     }
 
     if (user.isActive === false) {
-      throw new BadRequestException('Homework cannot be changed for archived students');
+      throw new BadRequestException(
+        'Homework cannot be changed for archived students',
+      );
     }
 
     if (this.isSystemWideRole(actor.role)) {

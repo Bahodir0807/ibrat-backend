@@ -555,14 +555,18 @@ export class TelegramService implements OnModuleInit {
         // send to students (simple approach: all students)
         const students = await this.students.findAll(
           { limit: 100 },
-          { userId: user.id, role: Role.Teacher, branchIds: user.branchIds ?? [] },
+          {
+            userId: user.id,
+            role: Role.Teacher,
+            branchIds: user.branchIds ?? [],
+          },
         );
         const studentItems = Array.isArray((students as any).items)
           ? (students as any).items
           : [];
         const telegramIds = studentItems
-          .filter((s) => (s as any).telegramId)
-          .map((s) => (s as any).telegramId as number);
+          .filter((s) => s.telegramId)
+          .map((s) => s.telegramId as number);
         telegramIds.forEach((id) => {
           void this.sendTelegramMessageSafe(id, `📝 [Домашка]\n${text}`);
         });
@@ -752,10 +756,16 @@ export class TelegramService implements OnModuleInit {
       // Telegram UX, but recipients are loaded from students collection.
       const targets =
         role === Role.Student
-          ? (await this.students.findAll(
-              { limit: 100 },
-              { userId: String(ctx.from?.id ?? ''), role: Role.Admin, branchIds: [] },
-            )).items
+          ? (
+              await this.students.findAll(
+                { limit: 100 },
+                {
+                  userId: String(ctx.from?.id ?? ''),
+                  role: Role.Admin,
+                  branchIds: [],
+                },
+              )
+            ).items
           : await this.users.findByRole(role);
       const telegramIds = targets
         .filter((t) => (t as any).telegramId)

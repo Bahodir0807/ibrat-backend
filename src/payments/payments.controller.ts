@@ -1,4 +1,4 @@
-import {
+﻿import {
   Body,
   Controller,
   Delete,
@@ -18,6 +18,8 @@ import { AuditLogService } from '../common/audit/audit-log.service';
 import { IdParamDto } from '../common/dto/id-param.dto';
 import { StudentIdParamDto } from '../common/dto/student-id-param.dto';
 import { AuthenticatedUser } from '../common/types/authenticated-user.type';
+import { PaymentReportsSummaryQueryDto } from './dto/payment-reports-summary-query.dto';
+import { PaymentDebtorsQueryDto } from './dto/payment-debtors-query.dto';
 
 @Controller('payments')
 export class PaymentsController {
@@ -27,7 +29,7 @@ export class PaymentsController {
   ) {}
 
   @Post()
-  @Roles(Role.Admin, Role.Owner, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Owner, Role.Extra)
   async create(@Body() dto: CreatePaymentDto, @Request() req) {
     const payment = await this.paymentsService.create(
       dto,
@@ -44,16 +46,13 @@ export class PaymentsController {
   }
 
   @Get()
-  @Roles(Role.Admin, Role.Owner, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
   async getAll(@Query() query: PaymentsListQueryDto, @Request() req) {
-    return this.paymentsService.getAll(
-      query,
-      req.user as AuthenticatedUser,
-    );
+    return this.paymentsService.getAll(query, req.user as AuthenticatedUser);
   }
 
   @Get('me')
-  @Roles(Role.Student, Role.Admin, Role.Owner, Role.Extra)
+  @Roles(Role.Student)
   async getMyPayments(@Request() req, @Query() query: PaymentsListQueryDto) {
     query.studentId = req.user.userId;
     return this.paymentsService.getByStudent(
@@ -64,7 +63,7 @@ export class PaymentsController {
   }
 
   @Get('student/:studentId')
-  @Roles(Role.Admin, Role.Owner, Role.Student, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Admin, Role.Owner, Role.Student, Role.Extra)
   async getByStudent(
     @Param() params: StudentIdParamDto,
     @Request() req,
@@ -77,18 +76,59 @@ export class PaymentsController {
     );
   }
 
+  @Get('statistics/summary')
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
+  async getStatistics(@Query() query: { branchId?: string }, @Request() req) {
+    return this.paymentsService.getStatistics(
+      req.user as AuthenticatedUser,
+      query.branchId,
+    );
+  }
+
+  @Get('reports/summary')
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
+  async getReportsSummary(
+    @Query() query: PaymentReportsSummaryQueryDto,
+    @Request() req,
+  ) {
+    return this.paymentsService.getReportsSummary(
+      query,
+      req.user as AuthenticatedUser,
+    );
+  }
+
+  @Get('reports/debtors')
+  @Roles(Role.Admin, Role.Owner, Role.Extra)
+  async getDebtorsReport(
+    @Query() query: PaymentDebtorsQueryDto,
+    @Request() req,
+  ) {
+    return this.paymentsService.getDebtorsReport(
+      query,
+      req.user as AuthenticatedUser,
+    );
+  }
+
   @Get(':id')
-  @Roles(Role.Admin, Role.Owner, Role.Student, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Admin, Role.Owner, Role.Student, Role.Extra)
   async getById(@Param() params: IdParamDto, @Request() req) {
-    const payment = await this.paymentsService.getById(params.id);
+    const payment = await this.paymentsService.getById(
+      params.id,
+      req.user as AuthenticatedUser,
+    );
     return payment;
   }
 
   @Post(':id/add-payment')
-  @Roles(Role.Admin, Role.Owner, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Owner, Role.Extra)
   async addPayment(
     @Param() params: IdParamDto,
-    @Body() dto: { amount: number; method: 'cash' | 'card' | 'transfer'; comment?: string },
+    @Body()
+    dto: {
+      amount: number;
+      method: 'cash' | 'card' | 'transfer';
+      comment?: string;
+    },
     @Request() req,
   ) {
     const payment = await this.paymentsService.addPayment(
@@ -109,7 +149,7 @@ export class PaymentsController {
   }
 
   @Patch(':id/freeze')
-  @Roles(Role.Admin, Role.Owner, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Owner, Role.Extra)
   async freeze(
     @Param() params: IdParamDto,
     @Body() dto: { reason: string; freezeFrom?: Date; freezeTo?: Date },
@@ -118,6 +158,7 @@ export class PaymentsController {
     const payment = await this.paymentsService.freezePayment(
       params.id,
       dto.reason,
+      req.user as AuthenticatedUser,
       dto.freezeFrom,
       dto.freezeTo,
     );
@@ -132,9 +173,12 @@ export class PaymentsController {
   }
 
   @Patch(':id/unfreeze')
-  @Roles(Role.Admin, Role.Owner, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Owner, Role.Extra)
   async unfreeze(@Param() params: IdParamDto, @Request() req) {
-    const payment = await this.paymentsService.unfreezePayment(params.id);
+    const payment = await this.paymentsService.unfreezePayment(
+      params.id,
+      req.user as AuthenticatedUser,
+    );
     this.auditLogService.log({
       action: 'payment.unfreeze',
       actor: { id: req.user.userId, role: req.user.role },
@@ -145,7 +189,7 @@ export class PaymentsController {
   }
 
   @Patch(':id')
-  @Roles(Role.Admin, Role.Owner, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Owner, Role.Extra)
   async update(
     @Param() params: IdParamDto,
     @Body() dto: Partial<CreatePaymentDto>,
@@ -166,10 +210,10 @@ export class PaymentsController {
   }
 
   @Delete(':id')
-  @Roles(Role.Admin, Role.Owner, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Owner, Role.Extra)
   async delete(@Param() params: IdParamDto, @Request() req) {
     const { id } = params;
-    await this.paymentsService.delete(id);
+    await this.paymentsService.delete(id, req.user as AuthenticatedUser);
     this.auditLogService.log({
       action: 'payment.delete',
       actor: { id: req.user.userId, role: req.user.role },
@@ -177,17 +221,5 @@ export class PaymentsController {
       status: 'success',
     });
     return { message: 'Payment deleted successfully' };
-  }
-
-  @Get('statistics/summary')
-  @Roles(Role.Admin, Role.Owner, Role.Extra, Role.BranchAdmin)
-  async getStatistics(
-    @Query() query: { branchId?: string },
-    @Request() req,
-  ) {
-    return this.paymentsService.getStatistics(
-      req.user as AuthenticatedUser,
-      query.branchId,
-    );
   }
 }

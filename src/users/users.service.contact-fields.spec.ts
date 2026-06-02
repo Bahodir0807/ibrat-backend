@@ -77,14 +77,17 @@ describe('UsersService contact fields', () => {
   it('create user saves email and phoneNumber', async () => {
     const { service, usersRepository } = createService();
 
-    await service.createForActor({
-      username: 'staff01',
-      password: 'password123',
-      firstName: 'Staff',
-      lastName: 'One',
-      email: 'student@example.com',
-      phoneNumber: '+100000000',
-    }, { userId: 'admin-id', role: Role.Admin, branchIds: [] });
+    await service.createForActor(
+      {
+        username: 'admin01',
+        password: 'password123',
+        firstName: 'Staff',
+        lastName: 'One',
+        email: 'student@example.com',
+        phoneNumber: '+100000000',
+      },
+      { userId: 'admin-id', role: Role.Admin, branchIds: ['branch-a'] },
+    );
 
     expect(usersRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -93,14 +96,17 @@ describe('UsersService contact fields', () => {
       }),
     );
 
-    const response = await service.createForActor({
-      username: 'staff02',
-      password: 'password123',
-      firstName: 'Staff',
-      lastName: 'Two',
-      email: 'student2@example.com',
-      phoneNumber: '+100000001',
-    }, { userId: 'admin-id', role: Role.Admin, branchIds: [] });
+    const response = await service.createForActor(
+      {
+        username: 'admin02',
+        password: 'password123',
+        firstName: 'Staff',
+        lastName: 'Two',
+        email: 'student2@example.com',
+        phoneNumber: '+100000001',
+      },
+      { userId: 'admin-id', role: Role.Admin, branchIds: ['branch-a'] },
+    );
 
     expect(response).toMatchObject({
       email: 'student2@example.com',
@@ -111,13 +117,16 @@ describe('UsersService contact fields', () => {
   it('telephone and phone aliases map to canonical phoneNumber', async () => {
     const { service, usersRepository } = createService();
 
-    await service.createForActor({
-      username: 'staff01',
-      password: 'password123',
-      firstName: 'Staff',
-      lastName: 'One',
-      telephone: '+200000000',
-    }, { userId: 'admin-id', role: Role.Admin, branchIds: [] });
+    await service.createForActor(
+      {
+        username: 'admin01',
+        password: 'password123',
+        firstName: 'Staff',
+        lastName: 'One',
+        telephone: '+200000000',
+      },
+      { userId: 'admin-id', role: Role.Admin, branchIds: ['branch-a'] },
+    );
 
     expect(usersRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ phoneNumber: '+200000000' }),
@@ -149,7 +158,7 @@ describe('UsersService contact fields', () => {
     );
   });
 
-  it('update user returns staff contact fields without student profile fields', async () => {
+  it('update user returns user contact fields without student profile fields', async () => {
     const { service, usersRepository } = createService();
 
     usersRepository.findByIdAndUpdate.mockImplementationOnce(
@@ -187,7 +196,7 @@ describe('UsersService contact fields', () => {
     expect(response).not.toHaveProperty('contactOwner');
   });
 
-  it('admin user flow rejects legacy student role before persistence', async () => {
+  it('admin user flow rejects assigning reserved student role', async () => {
     const { service, usersRepository } = createService();
 
     await expect(
@@ -199,7 +208,7 @@ describe('UsersService contact fields', () => {
           lastName: 'One',
           role: Role.Student,
         },
-        { userId: 'admin-id', role: Role.Admin, branchIds: [] },
+        { userId: 'admin-id', role: Role.Admin, branchIds: ['branch-a'] },
       ),
     ).rejects.toThrow('You are not allowed to assign this role');
 
@@ -224,10 +233,11 @@ describe('UsersService contact fields', () => {
     );
   });
 
-  it('legacy auth create does not persist student-only profile fields', async () => {
+  it('legacy auth create rejects reserved student role', async () => {
     const { service, usersRepository } = createService();
 
-    await service.create({
+    await expect(
+      service.create({
         username: 'student01',
         password: 'password123',
         firstName: 'Student',
@@ -236,15 +246,10 @@ describe('UsersService contact fields', () => {
         paymentMethod: 'transfer',
         studentYear: '9-sinf',
         contactOwner: 'ota',
-      } as never);
+      } as never),
+    ).rejects.toThrow('You are not allowed to assign this role');
 
-    expect(usersRepository.create).toHaveBeenCalledWith(
-      expect.not.objectContaining({
-        paymentMethod: 'transfer',
-        studentYear: '9-sinf',
-        contactOwner: 'ota',
-      }),
-    );
+    expect(usersRepository.create).not.toHaveBeenCalled();
   });
 
   it('update user does not delete contact fields when omitted', async () => {
@@ -300,10 +305,7 @@ describe('UsersService contact fields', () => {
 
     expect(groupModel.find).toHaveBeenCalledWith(
       {
-        $or: [
-          { teacher: teacherId },
-          { course: { $in: [courseId] } },
-        ],
+        $or: [{ teacher: teacherId }, { course: { $in: [courseId] } }],
       },
       { students: 1 },
     );

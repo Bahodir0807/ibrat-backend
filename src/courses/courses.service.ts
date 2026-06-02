@@ -140,9 +140,10 @@ export class CoursesService {
 
     const actorBranches = ensureActorBranchScope(actor);
     const teacherIds = this.getCourseTeacherIds(course);
-    const studentIds = (Array.isArray(course.students)
-      ? course.students.map((student) => this.extractReferenceId(student))
-      : []
+    const studentIds = (
+      Array.isArray(course.students)
+        ? course.students.map((student) => this.extractReferenceId(student))
+        : []
     ).filter((id) => Types.ObjectId.isValid(id));
     const relatedUserIds = [...teacherIds, ...studentIds].filter((id) =>
       Types.ObjectId.isValid(id),
@@ -231,9 +232,10 @@ export class CoursesService {
         : []),
       ...(payload.teacherId ? [String(payload.teacherId)] : []),
     ].filter((id) => Types.ObjectId.isValid(id));
-    const studentIds = (Array.isArray(payload.students)
-      ? payload.students.map((student) => String(student))
-      : []
+    const studentIds = (
+      Array.isArray(payload.students)
+        ? payload.students.map((student) => String(student))
+        : []
     ).filter((id) => Types.ObjectId.isValid(id));
     const userIds = [...teacherIds, ...studentIds];
 
@@ -429,7 +431,6 @@ export class CoursesService {
       if (students.length !== payload.students.length) {
         throw new NotFoundException('One or more students were not found');
       }
-
     }
   }
 

@@ -213,12 +213,13 @@ export class GroupsService {
     }
 
     const actorBranches = ensureActorBranchScope(actor);
-    const teacherIds = (payload.teacher ? [String(payload.teacher)] : []).filter(
-      (id) => Types.ObjectId.isValid(id),
-    );
-    const studentIds = (Array.isArray(payload.students)
-      ? payload.students.map((student) => String(student))
-      : []
+    const teacherIds = (
+      payload.teacher ? [String(payload.teacher)] : []
+    ).filter((id) => Types.ObjectId.isValid(id));
+    const studentIds = (
+      Array.isArray(payload.students)
+        ? payload.students.map((student) => String(student))
+        : []
     ).filter((id) => Types.ObjectId.isValid(id));
     const userIds = [...teacherIds, ...studentIds];
 
@@ -424,7 +425,11 @@ export class GroupsService {
         typeof this.studentModel.find === 'function'
           ? this.studentModel
           : this.userModel
-      ) as { find: (...args: unknown[]) => { lean: () => { exec: () => Promise<unknown[]> } } };
+      ) as {
+        find: (...args: unknown[]) => {
+          lean: () => { exec: () => Promise<unknown[]> };
+        };
+      };
       const students = await studentModel
         .find({ _id: { $in: payload.students } })
         .lean()
@@ -432,7 +437,6 @@ export class GroupsService {
       if (students.length !== payload.students.length) {
         throw new NotFoundException('One or more students were not found');
       }
-
     }
   }
 

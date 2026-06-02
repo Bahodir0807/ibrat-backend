@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Role } from '../../roles/roles.enum';
 
 const optionalTrimmedString = (value: unknown) => {
@@ -33,9 +33,8 @@ export class RegisterDto {
   @MaxLength(100)
   lastName!: string;
 
-  @IsIn([Role.Student, Role.Guest], {
-    message:
-      'Only "student" and "guest" roles are available during registration',
+  @IsEmpty({
+    message: 'Self-registration is disabled',
   })
   @IsOptional()
   role?: Role;

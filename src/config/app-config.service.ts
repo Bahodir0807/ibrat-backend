@@ -72,6 +72,16 @@ export class AppConfigService {
     );
   }
 
+  get scheduler(): RuntimeConfiguration['scheduler'] {
+    return this.configService.getOrThrow<RuntimeConfiguration['scheduler']>(
+      'scheduler',
+    );
+  }
+
+  get sms(): RuntimeConfiguration['sms'] {
+    return this.configService.getOrThrow<RuntimeConfiguration['sms']>('sms');
+  }
+
   get appName(): string {
     return this.app.name;
   }

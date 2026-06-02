@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Request } from '@nestjs/common';
+﻿import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Request,
+} from '@nestjs/common';
 import { Roles } from '../roles/roles.decorator';
 import { Role } from '../roles/roles.enum';
 import { AuditLogService } from '../common/audit/audit-log.service';
@@ -16,13 +26,13 @@ export class StudentsController {
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  @Roles(Role.Owner, Role.Admin, Role.Extra, Role.BranchAdmin, Role.Teacher)
+  @Roles(Role.Owner, Role.Admin, Role.Extra, Role.Admin, Role.Teacher)
   @Get()
   findAll(@Query() query: StudentsListQueryDto, @Request() req) {
     return this.studentsService.findAll(query, req.user as AuthenticatedUser);
   }
 
-  @Roles(Role.Owner, Role.Admin, Role.Extra, Role.BranchAdmin, Role.Teacher)
+  @Roles(Role.Owner, Role.Admin, Role.Extra, Role.Admin, Role.Teacher)
   @Get(':id')
   findOne(@Param() params: IdParamDto, @Request() req) {
     return this.studentsService.findById(
@@ -31,7 +41,7 @@ export class StudentsController {
     );
   }
 
-  @Roles(Role.Owner, Role.Admin, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Owner, Role.Admin, Role.Extra, Role.Admin)
   @Post()
   async create(@Body() dto: CreateStudentDto, @Request() req) {
     const student = await this.studentsService.create(
@@ -47,7 +57,7 @@ export class StudentsController {
     return student;
   }
 
-  @Roles(Role.Owner, Role.Admin, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Owner, Role.Admin, Role.Extra, Role.Admin)
   @Patch(':id')
   async update(
     @Param() params: IdParamDto,
@@ -68,7 +78,7 @@ export class StudentsController {
     return student;
   }
 
-  @Roles(Role.Owner, Role.Admin, Role.Extra, Role.BranchAdmin)
+  @Roles(Role.Owner, Role.Admin, Role.Extra, Role.Admin)
   @Delete(':id')
   async remove(@Param() params: IdParamDto, @Request() req) {
     const student = await this.studentsService.softDelete(

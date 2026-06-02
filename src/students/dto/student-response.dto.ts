@@ -4,6 +4,8 @@ type PlainObject = Record<string, unknown>;
 
 export type StudentResponseDto = {
   id: string;
+  studentNumber?: string;
+  userAccountId?: string;
   fullName: string;
   firstName: string;
   lastName: string;
@@ -54,11 +56,18 @@ function stringArray(value: unknown): string[] {
 export function mapStudentResponse(value: unknown): StudentResponseDto {
   const source = toPlain(value) as PlainObject;
   const id = source.id ?? source._id;
-  const firstName = typeof source.firstName === 'string' ? source.firstName : '';
+  const firstName =
+    typeof source.firstName === 'string' ? source.firstName : '';
   const lastName = typeof source.lastName === 'string' ? source.lastName : '';
 
   return {
     id: id == null ? '' : String(id),
+    studentNumber:
+      typeof source.studentNumber === 'string'
+        ? source.studentNumber
+        : undefined,
+    userAccountId:
+      source.userAccountId != null ? String(source.userAccountId) : undefined,
     fullName: [firstName, lastName].filter(Boolean).join(' ').trim(),
     firstName,
     lastName,

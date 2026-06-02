@@ -90,7 +90,7 @@ export class ScheduleService {
   }
 
   private assertActorCanMutateSchedule(actor: AuthenticatedUser): void {
-    if ([Role.Owner, Role.Admin, Role.Extra].includes(actor.role)) {
+    if ([Role.Owner, Role.Extra].includes(actor.role)) {
       return;
     }
 
@@ -166,10 +166,7 @@ export class ScheduleService {
     const teacherId = String(group.teacher);
     const studentIds = (group.students ?? []).map((student) => String(student));
     const [users, students] = await Promise.all([
-      this.userModel
-        .find({ _id: teacherId }, { branchIds: 1 })
-        .lean()
-        .exec(),
+      this.userModel.find({ _id: teacherId }, { branchIds: 1 }).lean().exec(),
       this.studentModel
         .find({ _id: { $in: studentIds } }, { branchIds: 1 })
         .lean()
@@ -193,11 +190,11 @@ export class ScheduleService {
     schedule: { teacher?: unknown; students?: unknown[] },
     actor: AuthenticatedUser,
   ): Promise<void> {
-    if ([Role.Owner, Role.Admin, Role.Extra].includes(actor.role)) {
+    if ([Role.Owner, Role.Extra].includes(actor.role)) {
       return;
     }
 
-    if (actor.role === Role.BranchAdmin) {
+    if (actor.role === Role.Admin) {
       await this.assertBranchAdminCanAccessSchedule(schedule, actor);
       return;
     }
@@ -556,7 +553,7 @@ export class ScheduleService {
       });
     }
 
-    if ([Role.Admin, Role.Owner, Role.Extra, Role.BranchAdmin].includes(role as Role)) {
+    if ([Role.Admin, Role.Owner, Role.Extra].includes(role as Role)) {
       return this.findAll({ sortBy: 'date', sortOrder: 'asc', limit: 100 });
     }
 
@@ -570,11 +567,11 @@ export class ScheduleService {
       );
     }
 
-    if ([Role.Owner, Role.Admin, Role.Extra].includes(actor.role)) {
+    if ([Role.Owner, Role.Extra].includes(actor.role)) {
       return this.getScheduleByUserId(userId);
     }
 
-    if (actor.role === Role.BranchAdmin) {
+    if (actor.role === Role.Admin) {
       const user = await this.userModel.findById(userId).lean().exec();
       if (!user) {
         throw new NotFoundException('User not found');
@@ -643,7 +640,7 @@ export class ScheduleService {
   }
 
   async findAllForActor(query: ScheduleListQueryDto, actor: AuthenticatedUser) {
-    if ([Role.Owner, Role.Admin, Role.Extra].includes(actor.role)) {
+    if ([Role.Owner, Role.Extra].includes(actor.role)) {
       return this.findAll(query);
     }
 
@@ -651,7 +648,7 @@ export class ScheduleService {
       return this.findAll({ ...query, teacherId: actor.userId });
     }
 
-    if (actor.role === Role.BranchAdmin) {
+    if (actor.role === Role.Admin) {
       const actorBranches = this.normalizeBranchIds(actor.branchIds);
       if (actorBranches.length === 0) {
         throw new ForbiddenException('User has no assigned branch scope');
@@ -669,7 +666,7 @@ export class ScheduleService {
           throw new NotFoundException('Teacher not found');
         }
 
-        const teacherBranches = this.normalizeBranchIds(teacher!.branchIds);
+        const teacherBranches = this.normalizeBranchIds(teacher.branchIds);
         if (
           !teacherBranches.some((branchId) => actorBranches.includes(branchId))
         ) {
@@ -686,7 +683,7 @@ export class ScheduleService {
           throw new NotFoundException('Student not found');
         }
 
-        const studentBranches = this.normalizeBranchIds(student!.branchIds);
+        const studentBranches = this.normalizeBranchIds(student.branchIds);
         if (
           !studentBranches.some((branchId) => actorBranches.includes(branchId))
         ) {
@@ -703,10 +700,7 @@ export class ScheduleService {
           .lean()
           .exec(),
         this.studentModel
-          .find(
-            { branchIds: { $in: actorBranches } },
-            { _id: 1 },
-          )
+          .find({ branchIds: { $in: actorBranches } }, { _id: 1 })
           .lean()
           .exec(),
       ]);
@@ -795,7 +789,7 @@ export class ScheduleService {
       payload.teacher = actor.userId;
     }
 
-    if (actor.role === Role.BranchAdmin) {
+    if (actor.role === Role.Admin) {
       const actorBranches = this.normalizeBranchIds(actor.branchIds);
       if (actorBranches.length === 0) {
         throw new ForbiddenException('User has no assigned branch scope');
@@ -809,7 +803,7 @@ export class ScheduleService {
         throw new NotFoundException('Teacher not found');
       }
 
-      const teacherBranches = this.normalizeBranchIds(teacher!.branchIds);
+      const teacherBranches = this.normalizeBranchIds(teacher.branchIds);
       if (
         !teacherBranches.some((branchId) => actorBranches.includes(branchId))
       ) {
@@ -824,7 +818,7 @@ export class ScheduleService {
           .lean()
           .exec();
 
-        if (students.length !== payload.students!.length) {
+        if (students.length !== payload.students.length) {
           throw new NotFoundException('One or more students were not found');
         }
 
@@ -910,7 +904,7 @@ export class ScheduleService {
       payload.teacher = actor.userId;
     }
 
-    if (actor.role === Role.BranchAdmin) {
+    if (actor.role === Role.Admin) {
       const actorBranches = this.normalizeBranchIds(actor.branchIds);
       if (actorBranches.length === 0) {
         throw new ForbiddenException('User has no assigned branch scope');
@@ -931,7 +925,7 @@ export class ScheduleService {
           throw new NotFoundException('Teacher not found');
         }
 
-        const teacherBranches = this.normalizeBranchIds(teacher!.branchIds);
+        const teacherBranches = this.normalizeBranchIds(teacher.branchIds);
         if (
           !teacherBranches.some((branchId) => actorBranches.includes(branchId))
         ) {
@@ -947,7 +941,7 @@ export class ScheduleService {
           .lean()
           .exec();
 
-        if (students.length !== payload.students!.length) {
+        if (students.length !== payload.students.length) {
           throw new NotFoundException('One or more students were not found');
         }
 
@@ -972,7 +966,7 @@ export class ScheduleService {
   }
 
   async removeForActor(id: string, actor: AuthenticatedUser) {
-    if (actor.role === Role.BranchAdmin) {
+    if (actor.role === Role.Admin) {
       const existing = await this.findOne(id);
       await this.assertBranchAdminCanAccessSchedule(
         existing as { teacher?: unknown; students?: unknown[] },

@@ -30,6 +30,8 @@ import { AppConfigModule } from './config/config.module';
 import { AppConfigService } from './config/app-config.service';
 import { HealthModule } from './health/health.module';
 import { RateLimitModule } from './common/rate-limit/rate-limit.module';
+import { JobsSchedulerModule } from './scheduler/scheduler.module';
+import { BranchesModule } from './branches/branches.module';
 
 @Module({
   imports: [
@@ -66,6 +68,8 @@ import { RateLimitModule } from './common/rate-limit/rate-limit.module';
     GradesModule,
     RoomModule,
     HealthModule,
+    JobsSchedulerModule,
+    BranchesModule,
   ],
   controllers: [AppController],
   providers: [

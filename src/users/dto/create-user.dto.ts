@@ -4,6 +4,7 @@ import {
   IsArray,
   IsEmail,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
@@ -38,9 +39,8 @@ export class CreateUserDto {
   password!: string;
 
   @IsOptional()
-  @IsEnum(Role, {
-    message:
-      'Role must be one of: owner, admin, branch_admin, teacher, manager, panda, staff, guest',
+  @IsIn([Role.Owner, Role.Admin, Role.Teacher], {
+    message: 'Role must be one of: owner, admin, teacher',
   })
   role?: Role;
 

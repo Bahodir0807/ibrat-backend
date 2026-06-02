@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -140,7 +140,7 @@ export class UsersService {
   }
 
   private isSystemWideRole(role?: Role): boolean {
-    return role === Role.Owner || role === Role.Admin || role === Role.Extra;
+    return role === Role.Owner || role === Role.Extra;
   }
 
   private removeEmptyOptionalProfileFields<T extends Partial<User>>(
@@ -264,7 +264,7 @@ export class UsersService {
   }
 
   private isBranchAdminRole(role?: Role): boolean {
-    return role === Role.BranchAdmin;
+    return role === Role.Admin;
   }
 
   private getActorBranchScope(actor?: AuthenticatedUser): string[] {
@@ -414,7 +414,10 @@ export class UsersService {
     teacherId: string,
   ): Promise<string[]> {
     const courses = await this.courseModel
-      .find({ $or: [{ teacherIds: teacherId }, { teacherId }] }, { students: 1 })
+      .find(
+        { $or: [{ teacherIds: teacherId }, { teacherId }] },
+        { students: 1 },
+      )
       .lean()
       .exec();
     const courseIds = courses.map((course) => String(course._id));
@@ -425,9 +428,7 @@ export class UsersService {
           {
             $or: [
               { teacher: teacherId },
-              ...(courseIds.length > 0
-                ? [{ course: { $in: courseIds } }]
-                : []),
+              ...(courseIds.length > 0 ? [{ course: { $in: courseIds } }] : []),
             ],
           },
           { students: 1 },
@@ -455,22 +456,9 @@ export class UsersService {
 
   private getAssignableRoles(actorRole?: Role): Role[] {
     if ([Role.Owner, Role.Admin, Role.Extra].includes(actorRole as Role)) {
-      return [
-        Role.Owner,
-        Role.Admin,
-        Role.BranchAdmin,
-        Role.Extra,
-        Role.Teacher,
-        Role.Manager,
-        Role.Staff,
-        Role.Guest,
-      ];
+      return [Role.Owner, Role.Admin, Role.Teacher];
     }
-
-    // TODO(student-portal): unauthenticated auth.register still creates legacy
-    // student users. Admin/staff users go through createForActor and cannot
-    // assign Role.Student.
-    return [Role.Student, Role.Guest];
+    return [];
   }
 
   private assertRoleCanBeAssigned(
@@ -947,7 +935,7 @@ export class UsersService {
     const normalizedDto = this.normalizeUserPayload(dto);
     await this.ensureUniqueFields(normalizedDto);
 
-    const desiredRole = normalizedDto.role ?? Role.Staff;
+    const desiredRole = normalizedDto.role ?? Role.Teacher;
     const desiredStatus = normalizedDto.status ?? UserStatus.Active;
     const branchIds = this.normalizeBranchIds(normalizedDto.branchIds);
     const userPayload = this.removeEmptyOptionalProfileFields(normalizedDto);
@@ -976,7 +964,7 @@ export class UsersService {
     const normalizedDto = this.normalizeUserPayload(dto);
     await this.ensureUniqueFields(normalizedDto);
 
-    const desiredRole = normalizedDto.role ?? Role.Staff;
+    const desiredRole = normalizedDto.role ?? Role.Teacher;
     const desiredStatus = normalizedDto.status ?? UserStatus.Active;
     const userPayload = this.removeEmptyOptionalProfileFields(normalizedDto);
 
@@ -1452,11 +1440,7 @@ export class UsersService {
     dto: Partial<
       Pick<
         User,
-        | 'email'
-        | 'firstName'
-        | 'lastName'
-        | 'phoneNumber'
-        | 'telegramId'
+        'email' | 'firstName' | 'lastName' | 'phoneNumber' | 'telegramId'
       >
     >,
   ): Promise<PublicUser> {
@@ -1482,7 +1466,7 @@ export class UsersService {
     }
 
     this.assertCanManageTarget(actorRole, targetUser.role);
-    await this.ensureLastOwnerRoleIsProtected(id, Role.Guest);
+    await this.ensureLastOwnerRoleIsProtected(id, Role.Student);
     await this.ensureUserHasNoReferences(id);
 
     const result = await this.usersRepository.findByIdAndDelete(id).exec();
@@ -1500,7 +1484,7 @@ export class UsersService {
     }
 
     this.assertActorCanManageTarget(actor, targetUser);
-    await this.ensureLastOwnerRoleIsProtected(id, Role.Guest);
+    await this.ensureLastOwnerRoleIsProtected(id, Role.Student);
     await this.ensureUserHasNoReferences(id);
 
     const result = await this.usersRepository.findByIdAndDelete(id).exec();

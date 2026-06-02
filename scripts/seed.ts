@@ -185,7 +185,7 @@ async function main() {
     branchIds: [],
   });
   const admin = await upsertUser(UserModel, {
-    username: process.env.SEED_ADMIN_USERNAME ?? 'branch_admin',
+    username: process.env.SEED_ADMIN_USERNAME ?? 'admin',
     firstName: 'Branch',
     lastName: 'Admin',
     role: Role.Admin,

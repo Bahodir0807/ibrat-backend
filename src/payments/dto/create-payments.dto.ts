@@ -55,6 +55,10 @@ export class CreatePaymentDto {
   paymentMethod?: 'cash' | 'card' | 'transfer';
 
   @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+
+  @IsOptional()
   @IsString()
   @MaxLength(500)
   comment?: string;

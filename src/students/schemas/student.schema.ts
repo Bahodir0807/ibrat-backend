@@ -6,6 +6,12 @@ export type StudentDocument = HydratedDocument<Student>;
 
 @Schema({ timestamps: true })
 export class Student {
+  @Prop({ unique: true, sparse: true })
+  studentNumber?: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  userAccountId?: Types.ObjectId;
+
   @Prop({ default: '' })
   firstName!: string;
 

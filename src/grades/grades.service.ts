@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -43,11 +43,11 @@ export class GradesService {
   }
 
   private isSystemWideRole(role?: Role): boolean {
-    return role === Role.Owner || role === Role.Admin || role === Role.Extra;
+    return role === Role.Owner || role === Role.Extra;
   }
 
   private isBranchAdminRole(role?: Role): boolean {
-    return role === Role.BranchAdmin;
+    return role === Role.Admin;
   }
 
   private ensureScopedActorHasBranches(actor: AuthenticatedUser): string[] {
@@ -103,7 +103,9 @@ export class GradesService {
     }
 
     if (user.isActive === false) {
-      throw new BadRequestException('Grades cannot be changed for archived students');
+      throw new BadRequestException(
+        'Grades cannot be changed for archived students',
+      );
     }
 
     if (this.isSystemWideRole(actor.role)) {

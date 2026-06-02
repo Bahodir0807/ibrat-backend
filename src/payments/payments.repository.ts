@@ -8,6 +8,7 @@ import {
   SaveOptions,
   UpdateQuery,
   SortOrder,
+  PipelineStage,
 } from 'mongoose';
 import { Payment, PaymentDocument } from './schemas/payment.schema';
 
@@ -26,19 +27,19 @@ export class PaymentsRepository {
     projection?: ProjectionType<PaymentDocument>,
   ) {
     let query = this.paymentModel.find(filter, projection);
-    
+
     if (sort) {
       query = query.sort(sort);
     }
-    
+
     if (skip) {
       query = query.skip(skip);
     }
-    
+
     if (limit) {
       query = query.limit(limit);
     }
-    
+
     return query.exec();
   }
 
@@ -97,6 +98,17 @@ export class PaymentsRepository {
 
   deleteOne(id: string) {
     return this.paymentModel.findByIdAndDelete(id);
+  }
+
+  aggregate<T = Record<string, unknown>>(
+    pipeline: PipelineStage[],
+    options?: { allowDiskUse?: boolean },
+  ) {
+    const query = this.paymentModel.aggregate<T>(pipeline);
+    if (options?.allowDiskUse) {
+      query.allowDiskUse(true);
+    }
+    return query.exec();
   }
 
   findByIdAndDelete(id: string, options?: QueryOptions<PaymentDocument>) {

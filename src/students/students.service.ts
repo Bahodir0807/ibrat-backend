@@ -73,12 +73,34 @@ export class StudentsService {
     ];
   }
 
+  private async generateStudentNumber(): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const base = Date.now().toString().slice(-8);
+      const suffix = Math.floor(Math.random() * 1000)
+        .toString()
+        .padStart(3, '0');
+      const candidate = `${base}${suffix}`;
+      const existing = await this.studentModel
+        .exists({ studentNumber: candidate })
+        .exec();
+      if (!existing) {
+        return candidate;
+      }
+    }
+
+    throw new BadRequestException(
+      'Unable to allocate unique student number, please retry',
+    );
+  }
+
   private assertActive(student: Pick<StudentDocument, 'isActive' | 'status'>) {
     if (
       student.isActive === false ||
-      [StudentStatus.Archived, StudentStatus.Deleted, StudentStatus.Inactive].includes(
-        student.status,
-      )
+      [
+        StudentStatus.Archived,
+        StudentStatus.Deleted,
+        StudentStatus.Inactive,
+      ].includes(student.status)
     ) {
       throw new BadRequestException('Student is not active');
     }
@@ -143,10 +165,16 @@ export class StudentsService {
   private async getTeacherVisibleStudentIds(teacherId: string) {
     const [courses, groups] = await Promise.all([
       this.courseModel
-        .find({ $or: [{ teacherId }, { teacherIds: teacherId }] }, { students: 1 })
+        .find(
+          { $or: [{ teacherId }, { teacherIds: teacherId }] },
+          { students: 1 },
+        )
         .lean()
         .exec(),
-      this.groupModel.find({ teacher: teacherId }, { students: 1 }).lean().exec(),
+      this.groupModel
+        .find({ teacher: teacherId }, { students: 1 })
+        .lean()
+        .exec(),
     ]);
 
     return [
@@ -256,7 +284,9 @@ export class StudentsService {
 
   async findById(id: string, actor: AuthenticatedUser) {
     const filter = await this.buildActorFilter({}, actor);
-    const student = await this.studentModel.findOne({ $and: [{ _id: id }, filter] }).exec();
+    const student = await this.studentModel
+      .findOne({ $and: [{ _id: id }, filter] })
+      .exec();
     if (!student) {
       throw new NotFoundException('Student not found');
     }
@@ -270,6 +300,7 @@ export class StudentsService {
 
     await this.ensureRelationsExist(dto);
     const payload = this.buildPayload(dto);
+    payload.studentNumber = await this.generateStudentNumber();
     if (isBranchAdminRole(actor.role)) {
       const actorBranches = ensureActorBranchScope(actor);
       const branchIds = this.normalizeBranchIds(dto.branchIds);
@@ -295,6 +326,7 @@ export class StudentsService {
   }) {
     const [firstName, ...rest] = dto.name.trim().split(/\s+/);
     const student = await this.studentModel.create({
+      studentNumber: await this.generateStudentNumber(),
       firstName: firstName || dto.name,
       lastName: rest.join(' '),
       phoneNumber: dto.phone,

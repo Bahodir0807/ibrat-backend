@@ -87,7 +87,8 @@ export class NotificationsService {
     }
 
     const recipients =
-      role === Role.Student && typeof this.studentsService.findAll === 'function'
+      role === Role.Student &&
+      typeof this.studentsService.findAll === 'function'
         ? (await this.studentsService.findAll({ limit: 100 }, sender)).items
         : await this.usersService.findByRoleForActor(role, sender);
     const telegramIds = recipients

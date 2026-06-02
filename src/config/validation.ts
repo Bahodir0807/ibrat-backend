@@ -145,4 +145,26 @@ export const configValidationSchema = Joi.object({
   PUBLIC_RATE_LIMIT_LIMIT: Joi.number().integer().min(1).optional(),
   RATE_LIMIT_WINDOW_MS: Joi.number().integer().min(1000).default(60000),
   RATE_LIMIT_PUBLIC_AUTH_MAX: Joi.number().integer().min(1).default(10),
+  ENABLE_SCHEDULER: booleanEnvSchema.default(false),
+  SCHEDULER_DRY_RUN: booleanEnvSchema.default(false),
+  PAYMENT_GENERATION_ENABLED: booleanEnvSchema.default(false),
+  DEBT_AGING_ENABLED: booleanEnvSchema.default(false),
+  PAYMENT_GENERATION_HOUR: Joi.number().integer().min(0).max(23).default(1),
+  DEBT_AGING_HOUR: Joi.number().integer().min(0).max(23).default(2),
+  DEBT_REMINDERS_ENABLED: booleanEnvSchema.default(false),
+  DEBT_REMINDERS_HOUR: Joi.number().integer().min(0).max(23).default(10),
+  SMS_ENABLED: booleanEnvSchema.default(false),
+  SMS_PROVIDER: Joi.string().valid('mock').default('mock'),
+  SMS_DRY_RUN: booleanEnvSchema.default(true),
+  SMS_DEFAULT_LOCALE: Joi.string().valid('ru', 'uz', 'en').default('ru'),
+  SMS_CENTER_NAME: Joi.string().trim().max(80).optional(),
+  CENTER_NAME: Joi.string().trim().max(80).optional(),
+  SMS_API_URL: Joi.string().uri().optional(),
+  SMS_API_KEY: Joi.string().trim().optional(),
+  SMS_SENDER: Joi.string().trim().max(50).optional(),
+  SMS_MAX_DEBT_REMINDERS_PER_DAY: Joi.number()
+    .integer()
+    .min(1)
+    .max(20)
+    .default(3),
 }).custom(validateProductionConfig);
