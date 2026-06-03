@@ -38,6 +38,19 @@ describe('configuration validation', () => {
     expect(result.error).toBeUndefined();
   });
 
+  it('accepts Render-style Mongo and refresh secret aliases', () => {
+    const { MONGO_URI, JWT_REFRESH_SECRET, ...config } = base;
+    const result = configValidationSchema.validate({
+      ...config,
+      MONGODB_URI: MONGO_URI,
+      REFRESH_JWT_SECRET: JWT_REFRESH_SECRET,
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.value.MONGODB_URI).toBe(MONGO_URI);
+    expect(result.value.REFRESH_JWT_SECRET).toBe(JWT_REFRESH_SECRET);
+  });
+
   it('rejects memory rate limiting in production', () => {
     const result = configValidationSchema.validate({
       ...base,
@@ -99,6 +112,8 @@ describe('configuration validation', () => {
     expect(result.error).toBeUndefined();
     expect(result.value.SMS_PROVIDER).toBe('mock');
     expect(result.value.SMS_DEFAULT_LOCALE).toBe('ru');
+    expect(result.value.SMS_DRY_RUN).toBe(true);
+    expect(result.value.ENABLE_SCHEDULER).toBe(false);
   });
 
   it('rejects unsupported SMS providers safely', () => {

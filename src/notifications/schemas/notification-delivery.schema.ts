@@ -73,3 +73,7 @@ NotificationDeliverySchema.index({
   status: 1,
 });
 NotificationDeliverySchema.index({ type: 1, channel: 1, createdAt: -1 });
+NotificationDeliverySchema.index({ status: 1, createdAt: -1 });
+NotificationDeliverySchema.index({ studentId: 1, createdAt: -1 });
+NotificationDeliverySchema.index({ 'metadata.branchId': 1, createdAt: -1 });
+NotificationDeliverySchema.index({ 'metadata.courseId': 1, createdAt: -1 });

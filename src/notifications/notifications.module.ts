@@ -14,6 +14,7 @@ import { Student, StudentSchema } from '../students/schemas/student.schema';
 import { Course, CourseSchema } from '../courses/schemas/course.schema';
 import { Branch, BranchSchema } from '../branches/schemas/branch.schema';
 import { NotificationDeliveryRepository } from './notification-delivery.repository';
+import { NotificationDeliveriesService } from './notification-deliveries.service';
 import { SmsService } from './sms/sms.service';
 import { SmsTemplateService } from './sms/sms-template.service';
 import { MockSmsProvider } from './sms/mock-sms.provider';
@@ -24,7 +25,7 @@ import { DebtRemindersService } from './debt-reminders.service';
   imports: [
     UsersModule,
     StudentsModule,
-    PaymentsModule,
+    forwardRef(() => PaymentsModule),
     forwardRef(() => TelegramModule),
     MongooseModule.forFeature([
       { name: NotificationDelivery.name, schema: NotificationDeliverySchema },
@@ -37,12 +38,18 @@ import { DebtRemindersService } from './debt-reminders.service';
   providers: [
     NotificationsService,
     NotificationDeliveryRepository,
+    NotificationDeliveriesService,
     SmsService,
     SmsTemplateService,
     MockSmsProvider,
     DebtRemindersService,
     { provide: SMS_PROVIDER, useExisting: MockSmsProvider },
   ],
-  exports: [NotificationsService, DebtRemindersService, SmsService],
+  exports: [
+    NotificationsService,
+    NotificationDeliveriesService,
+    DebtRemindersService,
+    SmsService,
+  ],
 })
 export class NotificationsModule {}

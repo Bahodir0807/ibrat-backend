@@ -20,7 +20,9 @@ export function validateProductionConfig(
 ) {
   const env = value.NODE_ENV;
   const jwtSecret = String(value.JWT_SECRET ?? '');
-  const refreshSecret = String(value.JWT_REFRESH_SECRET ?? '');
+  const refreshSecret = String(
+    value.JWT_REFRESH_SECRET ?? value.REFRESH_JWT_SECRET ?? '',
+  );
   const corsOrigins = String(value.CORS_ORIGINS ?? '');
   const rateLimitProvider = value.RATE_LIMIT_PROVIDER;
 
@@ -106,8 +108,10 @@ export const configValidationSchema = Joi.object({
   JWT_EXPIRES_IN: Joi.string().trim().default('15m'),
   ACCESS_TOKEN_EXPIRES_IN: Joi.string().trim().optional(),
   JWT_REFRESH_SECRET: Joi.string().min(10).optional(),
+  REFRESH_JWT_SECRET: Joi.string().min(10).optional(),
   REFRESH_TOKEN_EXPIRES_IN: Joi.string().trim().default('7d'),
-  MONGO_URI: Joi.string().uri().required(),
+  MONGO_URI: Joi.string().uri().optional(),
+  MONGODB_URI: Joi.string().uri().optional(),
   MONGO_DB_NAME: Joi.string().trim().optional(),
   DNS_SERVERS: Joi.string().trim().optional(),
   MONGO_MIN_POOL_SIZE: Joi.number().integer().min(0).default(1),
@@ -167,4 +171,6 @@ export const configValidationSchema = Joi.object({
     .min(1)
     .max(20)
     .default(3),
-}).custom(validateProductionConfig);
+})
+  .or('MONGO_URI', 'MONGODB_URI')
+  .custom(validateProductionConfig);

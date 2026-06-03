@@ -195,12 +195,13 @@ const configuration = () => {
         '15m',
       refreshTokenSecret:
         normalizeString(process.env.JWT_REFRESH_SECRET) ??
+        normalizeString(process.env.REFRESH_JWT_SECRET) ??
         (process.env.JWT_SECRET as string),
       refreshTokenTtl:
         normalizeString(process.env.REFRESH_TOKEN_EXPIRES_IN) ?? '7d',
     },
     database: {
-      uri: process.env.MONGO_URI as string,
+      uri: (process.env.MONGO_URI ?? process.env.MONGODB_URI) as string,
       dbName: normalizeString(process.env.MONGO_DB_NAME),
       dnsServers: parseCsv(process.env.DNS_SERVERS),
       minPoolSize: normalizeNumber(process.env.MONGO_MIN_POOL_SIZE, 1),

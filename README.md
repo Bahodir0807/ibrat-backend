@@ -27,6 +27,8 @@ pnpm run build
 pnpm run start:prod
 ```
 
+The production start script runs `node dist/src/main.js`, which matches the current Nest build output.
+
 ## cPanel deploy
 
 Backend is prepared for cPanel Node.js hosting.
@@ -58,7 +60,12 @@ If you use cPanel Git deployment, [`.cpanel.yml`](/c:/Users/User/Desktop/MyProje
 NODE_ENV=production
 PORT=3000
 MONGO_URI=mongodb+srv://user:password@cluster.example.mongodb.net/ibrat
+# Render often exposes this name; the backend accepts it as an alias.
+MONGODB_URI=
 JWT_SECRET=your_long_secret
+JWT_REFRESH_SECRET=your_different_long_refresh_secret
+# Optional alias for deploy environments that use this name.
+REFRESH_JWT_SECRET=
 TELEGRAM_BOT_TOKEN=
 ADMIN_CHAT_ID=
 DOMAIN=https://api.example.com
@@ -67,15 +74,37 @@ RATE_LIMIT_PROVIDER=redis
 REDIS_URL=redis://user:password@redis-host:6379
 PUBLIC_RATE_LIMIT_TTL=60000
 PUBLIC_RATE_LIMIT_LIMIT=10
+
+ENABLE_SCHEDULER=false
+SCHEDULER_DRY_RUN=false
+PAYMENT_GENERATION_ENABLED=false
+DEBT_AGING_ENABLED=false
+DEBT_REMINDERS_ENABLED=false
+PAYMENT_GENERATION_HOUR=1
+DEBT_AGING_HOUR=2
+DEBT_REMINDERS_HOUR=10
+
+SMS_ENABLED=false
+SMS_PROVIDER=mock
+SMS_DRY_RUN=true
+SMS_DEFAULT_LOCALE=ru
+SMS_CENTER_NAME=Inter Talim
+SMS_API_URL=
+SMS_API_KEY=
+SMS_SENDER=
+SMS_MAX_DEBT_REMINDERS_PER_DAY=3
 ```
 
 Notes:
 
-- `MONGO_URI` should point to your external production MongoDB instance.
+- `MONGO_URI` should point to your external production MongoDB instance. `MONGODB_URI` is accepted as a Render-compatible alias.
+- `JWT_REFRESH_SECRET` must be different from `JWT_SECRET` in production/staging. `REFRESH_JWT_SECRET` is accepted as an alias.
 - For local development, use a plain Mongo connection string like `mongodb://127.0.0.1:27017/ibrat` and make sure MongoDB is running.
 - For the Vite frontend on port 5173, copy `.env.local.example` to `.env.local`; it allows `http://localhost:5173` and `http://127.0.0.1:5173`.
 - If `mongodb+srv` fails with `querySrv ECONNREFUSED`, set `DNS_SERVERS=1.1.1.1,8.8.8.8` so Node can resolve Atlas SRV records.
 - `TELEGRAM_BOT_TOKEN`, `ADMIN_CHAT_ID`, and `DOMAIN` are optional only if Telegram integration is intentionally disabled.
+- Scheduler is disabled by default. Set `ENABLE_SCHEDULER=true` only after confirming payment generation, debt aging, and reminder flags.
+- SMS is disabled and dry-run by default. `SMS_PROVIDER=mock` requires no real provider credentials; non-mock providers are intentionally unsupported until a real provider is implemented.
 - In production, `CORS_ORIGINS` should contain your real frontend domain list, not localhost values.
 - In production and staging, `RATE_LIMIT_PROVIDER` must be `redis` and `REDIS_URL` must point to a shared Redis instance. Local development can use `RATE_LIMIT_PROVIDER=memory`.
 

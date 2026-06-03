@@ -6,6 +6,7 @@ jest.mock('cron', () => ({
 }));
 
 import { PaymentsSchedulerService } from './payments-scheduler.service';
+import { Test } from '@nestjs/testing';
 
 function createService(overrides: Record<string, unknown> = {}) {
   const scheduler = {
@@ -87,6 +88,49 @@ describe('PaymentsSchedulerService', () => {
     service.onModuleInit();
 
     expect(schedulerRegistry.addCronJob).not.toHaveBeenCalled();
+  });
+
+  it('compiles in a testing module and does not register jobs when disabled', async () => {
+    const appConfig = {
+      scheduler: {
+        enabled: false,
+        dryRun: true,
+        paymentGenerationEnabled: false,
+        debtAgingEnabled: false,
+        debtRemindersEnabled: false,
+        paymentGenerationHour: 1,
+        debtAgingHour: 2,
+        debtRemindersHour: 10,
+      },
+      sms: { dryRun: true },
+    };
+    const schedulerRegistry = { addCronJob: jest.fn() };
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        PaymentsSchedulerService,
+        { provide: 'AppConfigService', useValue: appConfig },
+      ],
+    })
+      .overrideProvider(PaymentsSchedulerService)
+      .useFactory({
+        factory: () =>
+          new PaymentsSchedulerService(
+            appConfig as any,
+            {
+              generateMonthlyPayments: jest.fn(),
+              recalculateDebtAging: jest.fn(),
+            } as any,
+            { sendDebtReminders: jest.fn() } as any,
+            schedulerRegistry as any,
+          ),
+      })
+      .compile();
+    const service = moduleRef.get(PaymentsSchedulerService);
+
+    service.onModuleInit();
+
+    expect(schedulerRegistry.addCronJob).not.toHaveBeenCalled();
+    await moduleRef.close();
   });
 
   it('registers scheduler jobs when enabled', () => {

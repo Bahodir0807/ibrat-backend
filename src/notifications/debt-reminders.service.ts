@@ -72,15 +72,32 @@ export class DebtRemindersService {
       paymentIdsProcessed: [],
     };
 
+    // Кэш для минимизации запросов к БД внутри цикла (решение проблемы N+1)
+    const branchCache = new Map<string, Branch>();
+    const courseCache = new Map<string, Course>();
+
     for (const payment of payments) {
       const paymentId = String(payment._id);
       summary.paymentIdsProcessed.push(paymentId);
       try {
-        const [student, course, branch] = await Promise.all([
-          this.studentModel.findById(payment.studentId).lean(),
-          this.courseModel.findById(payment.courseId).lean(),
-          this.branchModel.findById(payment.branchId).lean(),
-        ]);
+        const student = await this.studentModel
+          .findById(payment.studentId)
+          .lean();
+
+        const branchId = String(payment.branchId);
+        const courseId = String(payment.courseId);
+
+        if (!branchCache.has(branchId)) {
+          const b = await this.branchModel.findById(branchId).lean();
+          if (b) branchCache.set(branchId, b);
+        }
+        if (!courseCache.has(courseId)) {
+          const c = await this.courseModel.findById(courseId).lean();
+          if (c) courseCache.set(courseId, c);
+        }
+
+        const branch = branchCache.get(branchId) || null;
+        const course = courseCache.get(courseId) || null;
 
         if (!student) {
           await this.recordSkipped(payment, dateKey, 'student', '', '', {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model } from 'mongoose';
+import { FilterQuery, Model, PipelineStage } from 'mongoose';
 import {
   NotificationDelivery,
   NotificationDeliveryDocument,
@@ -19,5 +19,16 @@ export class NotificationDeliveryRepository {
 
   count(filter: FilterQuery<NotificationDeliveryDocument>) {
     return this.deliveryModel.countDocuments(filter);
+  }
+
+  aggregate<T = Record<string, unknown>>(
+    pipeline: PipelineStage[],
+    options?: { allowDiskUse?: boolean },
+  ) {
+    const query = this.deliveryModel.aggregate<T>(pipeline);
+    if (options?.allowDiskUse) {
+      query.allowDiskUse(true);
+    }
+    return query.exec();
   }
 }
