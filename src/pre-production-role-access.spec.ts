@@ -77,9 +77,9 @@ describe('pre-production role access rules', () => {
         {
           course: objectId(),
           room: objectId(),
-          date: '2026-05-06',
-          timeStart: '2026-05-06T09:00:00.000Z',
-          timeEnd: '2026-05-06T10:00:00.000Z',
+          weekdays: ['Wednesday'],
+          timeStart: '09:00',
+          timeEnd: '10:00',
           teacher: teacherActor.userId,
         },
         teacherActor,

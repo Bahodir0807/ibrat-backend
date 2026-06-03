@@ -1,5 +1,23 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsDateString, IsMongoId, IsOptional } from 'class-validator';
+import {
+  IsArray,
+  ArrayMinSize,
+  IsIn,
+  IsMongoId,
+  IsNotEmpty,
+  IsOptional,
+  Matches,
+} from 'class-validator';
+
+const WEEKDAYS = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+] as const;
 
 export class CreateScheduleDto {
   @IsMongoId()
@@ -8,17 +26,21 @@ export class CreateScheduleDto {
   @IsMongoId()
   room: string;
 
-  @IsDateString()
-  date: string;
-
-  @IsDateString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
   timeStart: string;
 
-  @IsDateString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
   timeEnd: string;
 
   @IsMongoId()
   teacher: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsNotEmpty({ each: true })
+  @IsIn(WEEKDAYS, { each: true })
+  @Type(() => String)
+  weekdays: string[];
 
   @IsOptional()
   @IsArray()

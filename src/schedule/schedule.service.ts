@@ -28,6 +28,88 @@ import {
   mapScheduleResponses,
 } from './dto/schedule-response.dto';
 
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
+function getScheduleTimezoneOffsetMinutes() {
+  const value = Number(process.env.SCHEDULE_TIMEZONE_OFFSET_MINUTES ?? 300);
+  return Number.isFinite(value) ? value : 300;
+}
+
+function isTimeOnly(value: unknown): value is string {
+  return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function isDateOnly(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function getLocalDateParts(value: Date, offsetMinutes: number) {
+  const local = new Date(value.getTime() + offsetMinutes * 60_000);
+  return {
+    year: local.getUTCFullYear(),
+    month: local.getUTCMonth() + 1,
+    day: local.getUTCDate(),
+  };
+}
+
+function parseDateParts(value: unknown, offsetMinutes: number) {
+  if (isDateOnly(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    return { year, month, day };
+  }
+
+  if (typeof value === 'string' || value instanceof Date) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return getLocalDateParts(date, offsetMinutes);
+    }
+  }
+
+  return getLocalDateParts(new Date(), offsetMinutes);
+}
+
+function getUpcomingDatePartsForWeekday(
+  weekday: string,
+  offsetMinutes: number,
+  from = new Date(),
+) {
+  const targetDayIndex = WEEKDAY_INDEX[weekday];
+  if (targetDayIndex === undefined) {
+    return getLocalDateParts(from, offsetMinutes);
+  }
+
+  const local = new Date(from.getTime() + offsetMinutes * 60_000);
+  const currentDayIndex = local.getUTCDay();
+  const offsetDays = (targetDayIndex - currentDayIndex + 7) % 7;
+  local.setUTCDate(local.getUTCDate() + offsetDays);
+
+  return {
+    year: local.getUTCFullYear(),
+    month: local.getUTCMonth() + 1,
+    day: local.getUTCDate(),
+  };
+}
+
+function combineDatePartsAndTime(
+  parts: { year: number; month: number; day: number },
+  time: string,
+  offsetMinutes: number,
+) {
+  const [hours, minutes] = time.split(':').map(Number);
+  return new Date(
+    Date.UTC(parts.year, parts.month - 1, parts.day, hours, minutes) -
+      offsetMinutes * 60_000,
+  );
+}
+
 @Injectable()
 export class ScheduleService {
   constructor(
@@ -282,17 +364,35 @@ export class ScheduleService {
     const payload = this.normalizePayload(
       dto as CreateScheduleDto | UpdateScheduleDto,
     );
+    const offsetMinutes = getScheduleTimezoneOffsetMinutes();
+    const weekdays = Array.isArray((dto as { weekdays?: unknown }).weekdays)
+      ? ((dto as { weekdays?: string[] }).weekdays ?? [])
+      : [];
+    const dateParts =
+      weekdays.length > 0
+        ? getUpcomingDatePartsForWeekday(weekdays[0], offsetMinutes)
+        : parseDateParts(payload.date, offsetMinutes);
 
-    if (payload.date) {
-      payload.date = new Date(String(payload.date));
+    if (payload.date || weekdays.length > 0) {
+      payload.date = new Date(
+        Date.UTC(dateParts.year, dateParts.month - 1, dateParts.day),
+      );
     }
 
     if (payload.timeStart) {
-      payload.timeStart = new Date(String(payload.timeStart));
+      payload.timeStart = isTimeOnly(payload.timeStart)
+        ? combineDatePartsAndTime(dateParts, payload.timeStart, offsetMinutes)
+        : new Date(String(payload.timeStart));
     }
 
     if (payload.timeEnd) {
-      payload.timeEnd = new Date(String(payload.timeEnd));
+      payload.timeEnd = isTimeOnly(payload.timeEnd)
+        ? combineDatePartsAndTime(dateParts, payload.timeEnd, offsetMinutes)
+        : new Date(String(payload.timeEnd));
+    }
+
+    if (payload.timeStart instanceof Date) {
+      payload.date = payload.timeStart;
     }
 
     return payload as {

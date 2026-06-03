@@ -25,6 +25,9 @@ export class Schedule {
   @Prop({ required: true })
   timeEnd: Date;
 
+  @Prop({ type: [String], default: [] })
+  weekdays: string[];
+
   @Prop({ type: [Types.ObjectId], ref: Student.name, default: [] })
   students: Types.ObjectId[];
 

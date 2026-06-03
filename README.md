@@ -76,6 +76,7 @@ PUBLIC_RATE_LIMIT_TTL=60000
 PUBLIC_RATE_LIMIT_LIMIT=10
 
 ENABLE_SCHEDULER=false
+SCHEDULE_TIMEZONE_OFFSET_MINUTES=300
 SCHEDULER_DRY_RUN=false
 PAYMENT_GENERATION_ENABLED=false
 DEBT_AGING_ENABLED=false
@@ -104,6 +105,7 @@ Notes:
 - If `mongodb+srv` fails with `querySrv ECONNREFUSED`, set `DNS_SERVERS=1.1.1.1,8.8.8.8` so Node can resolve Atlas SRV records.
 - `TELEGRAM_BOT_TOKEN`, `ADMIN_CHAT_ID`, and `DOMAIN` are optional only if Telegram integration is intentionally disabled.
 - Scheduler is disabled by default. Set `ENABLE_SCHEDULER=true` only after confirming payment generation, debt aging, and reminder flags.
+- Schedule time-only requests use `SCHEDULE_TIMEZONE_OFFSET_MINUTES` to convert local lesson hours to UTC timestamps. Default `300` matches Uzbekistan UTC+5.
 - SMS is disabled and dry-run by default. `SMS_PROVIDER=mock` requires no real provider credentials; non-mock providers are intentionally unsupported until a real provider is implemented.
 - In production, `CORS_ORIGINS` should contain your real frontend domain list, not localhost values.
 - In production and staging, `RATE_LIMIT_PROVIDER` must be `redis` and `REDIS_URL` must point to a shared Redis instance. Local development can use `RATE_LIMIT_PROVIDER=memory`.

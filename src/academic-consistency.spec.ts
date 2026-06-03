@@ -158,9 +158,9 @@ describe('academic domain consistency', () => {
         {
           course: objectId(),
           room: objectId(),
-          date: '2026-05-04',
-          timeStart: '2026-05-04T09:00:00.000Z',
-          timeEnd: '2026-05-04T10:00:00.000Z',
+          weekdays: ['Monday'],
+          timeStart: '09:00',
+          timeEnd: '10:00',
           teacher: teacherId,
         },
         { userId: objectId(), role: Role.Teacher, branchIds: ['branch-a'] },
